@@ -1,14 +1,15 @@
 CAPI=2:
-# Copyright lowRISC contributors.
-# Licensed under the Apache License, Version 2.0, see LICENSE for details.
-# SPDX-License-Identifier: Apache-2.0
+
 name: "lowrisc:ibex:demo_system_core"
 description: "Ibex Demo System core files always used regardless of target"
+
 filesets:
   files_rtl_demo_system:
     depend:
       - lowrisc:ibex:ibex_top
       - pulp:riscv:debug_module
+
+
     files:
       - rtl/system/jtag_id_pkg.sv
       - rtl/system/ibex_demo_system.sv
@@ -20,9 +21,27 @@ filesets:
       - rtl/system/uart.sv
       - rtl/system/spi_host.sv
       - rtl/system/spi_top.sv
+      - rtl/system/boot_rom.sv
+      - rtl/system/boot_rom_wrapper.sv
+      - rtl/system/spi_flash_xip.sv
+      - rtl/system/sram_controller.sv
+      - rtl/system/wb_interconnect.sv
+      - rtl/system/obi2wb.sv
+      - rtl/system/wrapper_top.sv
+      - rtl/system/i2c_wb_wrapper.v
+      - rtl/system/i2c_master_top.v
+      - rtl/system/i2c_master_byte_ctrl.v
+      - rtl/system/i2c_master_bit_ctrl.v
+
     file_type: systemVerilogSource
 
 targets:
   default:
     filesets:
       - files_rtl_demo_system
+    tools:
+      verilator:
+        verilator_options:
+          - +incdir+rtl/system/i2c
+          - -Wno-ASSIGNDLY
+          - -Wno-TIMESCALEMOD
