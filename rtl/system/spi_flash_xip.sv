@@ -10,10 +10,8 @@ module spi_flash_xip #(
   input  logic             xip_req_i,
   input  logic             xip_we_i,
   input  logic [AW-1:0]    xip_addr_i,
-  /* verilator lint_off UNUSEDSIGNAL */
-  input  logic [DW-1:0]    xip_wdata_i,
-  input  logic [DW/8-1:0]  xip_be_i,
-  /* verilator lint_on UNUSEDSIGNAL */
+  input  logic [DW-1:0]    xip_wdata_i,  // unused in XIP read-only mode
+  input  logic [DW/8-1:0]  xip_be_i,     // unused in XIP read-only mode
   output logic             xip_rvalid_o,
   output logic [DW-1:0]    xip_rdata_o,
 

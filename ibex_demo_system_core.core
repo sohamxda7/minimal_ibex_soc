@@ -40,6 +40,6 @@ targets:
     tools:
       verilator:
         verilator_options:
-          - +incdir+rtl/system/i2c
+          - +incdir+rtl/system
           - -Wno-ASSIGNDLY
           - -Wno-TIMESCALEMOD

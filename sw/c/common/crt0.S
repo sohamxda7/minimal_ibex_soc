@@ -45,6 +45,18 @@ reset_handler:
   /* stack initilization */
   la   x2, _stack_start
 
+  /* Redirect mtvec to the SRAM vector table.
+   * Ibex initialises mtvec to {boot_addr[31:8], 6'b0, 2'b01} = 0x00100001,
+   * which points into the boot ROM.  Any interrupt or exception taken with
+   * that value silently re-enters reset_handler via the boot ROM fall-through.
+   * Setting mtvec to _vectors_start (0x00102000) | 1 (vectored mode) makes
+   * all traps land in the SRAM vector table where software has installed
+   * per-cause JAL stubs via install_exception_handler().
+   */
+  la   t0, _vectors_start   /* BASE = 0x00102000 */
+  ori  t0, t0, 1            /* MODE = 1 (vectored) */
+  csrw mtvec, t0
+
 _start:
   .global _start
 

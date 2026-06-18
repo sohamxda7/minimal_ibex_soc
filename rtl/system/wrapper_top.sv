@@ -432,9 +432,9 @@ module wrapper_top #(
   // SRAM (8 KiB)
   // sram_controller handles WB handshake and address decode;
   // sram_model is the actual storage array and exports the
-  // Verilator DPI-C functions (simutil_set_mem / simutil_get_mem /
+  // DPI-C functions (simutil_set_mem / simutil_get_mem /
   // simutil_memload) that let the simulation harness pre-load ELF
-  // images.  The Verilator memory registration path is:
+  // images.  The sim memory registration path is:
   //   TOP.top_verilator.u_ibex_demo_system.u_wrapper.u_sram_model
   // ===========================================================
   logic [DW/8-1:0]              sram_mem_we;

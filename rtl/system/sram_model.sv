@@ -2,7 +2,7 @@
 //
 // Provides Verilator DPI-C exports (simutil_memload / simutil_set_mem /
 // simutil_get_mem) that match the interface expected by the lowRISC
-// VerilatorMemUtil / MemArea framework, allowing the Verilator simulation
+// the MemUtil / MemArea framework, allowing the simulation
 // harness to pre-load ELF binaries directly into this memory before the
 // simulation clock starts.
 //
@@ -44,7 +44,7 @@ module sram_model #(
   end
 
   // =========================================================
-  // Verilator / DPI simulation support
+  // DPI simulation support (Verilator)
   // Exports exactly the same DPI-C interface as prim_util_memload.svh
   // so VerilatorMemUtil can load ELF images into this SRAM.
   // =========================================================
