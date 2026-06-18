@@ -429,14 +429,19 @@ module wrapper_top #(
   end
 
   // ===========================================================
-  // SRAM (8 KiB DFFRAM-style, synthesised register array)
+  // SRAM (8 KiB)
+  // sram_controller handles WB handshake and address decode;
+  // sram_model is the actual storage array and exports the
+  // Verilator DPI-C functions (simutil_set_mem / simutil_get_mem /
+  // simutil_memload) that let the simulation harness pre-load ELF
+  // images.  The Verilator memory registration path is:
+  //   TOP.top_verilator.u_ibex_demo_system.u_wrapper.u_sram_model
   // ===========================================================
-  logic [DW/8-1:0]             sram_mem_we;
+  logic [DW/8-1:0]              sram_mem_we;
   logic [SramWordAddrWidth-1:0] sram_mem_addr;
-  logic [DW-1:0]               sram_mem_wdata;
-  logic [DW-1:0]               sram_mem_rdata;
-  logic                        sram_mem_en;
-  logic [DW-1:0] sram_mem [0:(1 << SramWordAddrWidth)-1];
+  logic [DW-1:0]                sram_mem_wdata;
+  logic [DW-1:0]                sram_mem_rdata;
+  logic                         sram_mem_en;
 
   sram_controller #(
     .AW              (AW),
@@ -459,17 +464,17 @@ module wrapper_top #(
     .mem_rdata_i   (sram_mem_rdata)
   );
 
-  // Synchronous SRAM array (1-cycle read latency)
-  always_ff @(posedge clk_i) begin
-    if (sram_mem_en) begin
-      for (int b = 0; b < DW / 8; b++) begin
-        if (sram_mem_we[b]) begin
-          sram_mem[sram_mem_addr][(b*8)+:8] <= sram_mem_wdata[(b*8)+:8];
-        end
-      end
-      sram_mem_rdata <= sram_mem[sram_mem_addr];
-    end
-  end
+  sram_model #(
+    .Width (DW),
+    .Depth (1 << SramWordAddrWidth)
+  ) u_sram_model (
+    .clk_i,
+    .req_i    (sram_mem_en),
+    .addr_i   (sram_mem_addr),
+    .we_i     (sram_mem_we),
+    .wdata_i  (sram_mem_wdata),
+    .rdata_o  (sram_mem_rdata)
+  );
 
   // ===========================================================
   // UART

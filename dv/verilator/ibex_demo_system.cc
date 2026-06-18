@@ -39,7 +39,10 @@ int DemoSystem::Setup(int argc, char **argv, bool &exit_app) {
   simctrl.SetTop(&_top, &_top.clk_i, &_top.rst_ni,
                  VerilatorSimCtrlFlags::ResetPolarityNegative);
 
-  _memutil.RegisterMemoryArea("ram", 0x0, &_ram);
+  // Register the SRAM at its actual hardware base address (0x00102000).
+  // ELF sections linked to this region (see sw/common/link.ld) will be
+  // written into u_sram_model before the simulation clock starts.
+  _memutil.RegisterMemoryArea("ram", 0x00102000, &_ram);
   simctrl.RegisterExtension(&_memutil);
 
   exit_app = false;
