@@ -1,11 +1,16 @@
+// NOTE: SRAM_BASE and SRAM_SIZE here MUST stay consistent with the decode
+// parameters in wb_interconnect.sv (SRAM_BASE / SRAM_MASK).  If the
+// interconnect routes a different address range to this controller the
+// internal addr_valid check will suppress all responses, hanging the bus.
 module sram_controller #(
-  parameter int AW = 32,  
+  parameter int AW = 32,
   parameter int DW = 32,
-  parameter int WORD_ADDR_WIDTH = 11,     // 2048 words = 8 KB = 2^3*2^10*2^3 bit
+  // Number of word-address bits: 2^WORD_ADDR_WIDTH words × (DW/8) bytes = SRAM bytes.
+  // Default 11 → 2048 words × 4 B = 8 KiB.
+  parameter int WORD_ADDR_WIDTH = 11,
   parameter ECC_ENABLE = 0,           // Set to 1 for SECDED ECC
-  parameter logic[31:0] SRAM_BASE = 32'h0010_2000,
-
-  parameter int SRAM_SIZE = 32'd8192       //8KB
+  parameter logic [31:0] SRAM_BASE = 32'h0010_2000,
+  parameter int          SRAM_SIZE = 32'd8192        // bytes (must equal 2^WORD_ADDR_WIDTH * DW/8)
 )(
   input  logic              clk_i,
   input  logic              rst_ni,
@@ -27,13 +32,14 @@ module sram_controller #(
   input  logic [DW-1:0]         mem_rdata_i
 );
 
-  logic	addr_valid;
-  logic[AW-1:0]	local_addr;
+  logic            addr_valid;
+  logic [AW-1:0]   local_addr;
 
-  //  Address range check
-  assign addr_valid = (sram_addr_i >= SRAM_BASE) && (sram_addr_i <  (SRAM_BASE + SRAM_SIZE));
+  // Secondary address range check (wb_interconnect is the primary decoder).
+  // This guards against mis-routed transactions if decoder parameters drift.
+  assign addr_valid = (sram_addr_i >= SRAM_BASE) &&
+                      (sram_addr_i <  (SRAM_BASE + SRAM_SIZE[AW-1:0]));
 
-  //  Local address conversion
   assign local_addr = sram_addr_i - SRAM_BASE;
 
 

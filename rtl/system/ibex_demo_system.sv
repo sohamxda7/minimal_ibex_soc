@@ -136,21 +136,15 @@ module ibex_demo_system #(
   logic        instr_rvalid;
   logic [31:0] instr_addr;
   logic [31:0] instr_rdata;
+  logic [31:0] boot_rom_rdata;
 
   logic        instr_mem_req;
   logic [31:0] instr_mem_rdata;
 
   assign instr_mem_req = instr_req;
   assign instr_gnt     = instr_mem_req;
-
-  always_ff @(posedge clk_sys_i or negedge rst_sys_ni) begin
-    if (!rst_sys_ni)
-      instr_rvalid <= 1'b0;
-    else
-      instr_rvalid <= instr_gnt;
-  end
-
-  //assign instr_rdata = instr_mem_rdata;
+  // instr_rvalid and instr_rdata are driven from boot_rom_wrapper (connected below).
+  assign instr_rdata   = boot_rom_rdata;
 
   // =========================================================
   // DATA OBI -> WRAPPER
@@ -174,6 +168,23 @@ module ibex_demo_system #(
   logic [31:0] cfg_device_addr_base [NrDevices];
   logic [31:0] cfg_device_addr_mask [NrDevices];
 
+  // Only Pwm and DbgDev are live on the legacy bus; all other device slots have
+  // their peripherals moved to wrapper_top (OBI/WB path). Assign distinct dummy
+  // bases so the bus decoder never spuriously matches any CPU address.
+  localparam logic [31:0] DUMMY_MASK = 32'hFFFF_FFFF;
+  assign cfg_device_addr_base[Ram]     = 32'hFFFF_FF00;
+  assign cfg_device_addr_mask[Ram]     = DUMMY_MASK;
+  assign cfg_device_addr_base[Gpio]    = 32'hFFFF_FF04;
+  assign cfg_device_addr_mask[Gpio]    = DUMMY_MASK;
+  assign cfg_device_addr_base[Uart]    = 32'hFFFF_FF08;
+  assign cfg_device_addr_mask[Uart]    = DUMMY_MASK;
+  assign cfg_device_addr_base[Timer]   = 32'hFFFF_FF0C;
+  assign cfg_device_addr_mask[Timer]   = DUMMY_MASK;
+  assign cfg_device_addr_base[Spi]     = 32'hFFFF_FF10;
+  assign cfg_device_addr_mask[Spi]     = DUMMY_MASK;
+  assign cfg_device_addr_base[SimCtrl] = 32'hFFFF_FF14;
+  assign cfg_device_addr_mask[SimCtrl] = DUMMY_MASK;
+
   assign cfg_device_addr_base[Pwm]     = PWM_START;
   assign cfg_device_addr_mask[Pwm]     = PWM_MASK;
 
@@ -183,13 +194,39 @@ module ibex_demo_system #(
     assign device_err[DbgDev] = 1'b0;
   end
 
-  // Tie-off unused error signals.
+  // Tie-off error signals for all bus device slots.
   assign device_err[Ram]     = 1'b0;
   assign device_err[Gpio]    = 1'b0;
   assign device_err[Pwm]     = 1'b0;
   assign device_err[Uart]    = 1'b0;
+  assign device_err[Timer]   = 1'b0;
   assign device_err[Spi]     = 1'b0;
   assign device_err[SimCtrl] = 1'b0;
+
+  // Peripherals that have been moved to wrapper_top (OBI/WB path) are no longer
+  // instantiated on the legacy bus. Tie off their rvalid/rdata to prevent the bus
+  // from stalling on spurious address matches.
+  // NOTE: Ram is driven by ram_2p; Pwm is driven by pwm_wrapper; DbgDev is driven
+  //       by the dm_top assign block below. Only the truly uninstantiated devices
+  //       need explicit tie-offs here.
+  assign device_rvalid[Gpio]    = 1'b0;
+  assign device_rdata[Gpio]     = 32'b0;
+  assign device_rvalid[Uart]    = 1'b0;
+  assign device_rdata[Uart]     = 32'b0;
+  assign device_rvalid[Timer]   = 1'b0;
+  assign device_rdata[Timer]    = 32'b0;
+  assign device_rvalid[Spi]     = 1'b0;
+  assign device_rdata[Spi]      = 32'b0;
+  assign device_rvalid[SimCtrl] = 1'b0;
+  assign device_rdata[SimCtrl]  = 32'b0;
+
+  // CoreD data host is routed entirely through wrapper_top (OBI path), not through
+  // the legacy bus. Tie off host_req[CoreD] so the bus never sees spurious requests.
+  assign host_req[CoreD]   = 1'b0;
+  assign host_addr[CoreD]  = 32'b0;
+  assign host_we[CoreD]    = 1'b0;
+  assign host_be[CoreD]    = 4'b0;
+  assign host_wdata[CoreD] = 32'b0;
 
    bus #(
     .NrDevices    ( NrDevices ),
@@ -229,7 +266,10 @@ module ibex_demo_system #(
   assign dbg_instr_req =
       core_instr_req & ((core_instr_addr & cfg_device_addr_mask[DbgDev]) == cfg_device_addr_base[DbgDev]);
 
-  //assign core_instr_gnt = mem_instr_req | (dbg_instr_req & ~device_req[DbgDev]);
+  // core_instr_* path is the legacy bus instruction path, no longer connected to
+  // Ibex (which uses the separate instr_* signals). Tie gnt to 0 to prevent X
+  // propagation into core_instr_rvalid and core_instr_sel_dbg.
+  assign core_instr_gnt = 1'b0;
 
   always @(posedge clk_sys_i or negedge rst_sys_ni) begin
     if (!rst_sys_ni) begin
@@ -405,16 +445,18 @@ assign core_instr_rdata =
   );
 
   boot_rom_wrapper u_boot_rom (
-  .clk_i   (clk_sys_i),
-  .rst_ni  (rst_sys_ni),
-  .req_i   (instr_req),
-  .we_i    (1'b0),
-  .addr_i  (instr_addr - 32'h00100000), // 🔥 IMPORTANT FIX
-  .wdata_i (32'b0),
-  .be_i    (4'b0),
-  .rvalid_o(),
-  .rdata_o (boot_rom_rdata)
-);
+    .clk_i   (clk_sys_i),
+    .rst_ni  (rst_sys_ni),
+    .req_i   (instr_req),
+    .we_i    (1'b0),
+    // Subtract the ROM base so addr_i[11:2] gives the word index within the ROM.
+    .addr_i  (instr_addr - 32'h0010_0000),
+    .wdata_i (32'b0),
+    .be_i    (4'b0),
+    // rvalid_o drives instr_rvalid; the old standalone always_ff block was removed.
+    .rvalid_o(instr_rvalid),
+    .rdata_o (boot_rom_rdata)
+  );
   // =========================================================
   // WRAPPER (OBI -> WB SOC)
   // =========================================================

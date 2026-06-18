@@ -244,7 +244,7 @@ module wrapper_top #(
 
   boot_rom #(
     .ADDR_WIDTH(BootRomAddrWidth),
-    .INIT_FILE("boot.mem")
+    .INIT_FILE("rtl/system/boot.mem")
   ) u_boot_rom (
     .clk_i,
     .addr_i(bootrom_addr[BootRomAddrWidth+1:2]),
