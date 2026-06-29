@@ -41,8 +41,7 @@ module obi2wb #(
  
   logic req_sent_q;
   logic wb_active_q;
- 
-  logic obi_gnt_q;
+
   logic obi_rvalid_q;
  
   // =========================================================
@@ -58,15 +57,13 @@ module obi2wb #(
       rdata_q      <= '0;
       req_sent_q   <= 1'b0;
       wb_active_q  <= 1'b0;
-      obi_gnt_q    <= 1'b0;
       obi_rvalid_q <= 1'b0;
     end else begin
- 
+
       state_q <= state_d;
- 
-      obi_gnt_q    <= 1'b0;
+
       obi_rvalid_q <= 1'b0;
- 
+
       // latch request
       if (state_q == IDLE && obi_req_i && !req_sent_q && !wb_stall_i) begin
         addr_q     <= obi_addr_i;
@@ -74,13 +71,17 @@ module obi2wb #(
         be_q       <= obi_be_i;
         we_q       <= obi_we_i;
         req_sent_q <= 1'b1;
-        obi_gnt_q  <= 1'b1;
       end
  
-      // WB active control
+      // WB active control.
+      // wb_cyc/wb_stb are driven as a single-cycle strobe: they are asserted
+      // only for the one cycle immediately after a request is latched. The
+      // peripherals in this design act on every (cyc & stb) cycle and ack one
+      // cycle later via a registered rvalid, so holding the strobe until ack
+      // would apply each access twice (e.g. UART TX would emit each byte twice).
       if (state_q == IDLE && obi_req_i && !req_sent_q && !wb_stall_i)
         wb_active_q <= 1'b1;
-      else if (state_q == WAIT_ACK && wb_ack_i)
+      else
         wb_active_q <= 1'b0;
  
       // response
@@ -127,8 +128,12 @@ module obi2wb #(
   // =========================================================
   // OBI outputs
   // =========================================================
-  assign obi_gnt_o    = obi_gnt_q;
+  // Grant combinationally in the same cycle the request is accepted (latched).
+  // The downstream wrapper_top arbiter uses a same-cycle req/gnt handshake, so
+  // a registered (delayed) grant here would let the arbiter mis-account which
+  // source/transaction is in flight and silently drop data writes.
+  assign obi_gnt_o    = (state_q == IDLE) && obi_req_i && !req_sent_q && !wb_stall_i;
   assign obi_rvalid_o = obi_rvalid_q;
   assign obi_rdata_o  = rdata_q;
- 
+
 endmodule
