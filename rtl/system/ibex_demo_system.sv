@@ -21,6 +21,7 @@
 //   0x4000_0300 – 0x4000_03FF  SPI control (stub)
 //   0x4000_0400 – 0x4000_04FF  I2C master
 //   0x4000_0500 – 0x4000_05FF  SPI host
+//   0x4000_0600 – 0x4000_06FF  SPI host
 
 module ibex_demo_system #(
   parameter int                 GpiWidth       = 8,
@@ -56,7 +57,7 @@ module ibex_demo_system #(
 );
 
   // PWM not connected in new architecture
-  assign pwm_o = '0;
+  //assign pwm_o = '0;
 
   // =========================================================
   // CONSTANTS
@@ -245,6 +246,9 @@ module ibex_demo_system #(
     .i2c_sda_o    (),
     .i2c_sda_oe_o (),
     .i2c_irq_o    (),
+    
+    //PWM
+    .pwm_o (pwm_o),
 
     // Debug device port (decoded from WB address space at 0x1A11_0000)
     .dbg_req_o    (dbg_req),

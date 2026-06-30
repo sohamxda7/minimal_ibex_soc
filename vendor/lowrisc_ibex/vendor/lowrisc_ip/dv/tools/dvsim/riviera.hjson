@@ -5,7 +5,7 @@
   build_cmd:  "vlib work && {job_prefix} vlog"
   run_cmd:    "{job_prefix} vsim"
 
-  build_opts: ["-timescale 1ns/1ps",
+  build_opts: ["-timescale 25ns/1ps",
                "+incdir+\"{RIVIERA_HOME}/vlib/uvm-1.2/src\"",
                "\"{RIVIERA_HOME}/vlib/uvm-1.2/src/uvm_pkg.sv\"",
                "-f {sv_flist}",

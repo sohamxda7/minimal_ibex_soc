@@ -136,7 +136,20 @@ module wb_interconnect #(
   output logic [DW/8-1:0]  spihost_be_o,
 
   input  logic             spihost_rvalid_i,
-  input  logic [DW-1:0]    spihost_rdata_i
+  input  logic [DW-1:0]    spihost_rdata_i,
+  
+  // =========================================================
+  // 	PWM
+  // =========================================================
+  
+  output logic pwm_req_o,
+  output logic [31:0] pwm_addr_o,
+  output logic pwm_we_o,
+  output logic [3:0] pwm_be_o,
+  output logic [31:0] pwm_wdata_o,
+  input logic pwm_rvalid_i,
+  input logic [31:0] pwm_rdata_i
+  
 );
 
   // =========================================================
@@ -153,7 +166,8 @@ module wb_interconnect #(
     DEV_TIMER   = 4'd5,
     DEV_SPICTRL = 4'd6,
     DEV_I2C     = 4'd7,
-    DEV_SPIHOST = 4'd8
+    DEV_SPIHOST = 4'd8,
+    DEV_PWM     = 4'd9
 
   } device_e;
 
@@ -188,6 +202,9 @@ module wb_interconnect #(
 
   localparam logic [31:0] SPIHOST_BASE = 32'h4000_0500;
   localparam logic [31:0] SPIHOST_MASK = 32'hFFFF_FF00;
+  
+  localparam logic [31:0] PWM_BASE =32'h4000_0600;
+  localparam logic [31:0] PWM_MASK =32'hFFFF_FF00;
 
   // =========================================================
   // Decode Signals 
@@ -202,6 +219,7 @@ module wb_interconnect #(
   logic spictrl_sel;
   logic i2c_sel;
   logic spihost_sel;
+  logic pwm_sel;
 
   device_e device_sel_resp;
 
@@ -242,6 +260,8 @@ module wb_interconnect #(
 
     spihost_sel =
       ((wb_adr_i & SPIHOST_MASK) == SPIHOST_BASE);
+      
+      pwm_sel = ((wb_adr_i & PWM_MASK) == PWM_BASE);
 
   end
 
@@ -277,6 +297,7 @@ module wb_interconnect #(
       else if (spictrl_sel) device_sel_resp <= DEV_SPICTRL;
       else if (i2c_sel)     device_sel_resp <= DEV_I2C;
       else if (spihost_sel) device_sel_resp <= DEV_SPIHOST;
+      else if (pwm_sel)     device_sel_resp <= DEV_PWM;
 
       decode_err_resp <=
         wb_cyc_i &
@@ -289,7 +310,8 @@ module wb_interconnect #(
          timer_sel   |
          spictrl_sel |
          i2c_sel     |
-         spihost_sel);
+         spihost_sel|
+         pwm_sel);
 
     end
   end
@@ -358,6 +380,13 @@ module wb_interconnect #(
     spihost_addr_o  = '0;
     spihost_wdata_o = '0;
     spihost_be_o    = '0;
+    
+    pwm_req_o   = '0;
+    pwm_we_o    = '0;
+    pwm_addr_o  = '0;
+    pwm_wdata_o = '0;
+    pwm_be_o    = '0;
+    
 
     //Check which peripheral is matched, then route the addr,data,etc only to that periperal
     
@@ -433,6 +462,14 @@ module wb_interconnect #(
       spihost_wdata_o = wb_dat_i;
       spihost_be_o    = wb_sel_i;
     end
+    
+    if (pwm_sel) begin
+      pwm_req_o   = wb_cyc_i & wb_stb_i;
+      pwm_we_o    = wb_we_i;
+      pwm_addr_o  = wb_adr_i;
+      pwm_wdata_o = wb_dat_i;
+      pwm_be_o    = wb_sel_i;
+    end
 
   end
 
@@ -497,6 +534,11 @@ module wb_interconnect #(
         DEV_SPIHOST: begin
           wb_ack_o = spihost_rvalid_i;
           wb_dat_o = spihost_rdata_i;
+        end
+        
+        DEV_PWM: begin
+          wb_ack_o = pwm_rvalid_i;
+          wb_dat_o = pwm_rdata_i;
         end
 
         default: begin

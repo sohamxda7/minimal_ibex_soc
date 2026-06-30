@@ -17,7 +17,7 @@ fi
 
 bender script vsim -t test -t xilinx -t bscane \
     --vlog-arg="-svinputport=compat" \
-    --vlog-arg="-override_timescale 1ns/1ps" \
+    --vlog-arg="-override_timescale 25ns/1ps" \
     --vlog-arg="-suppress 2583" \
     --vlog-arg="+cover=sbecft" \
     > compile.tcl

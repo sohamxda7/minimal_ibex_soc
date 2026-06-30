@@ -17,7 +17,7 @@
                "-c-opts -I{DSIM_HOME}/../../include",
                // Needed for including "secded_enc.h".
                "-c-opts -I{build_dir}/src/lowrisc_dv_secded_enc_0",
-               "-timescale 1ns/1ps",
+               "-timescale 25ns/1ps",
                "-f {sv_flist}",
                // List multiple tops for the simulation. Prepend each top level with `-top`.
                "{eval_cmd} echo {sim_tops} | sed -E 's/(\\S+)/-top \\1/g'",

@@ -6,7 +6,7 @@
   run_cmd:    "{job_prefix} {QUESTA_HOME}/questasim/linux_x86_64/qrun -simulate"
 
 
-  build_opts: [ "-timescale 1ns/1ps",
+  build_opts: [ "-timescale 25ns/1ps",
                 "-outdir {build_dir}/qrun.out",
                 "-uvm -uvmhome {QUESTA_HOME}/questasim/verilog_src/uvm-1.2",
                 "-mfcu",

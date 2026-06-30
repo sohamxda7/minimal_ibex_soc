@@ -57,7 +57,7 @@
                "--setup",
                "--build",
                "{fusesoc_core}"
-               // "--timescale 1ns/1ps",
+               // "--timescale 25ns/1ps",
                // Enable all assertions.
                // "--assert",
                // Flush streams immediately after all $displays.

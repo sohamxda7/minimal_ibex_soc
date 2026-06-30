@@ -19,7 +19,8 @@ module wrapper_top #(
   parameter int unsigned BootRomAddrWidth  = 10,
   parameter int unsigned SramWordAddrWidth = 11,
   parameter int unsigned GpiWidth        = 8,
-  parameter int unsigned GpoWidth        = 16
+  parameter int unsigned GpoWidth        = 16,
+  parameter int unsigned PwmWidth     =12
 ) (
   input  logic             clk_i,
   input  logic             rst_ni,
@@ -82,6 +83,11 @@ module wrapper_top #(
   output logic             i2c_sda_oe_o,
   output logic             i2c_irq_o,
 
+// -------------------------------------------------------
+  // PWM
+  // -------------------------------------------------------
+  
+  output logic [PwmWidth-1:0] pwm_o,
   // -------------------------------------------------------
   // Debug-module device port
   // Decoded from the merged OBI stream before the WB bridge.
@@ -103,6 +109,7 @@ module wrapper_top #(
   localparam logic [AW-1:0] TIMER_BASE   = 32'h4000_0200;
   localparam logic [AW-1:0] I2C_BASE     = 32'h4000_0400;
   localparam logic [AW-1:0] SPIHOST_BASE = 32'h4000_0500;
+  localparam logic [AW-1:0] PWM_BASE     = 32'h4000_0600;
 
   // Debug module window decoded BEFORE the WB bridge
   localparam logic [AW-1:0] DEBUG_BASE = 32'h1A11_0000;
@@ -329,6 +336,17 @@ module wrapper_top #(
   logic [DW/8-1:0]  spihost_be;
   logic             spihost_rvalid;
   logic [DW-1:0]    spihost_rdata;
+  
+  logic             pwm_req;
+  logic             pwm_we;
+  logic [AW-1:0]    pwm_addr;
+  logic [DW-1:0]    pwm_wdata;
+  logic [DW/8-1:0]  pwm_be;
+  logic             pwm_rvalid;
+  logic [DW-1:0]    pwm_rdata;
+  
+  
+  
 
   wb_interconnect #(
     .AW(AW),
@@ -407,7 +425,15 @@ module wrapper_top #(
     .spihost_wdata_o  (spihost_wdata),
     .spihost_be_o     (spihost_be),
     .spihost_rvalid_i (spihost_rvalid),
-    .spihost_rdata_i  (spihost_rdata)
+    .spihost_rdata_i  (spihost_rdata),
+    
+    .pwm_req_o (pwm_req),
+    .pwm_we_o (pwm_we),
+    .pwm_addr_o(pwm_addr),
+    .pwm_wdata_o(pwm_wdata),
+    .pwm_be_o(pwm_be),
+    .pwm_rvalid_i(pwm_rvalid),
+    .pwm_rdata_i(pwm_rdata)
   );
 
   // ===========================================================
@@ -415,7 +441,7 @@ module wrapper_top #(
   // ===========================================================
   boot_rom #(
     .ADDR_WIDTH (BootRomAddrWidth),
-    .INIT_FILE  ("rtl/system/boot.mem")
+    .INIT_FILE  ("/home/ravali/minimal-ibex-soc/rtl/system/boot.mem")
   ) u_boot_rom (
     .clk_i,
     .addr_i  (bootrom_addr[BootRomAddrWidth+1:2]),
@@ -577,6 +603,27 @@ module wrapper_top #(
     .wb_inta_o      (i2c_irq_o)
   );
 
+// ===========================================================
+  // PWM
+  // ===========================================================
+  
+  pwm_wrapper #(.BusAddrWidth(AW),
+  		.BusDataWidth(DW)
+  		) u_pwm ( .clk_i(clk_i),
+  		           .rst_ni(rst_ni),
+  		           .device_req_i(pwm_req),
+  		           .device_addr_i(pwm_addr-PWM_BASE),
+  		           .device_we_i(pwm_we),
+  		           .device_be_i(pwm_be),
+  		           .device_wdata_i(pwm_wdata),
+  		           .device_rvalid_o(pwm_rvalid),
+  		           .device_rdata_o(pwm_rdata),
+  		           
+  		           .pwm_o(pwm_o)
+  		           
+  		   );
+  		   
+  		    
   // ===========================================================
   // XIP and SPI-control stubs
   // Acknowledge with zero data so a probe cannot hang the bus.

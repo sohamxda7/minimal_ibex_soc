@@ -30,7 +30,7 @@
           -ntb_opts uvm-1.2
           +define+UVM
           +define+UVM_REGEX_NO_DPI
-          -timescale=1ns/10ps
+          -timescale=25ns/1ps
           -licqueue
           -LDFLAGS '-Wl,--no-as-needed'
           -Mdir=<tb_dir>/vcs_simv.csrc
@@ -100,7 +100,7 @@
           -mfcu -cuname design_cuname
           +define+UVM_REGEX_NO_DPI
           +define+UVM
-          -timescale 1ns/1ps
+          -timescale 25ns/1ps
           -writetoplevels <tb_dir>/top.list
           -l <tb_build_log>
           <cmp_opts>
@@ -135,7 +135,7 @@
           -sv
           -work <tb_dir>
           -genimage image
-          -timescale 1ns/1ps
+          -timescale 25ns/1ps
           +incdir+$UVM_HOME/src
           $UVM_HOME/src/uvm_pkg.sv
           +define+UVM

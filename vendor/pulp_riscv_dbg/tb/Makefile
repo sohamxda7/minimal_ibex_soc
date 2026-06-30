@@ -180,7 +180,7 @@ vsim-all: .opt-rtl
 
 vcsify: $(RTLSRC_PKG) $(RTLSRC) $(RTLSRC_TB_PKG) $(RTLSRC_TB) remote_bitbang/librbs_vcs.so
 	$(VCS) +vc -sverilog -race=all -ignore unique_checks -full64 \
-		-timescale=1ns/1ps -assert svaext \
+		-timescale=25ns/1ps -assert svaext \
 		-CC "$(if $(VCS_HOME),-I$(VCS_HOME)/include,) -O3 -march=native" $(VCS_FLAGS) \
 		$(RTLSRC_PKG) $(RTLSRC) $(RTLSRC_TB_PKG) $(RTLSRC_TB) \
 		$(addprefix +incdir+,$(RTLSRC_INCDIR))

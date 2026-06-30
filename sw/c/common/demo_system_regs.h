@@ -33,7 +33,7 @@
 // requests are routed exclusively through wrapper_top.  This base address is
 // kept for reference; access will not work until PWM is moved to wrapper_top
 // or CoreD is re-routed through the legacy bus.
-#define PWM_BASE   0x80003000
+#define PWM_BASE   0x40006000
 
 // SPI host controller — 256-byte window at 0x4000_0500
 #define SPI0_BASE  0x40000500
