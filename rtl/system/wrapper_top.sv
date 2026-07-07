@@ -20,6 +20,8 @@ module wrapper_top #(
   parameter int unsigned SramWordAddrWidth = 11,
   parameter int unsigned GpiWidth        = 8,
   parameter int unsigned GpoWidth        = 16,
+  parameter int unsigned ClockFrequency = 20_000_000,
+  parameter int unsigned BaudRate       = 115_200,
   parameter int unsigned PwmWidth     =12
 ) (
   input  logic             clk_i,
@@ -505,7 +507,10 @@ module wrapper_top #(
   // ===========================================================
   // UART
   // ===========================================================
-  uart u_uart (
+  uart #(
+  .ClockFrequency(ClockFrequency),
+  .BaudRate(BaudRate)
+  )u_uart (
     .clk_i,
     .rst_ni,
     .device_req_i   (uart_req),

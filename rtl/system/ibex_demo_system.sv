@@ -27,7 +27,7 @@ module ibex_demo_system #(
   parameter int                 GpiWidth       = 8,
   parameter int                 GpoWidth       = 16,
   parameter int                 PwmWidth       = 12,  // kept for port compat; PWM not wired
-  parameter int unsigned        ClockFrequency = 50_000_000,
+  parameter int unsigned        ClockFrequency = 20_000_000,
   parameter int unsigned        BaudRate       = 115_200,
   parameter ibex_pkg::regfile_e RegFile        = ibex_pkg::RegFileFPGA,
   parameter                     SRAMInitFile   = ""   // unused in new arch; kept for compat
@@ -198,7 +198,9 @@ module ibex_demo_system #(
   // =========================================================
   wrapper_top #(
     .GpiWidth (GpiWidth),
-    .GpoWidth (GpoWidth)
+    .GpoWidth (GpoWidth),
+    .ClockFrequency (ClockFrequency),
+    .BaudRate (BaudRate)
   ) u_wrapper (
     .clk_i  (clk_sys_i),
     .rst_ni (rst_sys_ni),

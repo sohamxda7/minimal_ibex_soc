@@ -1,4 +1,5 @@
 build/
+myenv/
 .venv/
 __pycache__/
 target/
