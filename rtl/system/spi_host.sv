@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 module spi_host #(
-  parameter int unsigned ClockFrequency = 50_000_000,
-  parameter int unsigned BaudRate       = 12_500_000,
+  parameter int unsigned ClockFrequency = 20_000_000,
+  parameter int unsigned BaudRate       = 5_000_000,
   parameter bit CPOL                    = 0,
   parameter bit CPHA                    = 0
 )(

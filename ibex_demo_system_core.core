@@ -26,10 +26,10 @@ filesets:
       - rtl/system/wb_interconnect.sv
       - rtl/system/obi2wb.sv
       - rtl/system/wrapper_top.sv
-      - rtl/system/i2c_wb_wrapper.v
-      - rtl/system/i2c_master_top.v
-      - rtl/system/i2c_master_byte_ctrl.v
-      - rtl/system/i2c_master_bit_ctrl.v
+      - rtl/system/i2c_wb_wrapper.sv
+      - rtl/system/i2c_master_top.sv
+      - rtl/system/i2c_master_byte_ctrl.sv
+      - rtl/system/i2c_master_bit_ctrl.sv
       - rtl/system/pwm.sv
       - rtl/system/pwm_wrapper.sv
 
