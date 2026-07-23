@@ -104,3 +104,70 @@ int main(void) {
     asm volatile("wfi");
   }
 }
+
+
+// Copyright lowRISC contributors.
+// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// SPDX-License-Identifier: Apache-2.0
+
+/*#include <stdint.h>
+
+#include "demo_system.h"
+#include "i2c.h"
+
+int main(void)
+{
+    uint8_t data = 0;
+
+    puts("\n=====================================\n");
+    puts("      OpenCores I2C Master Test\n");
+    puts("=====================================\n");*/
+
+    /*
+     * System Clock = 50 MHz
+     * I2C Clock    = 100 KHz
+     *
+     * Prescaler = (50MHz / (5 * 100KHz)) - 1
+     *            = 99
+     */
+    /*i2c_init(DEFAULT_I2C, 99);
+
+    puts("I2C Initialization Done\n");
+
+    while (1)
+    {
+        puts("\n---------------------------------\n");
+        puts("I2C WRITE TEST\n");
+
+        if (i2c_write(DEFAULT_I2C, 0x50, 0x10, 0x55) == 0)
+        {
+            puts("I2C Write Success\n");
+        }
+        else
+        {
+            puts("I2C Write Failed\n");
+        }
+
+        data = 0;
+
+        puts("I2C READ TEST\n");
+
+        if (i2c_read(DEFAULT_I2C, 0x50, 0x10, &data) == 0)
+        {
+            puts("I2C Read Success\n");
+            puts("Received Data = ");
+            puthex(data);
+            putchar('\n');
+        }
+        else
+        {
+            puts("I2C Read Failed\n");
+        }*/
+
+        /* Delay */
+        /*for (volatile uint32_t i = 0; i < 5000000; i++)
+            ;
+    }
+
+    return 0;
+}*/

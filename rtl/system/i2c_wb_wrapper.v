@@ -67,7 +67,7 @@ module i2c_wb_wrapper #(
     assign wb_we_i  = i2c_we_o;
 
     // OpenCores I2C uses only 3-bit register address
-    assign wb_adr_i = i2c_addr_o[2:0];
+    assign wb_adr_i = i2c_addr_o[4:2];
 
     // OpenCores I2C is 8-bit peripheral
     assign wb_dat_i = i2c_wdata_o[7:0];

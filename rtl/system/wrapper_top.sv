@@ -492,6 +492,47 @@ module wrapper_top #(
     .mem_rdata_i   (sram_mem_rdata)
   );
 
+ /*sram_model #(
+    .Width (DW),
+    .Depth (1 << SramWordAddrWidth)
+  ) u_sram_model (
+    .clk_i,
+    .req_i    (sram_mem_en),
+    .addr_i   (sram_mem_addr),
+    .we_i     (sram_mem_we),
+    .wdata_i  (sram_mem_wdata),
+    .rdata_o  (sram_mem_rdata)
+  );
+  
+  dffram u_dffram (
+
+    .CLK(clk_i),
+
+    .EN  (sram_mem_en),
+
+    .WE  (sram_mem_we),
+
+    .Di  (sram_mem_wdata),
+
+    .Do  (sram_mem_rdata),
+
+    .A   (sram_mem_addr)
+
+);*/
+
+/*`ifdef SIMULATION_RAM
+ 
+  dffram u_dffram (
+    .CLK(clk_i),
+    .EN  (sram_mem_en),
+    .WE  (sram_mem_we),
+    .Di  (sram_mem_wdata),
+    .Do  (sram_mem_rdata),
+    .A   (sram_mem_addr)
+  );
+ 
+`else
+ 
   sram_model #(
     .Width (DW),
     .Depth (1 << SramWordAddrWidth)
@@ -503,6 +544,35 @@ module wrapper_top #(
     .wdata_i  (sram_mem_wdata),
     .rdata_o  (sram_mem_rdata)
   );
+ 
+`endif*/
+
+`ifdef verilator
+
+ dffram u_dffram (
+    .CLK(clk_i),
+    .EN  (sram_mem_en),
+    .WE  (sram_mem_we),
+    .Di  (sram_mem_wdata),
+    .Do  (sram_mem_rdata),
+    .A   (sram_mem_addr)
+  );
+  
+  `else
+  
+  sram_model #(
+    .Width (DW),
+    .Depth (1 << SramWordAddrWidth)
+  ) u_sram_model (
+    .clk_i,
+    .req_i    (sram_mem_en),
+    .addr_i   (sram_mem_addr),
+    .we_i     (sram_mem_we),
+    .wdata_i  (sram_mem_wdata),
+    .rdata_o  (sram_mem_rdata)
+  );
+ `endif
+  
 
   // ===========================================================
   // UART

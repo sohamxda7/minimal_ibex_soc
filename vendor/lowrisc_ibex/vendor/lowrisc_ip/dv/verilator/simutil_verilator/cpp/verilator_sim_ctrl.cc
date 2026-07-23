@@ -38,11 +38,11 @@
 
 // CURRENT (wrong for ps-based VCD)
 
-static constexpr double CLK_HALF_PERIOD_NS = 25.0;
+static constexpr double CLK_HALF_PERIOD_NS = 10.0;
  
 // CORRECT - return in ps since Verilator internally uses ps
 
-static constexpr double CLK_HALF_PERIOD_PS = 25000.0;  // 25 ns = 25,000 ps
+static constexpr double CLK_HALF_PERIOD_PS = 10000.0;  // 25 ns = 25,000 ps
  
 double sc_time_stamp() {
 
@@ -317,9 +317,9 @@ void VerilatorSimCtrl::RunSimulation() {
  
   // Confirm clock configuration on startup
 
-  std::cout << "Clock configuration: 20 MHz"
+  std::cout << "Clock configuration: 50 MHz"
 << " | Timescale: 1ns/1ps"
-<< " | Period: 50 ns"
+<< " | Period: 20 ns"
 << " | Half-period: " << CLK_HALF_PERIOD_NS << " ns"
 << std::endl;
  
@@ -541,14 +541,14 @@ void VerilatorSimCtrl::PrintStatistics() const {
 
   // Simulated time in nanoseconds: cycles × 50 ns
 
-  double sim_time_ns = cycles * 50.0;
+  double sim_time_ns = cycles * 20.0;
 
   double sim_time_us = sim_time_ns / 1000.0;
  
   std::cout << std::endl
 << "Simulation statistics" << std::endl
 << "=====================" << std::endl
-<< "Clock frequency:  20 MHz (period = 50 ns, timescale = 1ns/1ps)"
+<< "Clock frequency:  50 MHz (period = 20 ns, timescale = 1ns/1ps)"
 << std::endl
 << "Executed cycles:  " << std::dec << time_ / 2 << std::endl
 << "Simulated time:   " << sim_time_ns << " ns"
@@ -588,7 +588,7 @@ void VerilatorSimCtrl::Run() {
   top_->eval();
  
   std::cout << std::endl
-<< "Simulation running at 20 MHz (1ns/1ps timescale),"
+<< "Simulation running at 50 MHz (1ns/1ps timescale),"
 << " end by pressing CTRL-c." << std::endl;
  
   time_begin_ = std::chrono::steady_clock::now();
@@ -775,7 +775,7 @@ void VerilatorSimCtrl::Trace() {
 
   // So timestamp = time_ * 25
 
-  tracer_.dump(static_cast<vluint64_t>(GetTime()) * 2500UL);
+  tracer_.dump(static_cast<vluint64_t>(GetTime()) * 10000UL);
 
 }
  

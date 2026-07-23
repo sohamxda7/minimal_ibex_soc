@@ -53,7 +53,16 @@ module ibex_demo_system #(
   input  logic tms_i,
   input  logic trst_ni,
   input  logic td_i,
-  output logic td_o
+  output logic td_o,
+  
+  //I2C
+  input  logic i2c_scl_i,
+  output logic i2c_scl_o,
+  output logic i2c_scl_oe_o,
+  
+  input  logic i2c_sda_i,
+  output logic i2c_sda_o,
+  output logic i2c_sda_oe_o
 );
 
   // PWM not connected in new architecture
@@ -241,13 +250,22 @@ module ibex_demo_system #(
     .spi_byte_data_o (),
 
     // I2C (not wired to top-level pins; use open-drain GPIO if needed)
-    .i2c_scl_i    (1'b0),
+    /*.i2c_scl_i    (1'b0),
     .i2c_scl_o    (),
     .i2c_scl_oe_o (),
     .i2c_sda_i    (1'b0),
     .i2c_sda_o    (),
     .i2c_sda_oe_o (),
-    .i2c_irq_o    (),
+    .i2c_irq_o    (),*/
+    
+    .i2c_scl_i    (i2c_scl_i),
+    .i2c_scl_o    (i2c_scl_o),
+    .i2c_scl_oe_o (i2c_scl_oe_o),
+    
+    .i2c_sda_i    (i2c_sda_i),
+    .i2c_sda_o    (i2c_sda_o),
+    .i2c_sda_oe_o (i2c_sda_oe_o),
+    .i2c_irq_o(),
     
     //PWM
     .pwm_o (pwm_o),
@@ -311,6 +329,16 @@ module ibex_demo_system #(
     assign td_o         = 1'b0;
     assign dbg_rdata    = 32'b0;
   end
+  
+  //----------------------------------------------------
+// Open-drain I2C bus
+//----------------------------------------------------
+
+//assign scl_bus = (scl_oe) ? 1'bz : 1'b0;
+//assign sda_bus = (sda_oe) ? 1'bz : 1'b0;
+
+//assign scl_i = scl_bus;
+//assign sda_i = sda_bus;
 
   // =========================================================
   // VERILATOR DPI EXPORTS (performance counters)
