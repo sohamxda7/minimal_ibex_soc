@@ -90,6 +90,16 @@ module wrapper_top #(
   // -------------------------------------------------------
   
   output logic [PwmWidth-1:0] pwm_o,
+  
+  // -------------------------------------------------------
+  // SPI FLASH CONTROLLER
+  // -------------------------------------------------------
+  
+  output logic xip_spi_sck_o,
+  output logic xip_spi_csn_o,
+  output logic xip_spi_mosi_o,
+  input logic xip_spi_miso_i,
+  
   // -------------------------------------------------------
   // Debug-module device port
   // Decoded from the merged OBI stream before the WB bridge.
@@ -112,6 +122,7 @@ module wrapper_top #(
   localparam logic [AW-1:0] I2C_BASE     = 32'h4000_0400;
   localparam logic [AW-1:0] SPIHOST_BASE = 32'h4000_0500;
   localparam logic [AW-1:0] PWM_BASE     = 32'h4000_0600;
+  localparam logic [AW-1:0] SPI_FLASH_BASE=32'h2000_0000;
 
   // Debug module window decoded BEFORE the WB bridge
   localparam logic [AW-1:0] DEBUG_BASE = 32'h1A11_0000;
@@ -443,7 +454,7 @@ module wrapper_top #(
   // ===========================================================
   boot_rom #(
     .ADDR_WIDTH (BootRomAddrWidth),
-    .INIT_FILE  ("rtl/system/boot.mem")
+    .INIT_FILE  ("/home/ravali/minimal-ibex-soc/rtl/system/boot.mem")
   ) u_boot_rom (
     .clk_i,
     .addr_i  (bootrom_addr[BootRomAddrWidth+1:2]),
@@ -701,6 +712,32 @@ module wrapper_top #(
   		    
   // ===========================================================
   // XIP and SPI-control stubs
+  
+  
+  
+  spi_flash_xip #(
+    .AW(24),
+    .DW(DW),
+    .CLK_DIV(4)
+) u_spi_flash_xip (
+    .clk_i          (clk_i),
+    .rst_ni         (rst_ni),
+ 
+    // XIP Interface
+    .xip_req_i      (xip_req),
+    .xip_we_i       (xip_we),
+    .xip_addr_i     (xip_addr[23:0]),
+    .xip_wdata_i    (xip_wdata),
+    .xip_be_i       (xip_be),
+    .xip_rvalid_o   (xip_rvalid),
+    .xip_rdata_o    (xip_rdata),
+ 
+    // SPI Flash Interface
+    .spi_sck_o      (xip_spi_sck_o),
+    .spi_csn_o      (xip_spi_csn_o),
+    .spi_mosi_o     (xip_spi_mosi_o),
+    .spi_miso_i     (xip_spi_miso_i)
+);
   // Acknowledge with zero data so a probe cannot hang the bus.
   // ===========================================================
   always_ff @(posedge clk_i or negedge rst_ni) begin
