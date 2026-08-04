@@ -154,6 +154,12 @@ module top_verilator (
     .spi_tx_o  (),
     .spi_sck_o (),
 
+    // XIP SPI flash
+    .xip_spi_sck_o  (),
+    .xip_spi_csn_o  (),
+    .xip_spi_mosi_o (),
+    .xip_spi_miso_i (1'b0),
+
     // I2C
     .i2c_scl_i    (scl_i),
     .i2c_scl_o    (scl_o),

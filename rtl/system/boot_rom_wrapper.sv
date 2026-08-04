@@ -35,7 +35,7 @@ module boot_rom_wrapper (
   // 3. Instantiate the raw ROM
   boot_rom #(
     .ADDR_WIDTH(10),
-    .INIT_FILE("/rtl/system/boot.mem")
+    .INIT_FILE("rtl/system/boot.mem")
   ) u_boot_rom_macro (
     .clk_i  (clk_i),
     .addr_i (rom_word_addr),
