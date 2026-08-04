@@ -1,284 +1,189 @@
 // Copyright lowRISC contributors.
-// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+// Licensed under the Apache License, Version 2.0.
 // SPDX-License-Identifier: Apache-2.0
-
-/*#include <stdbool.h>
-
-#include "demo_system.h"
-#include "gpio.h"
-#include "pwm.h"
-#include "timer.h"
-
-#define USE_GPIO_SHIFT_REG 0
-
-void test_uart_irq_handler(void) __attribute__((interrupt));
-
-void test_uart_irq_handler(void) {
-  int uart_in_char;
-
-  while ((uart_in_char = uart_in(DEFAULT_UART)) != -1) {
-    uart_out(DEFAULT_UART, uart_in_char);
-    uart_out(DEFAULT_UART, '\r');
-    uart_out(DEFAULT_UART, '\n');
-  }
-}
-
-int main(void) {
-  install_exception_handler(UART_IRQ_NUM, &test_uart_irq_handler);
-  uart_enable_rx_int();
-
-  // This indicates how often the timer gets updated.
-  //timer_init();
-  //timer_enable(5000000);
-
-  uint64_t last_elapsed_time = get_elapsed_time();
-
-  // Reset green LEDs to having just one on
-  //set_outputs(GPIO_OUT, 0x10); // Bottom 4 bits are LCD control as you can see in top_artya7.sv
-
-  // PWM variables
- // uint32_t counter    = UINT8_MAX;
- // uint32_t brightness = 0;
- // bool ascending      = true;
-  // The three least significant bits correspond to RGB, where B is the leas significant.
-  //uint8_t color = 7;
-
-  while (1) {
-    uint64_t cur_time = get_elapsed_time();
-
-    if (cur_time != last_elapsed_time) {
-      last_elapsed_time = cur_time;
-
-      // Disable interrupts whilst outputting to prevent output for RX IRQ
-      // happening in the middle
-      set_global_interrupt_enable(0);
-
-      // Print this to UART (use the screen command to see it).
-      puts("Hello World! ");
-      puthex(last_elapsed_time);
-      puts("   Input Value: ");
-     // uint32_t in_val = read_gpio(GPIO_IN_DBNC);
-      //puthex(in_val);
-      putchar('\n');
-
-      // Re-enable interrupts with output complete
-      set_global_interrupt_enable(1);*/
-
-      // Cycling through green LEDs
-     /* if (USE_GPIO_SHIFT_REG) {
-        // Feed value of BTN0 into the shift register
-        set_outputs(GPIO_OUT_SHIFT, in_val);
-      } else {
-        // Cycle through LEDs unless BTN0 is pressed
-        uint32_t out_val = read_gpio(GPIO_OUT);
-        out_val = (out_val << 1) & GPIO_LED_MASK;
-        if ((in_val & 0x1) || (out_val == 0)) {
-          out_val = 0x10;
-        }
-        set_outputs(GPIO_OUT, out_val);
-      }
-
-      // Going from bright to dim on PWM
-      for (int i = 0; i < NUM_PWM_MODULES; i++) {
-        set_pwm(PWM_FROM_ADDR_AND_INDEX(PWM_BASE, i), ((1 << (i % 3)) & color) ? counter : 0,
-                brightness ? 1 << (brightness - 1) : 0);
-      }
-      if (ascending) {
-        brightness++;
-        if (brightness >= 5) {
-          ascending = false;
-        }
-      } else {
-        brightness--;
-        // When LEDs are off cycle through the colors
-        if (brightness == 0) {
-          ascending = true;
-          color++;
-          if (color >= 8) {
-            color = 1;
-          }
-        }
-      }*/
-    /*}
-
-    asm volatile("wfi");
-  }
-}*/
-
-
 // Copyright lowRISC contributors.
-// Licensed under the Apache License, Version 2.0, see LICENSE for details.
+ 
+// Licensed under the Apache License, Version 2.0.
+ 
 // SPDX-License-Identifier: Apache-2.0
-
-/*#include <stdint.h>
-
-#include "demo_system.h"
-#include "i2c.h"
-
-int main(void)
-{
-    uint8_t data = 0;
-
-    puts("\n=====================================\n");
-    puts("      OpenCores I2C Master Test\n");
-    puts("=====================================\n");*/
-
-    /*
-     * System Clock = 50 MHz
-     * I2C Clock    = 100 KHz
-     *
-     * Prescaler = (50MHz / (5 * 100KHz)) - 1
-     *            = 99
-     */
-    /*i2c_init(DEFAULT_I2C, 99);
-
-    puts("I2C Initialization Done\n");
-
-    while (1)
-    {
-        puts("\n---------------------------------\n");
-        puts("I2C WRITE TEST\n");
-
-        if (i2c_write(DEFAULT_I2C, 0x50, 0x10, 0x55) == 0)
-        {
-            puts("I2C Write Success\n");
-        }
-        else
-        {
-            puts("I2C Write Failed\n");
-        }
-
-        data = 0;
-
-        puts("I2C READ TEST\n");
-
-        if (i2c_read(DEFAULT_I2C, 0x50, 0x10, &data) == 0)
-        {
-            puts("I2C Read Success\n");
-            puts("Received Data = ");
-            puthex(data);
-            putchar('\n');
-        }
-        else
-        {
-            puts("I2C Read Failed\n");
-        }*/
-
-        /* Delay */
-       /* for (volatile uint32_t i = 0; i < 5000000; i++)
-            ;
-    }
-
-    return 0;
-}*/
-
-
-
 #include <stdbool.h>
-#include <stdint.h>
-
 #include "demo_system.h"
+ 
 #include "gpio.h"
+ 
 #include "pwm.h"
+ 
 #include "timer.h"
-#include "i2c.h"
-
-#define USE_GPIO_SHIFT_REG 0
-
 void test_uart_irq_handler(void) __attribute__((interrupt));
-
 void test_uart_irq_handler(void)
+ 
 {
+ 
     int uart_in_char;
-
     while ((uart_in_char = uart_in(DEFAULT_UART)) != -1)
+ 
     {
+ 
         uart_out(DEFAULT_UART, uart_in_char);
+ 
         uart_out(DEFAULT_UART, '\r');
+ 
         uart_out(DEFAULT_UART, '\n');
+ 
     }
+ 
 }
-
 int main(void)
+ 
 {
-    uint8_t data = 0;
-
-    /* UART Interrupt Initialization */
+ 
     install_exception_handler(UART_IRQ_NUM, &test_uart_irq_handler);
+ 
     uart_enable_rx_int();
-
-    /* Timer */
+    //------------------------------------------------------
+ 
+    // Faster timer (100000 instead of 5000000)
+ 
+    //------------------------------------------------------
+ 
     timer_init();
-    timer_enable(5000000);
-
-    /* I2C Initialization
-       System Clock = 50 MHz
-       I2C Clock    = 100 KHz
-       Prescaler = (50MHz / (5 * 100KHz)) - 1 = 99
-    */
-    i2c_init(DEFAULT_I2C, 99);
-
-    puts("\n=====================================\n");
-    puts(" UART + OpenCores I2C Demo\n");
-    puts("=====================================\n");
-    puts("I2C Initialization Done\n");
-
+ 
+    timer_enable(10000);
     uint64_t last_elapsed_time = get_elapsed_time();
-
+    //------------------------------------------------------
+ 
+    // LED pattern
+ 
+    //------------------------------------------------------
+ 
+    uint8_t led_pattern = 0x10;
+ 
+    set_outputs(GPIO_OUT, led_pattern);
+    //------------------------------------------------------
+ 
+    // PWM variables (unchanged)
+ 
+    //------------------------------------------------------
+ 
+    uint32_t counter    = UINT8_MAX;
+ 
+    uint32_t brightness = 0;
+ 
+    bool ascending      = true;
+ 
+    uint8_t color       = 7;
     while (1)
+ 
     {
+ 
         uint64_t cur_time = get_elapsed_time();
-
         if (cur_time != last_elapsed_time)
+ 
         {
+ 
             last_elapsed_time = cur_time;
-
-            /* Prevent UART interrupt messages from mixing with printf output */
+            //--------------------------------------------------
+ 
+            // UART
+ 
+            //--------------------------------------------------
+ 
             set_global_interrupt_enable(0);
-
-            puts("\n---------------------------------\n");
-            puts("Hello World! ");
-            puthex(last_elapsed_time);
+            puts("Tick ");
+ 
+            puthex(cur_time);
+ 
+            puts(" LED=");
+ 
+            puthex(led_pattern);
+ 
             putchar('\n');
-
-            /************* I2C WRITE TEST *************/
-            puts("I2C WRITE TEST\n");
-
-            if (i2c_write(DEFAULT_I2C, 0x50, 0x10, 0x55) == 0)
-            {
-                puts("I2C Write Success\n");
-            }
-            else
-            {
-                puts("I2C Write Failed\n");
-            }
-
-            /************* I2C READ TEST *************/
-            data = 0;
-
-            puts("I2C READ TEST\n");
-
-            if (i2c_read(DEFAULT_I2C, 0x50, 0x10, &data) == 0)
-            {
-                puts("I2C Read Success\n");
-                puts("Received Data = ");
-                puthex(data);
-                putchar('\n');
-            }
-            else
-            {
-                puts("I2C Read Failed\n");
-            }
-
-            /* Re-enable UART interrupts */
             set_global_interrupt_enable(1);
+            //--------------------------------------------------
+ 
+            // Rotate LED pattern
+ 
+            //--------------------------------------------------
+            switch (led_pattern)
+ 
+            {
+ 
+                case 0x10: led_pattern = 0x20; break;
+ 
+                case 0x20: led_pattern = 0x40; break;
+ 
+                case 0x40: led_pattern = 0x80; break;
+ 
+                case 0x80: led_pattern = 0xF0; break;
+ 
+                case 0xF0: led_pattern = 0xA0; break;
+ 
+                case 0xA0: led_pattern = 0x50; break;
+ 
+                case 0x50: led_pattern = 0x30; break;
+ 
+                case 0x30: led_pattern = 0x10; break;
+ 
+                default:   led_pattern = 0x10; break;
+ 
+            }
+            set_outputs(GPIO_OUT, led_pattern);
+            //--------------------------------------------------
+ 
+            // PWM (unchanged)
+ 
+            //--------------------------------------------------
+            for (int i = 0; i < NUM_PWM_MODULES; i++)
+ 
+            {
+ 
+                set_pwm(
+ 
+                    PWM_FROM_ADDR_AND_INDEX(PWM_BASE, i),
+ 
+                    ((1 << (i % 3)) & color) ? counter : 0,
+ 
+                    brightness ? 1 << (brightness - 1) : 0
+ 
+                );
+ 
+            }
+            if (ascending)
+ 
+            {
+ 
+                brightness++;
+                if (brightness >= 5)
+ 
+                    ascending = false;
+ 
+            }
+ 
+            else
+ 
+            {
+ 
+                brightness--;
+                if (brightness == 0)
+ 
+                {
+ 
+                    ascending = true;
+ 
+                    color++;
+                    if (color >= 8)
+ 
+                        color = 1;
+ 
+                }
+ 
+            }
+ 
         }
-
-        asm volatile("wfi");
+ 
+ 
+        // asm volatile("wfi");
+ 
     }
-
-    return 0;
+ 
 }
-
-
-
