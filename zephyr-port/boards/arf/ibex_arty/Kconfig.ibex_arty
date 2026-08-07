@@ -1,0 +1,2 @@
+config BOARD_IBEX_ARTY
+	select SOC_IBEX_SOC

@@ -1,0 +1,79 @@
+/*
+ * ARF Ibex SoC on Arty A7-100T — devicetree.
+ * Mirrors rtl/system/wb_interconnect.sv; keep the two in sync.
+ *
+ * NOTE (memory base): the boot ROM jumps to 0x0010_2080 (SRAM base + 0x80),
+ * so the Zephyr image is linked at that address; the first 0x80 bytes of
+ * SRAM are simply unused. This avoids any RTL/boot-ROM change.
+ */
+
+/dts-v1/;
+
+/ {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	model = "ARF Ibex SoC on Arty A7-100T";
+	compatible = "arf,ibex-arty";
+
+	chosen {
+		zephyr,console = &uart0;
+		zephyr,shell-uart = &uart0;
+		zephyr,sram = &sram0;
+	};
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "lowrisc,ibex", "riscv";
+			reg = <0>;
+			riscv,isa = "rv32imc_zicsr_zifencei";
+			clock-frequency = <20000000>;
+
+			intc: interrupt-controller {
+				compatible = "riscv,cpu-intc";
+				#interrupt-cells = <1>;
+				#address-cells = <0>;
+				interrupt-controller;
+			};
+		};
+	};
+
+	soc {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "simple-bus";
+		ranges;
+
+		/* 128 KiB SRAM minus the 0x80-byte boot-entry offset */
+		sram0: memory@102080 {
+			device_type = "memory";
+			compatible = "mmio-sram";
+			reg = <0x00102080 0x1FF80>;
+		};
+
+		/* CLINT-style machine timer: mtime @ +0, mtimecmp @ +8.
+		 * DRAFT: adjust reg layout to the riscv,machine-timer binding of
+		 * the Zephyr version in use (some expect two reg entries). */
+		mtimer: timer@40000200 {
+			compatible = "riscv,machine-timer";
+			reg = <0x40000200 0x08 0x40000208 0x08>;
+			reg-names = "mtime", "mtimecmp";
+			interrupts-extended = <&intc 7>;
+		};
+
+		uart0: uart@40000000 {
+			compatible = "arf,uart";
+			reg = <0x40000000 0x100>;
+			current-speed = <115200>;
+			/* Ibex fast IRQ 0 = machine IRQ line 16 */
+			interrupts-extended = <&intc 16>;
+			status = "okay";
+		};
+
+		/* Future phase C/D nodes: gpio@40000100, pwm@40000600,
+		 * i2c@40000400, spi@40000500, flash-xip@20000000 */
+	};
+};

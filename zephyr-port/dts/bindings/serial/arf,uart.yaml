@@ -1,0 +1,9 @@
+description: ARF minimal UART (rtl/system/uart.sv — RX +0, TX +4, STATUS +8)
+
+compatible: "arf,uart"
+
+include: uart-controller.yaml
+
+properties:
+  reg:
+    required: true

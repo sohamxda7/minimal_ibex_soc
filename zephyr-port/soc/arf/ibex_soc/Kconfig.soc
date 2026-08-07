@@ -1,0 +1,7 @@
+config SOC_IBEX_SOC
+	bool
+	help
+	  ARF minimal Ibex RISC-V SoC (rv32imc, machine mode, 20 MHz).
+
+config SOC
+	default "ibex_soc" if SOC_IBEX_SOC
