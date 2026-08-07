@@ -54,6 +54,26 @@ frequency; the FPGA PLL was corrected to match).
 | `sw/c/demo/hello_world/main.c` | **fixed**: timer tick 10000 → 2 000 000 cycles (0.1 s @ 20 MHz) — this was the visible RGB strobing |
 | `docs/` | Bring-up documentation (see table above) |
 
+### ASIC artifacts — NOT needed for the FPGA flow
+
+`gds.tar.gz` (56 MB), `DFFRAM/` (RAM macro: .lib/.lef timing libraries,
+netlist zip) and `rtl/system/dffram.sv` belong to the **ASIC implementation**
+side of this project. Nothing in the FPGA build, simulation or software flow
+reads them — you can ignore them entirely when working with the Arty board.
+They are kept in-repo for the ASIC team; note that `gds.tar.gz` exceeds
+GitHub's 50 MB recommendation, so migrating these to Git LFS or a release
+asset is advised before they grow further.
+
+### Continuous integration
+
+- **CMake** workflow: cross-compiles `sw/c` with the lowRISC RISC-V GCC on
+  every push — green, and it independently proves the C demo builds.
+- **Rust** workflow: builds the embedded Rust HAL with a pinned nightly;
+  it currently fails against recent nightlies (pre-existing issue in
+  `sw/rust`, needs a toolchain re-pin by its owner). It now runs **only
+  when `sw/rust/**` changes**, so FPGA/RTL/doc pushes are not marked red
+  by it.
+
 Everything below this line is the upstream lowRISC documentation (Linux,
 FuseSoC, Verilator, RISC-V GCC flow). It still applies to this fork wherever
 it doesn't conflict with the above.

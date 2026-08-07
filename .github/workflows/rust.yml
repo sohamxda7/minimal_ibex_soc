@@ -1,10 +1,17 @@
 name: Rust
 
+# Runs only when the Rust software actually changes: the embedded HAL builds
+# with a pinned nightly + build-std, which breaks on unrelated pushes when
+# the nightly moves. FPGA/RTL/doc commits should not go red because of it.
+# (Known issue: the HAL currently fails against recent nightlies — the
+# sw/rust owner should re-pin rust-toolchain.toml.)
 on:
   push:
     branches: [ "main" ]
+    paths: [ "sw/rust/**" ]
   pull_request:
     branches: [ "main" ]
+    paths: [ "sw/rust/**" ]
 
 env:
   CARGO_TERM_COLOR: always
