@@ -15,11 +15,22 @@
 
 #include <zephyr/device.h>
 #include <zephyr/drivers/uart.h>
-#include <zephyr/sys/sys_io.h>
 
 #define ARF_UART_RX_OFF     0x0
 #define ARF_UART_TX_OFF     0x4
 #define ARF_UART_STATUS_OFF 0x8
+
+/* Plain volatile MMIO accessors (the RISC-V arch does not provide the
+ * generic sys_read32/sys_write32 helpers). */
+static inline uint32_t arf_read32(mem_addr_t addr)
+{
+	return *(volatile uint32_t *)addr;
+}
+
+static inline void arf_write32(uint32_t val, mem_addr_t addr)
+{
+	*(volatile uint32_t *)addr = val;
+}
 
 #define ARF_UART_STATUS_RX_EMPTY BIT(0)
 #define ARF_UART_STATUS_TX_FULL  BIT(1)
@@ -32,10 +43,10 @@ static int uart_arf_poll_in(const struct device *dev, unsigned char *c)
 {
 	const struct uart_arf_config *cfg = dev->config;
 
-	if (sys_read32(cfg->base + ARF_UART_STATUS_OFF) & ARF_UART_STATUS_RX_EMPTY) {
+	if (arf_read32(cfg->base + ARF_UART_STATUS_OFF) & ARF_UART_STATUS_RX_EMPTY) {
 		return -1;
 	}
-	*c = (unsigned char)(sys_read32(cfg->base + ARF_UART_RX_OFF) & 0xFF);
+	*c = (unsigned char)(arf_read32(cfg->base + ARF_UART_RX_OFF) & 0xFF);
 	return 0;
 }
 
@@ -43,10 +54,10 @@ static void uart_arf_poll_out(const struct device *dev, unsigned char c)
 {
 	const struct uart_arf_config *cfg = dev->config;
 
-	while (sys_read32(cfg->base + ARF_UART_STATUS_OFF) & ARF_UART_STATUS_TX_FULL) {
+	while (arf_read32(cfg->base + ARF_UART_STATUS_OFF) & ARF_UART_STATUS_TX_FULL) {
 		/* wait for space in the 128-byte TX FIFO */
 	}
-	sys_write32((uint32_t)c, cfg->base + ARF_UART_TX_OFF);
+	arf_write32((uint32_t)c, cfg->base + ARF_UART_TX_OFF);
 }
 
 static int uart_arf_init(const struct device *dev)
