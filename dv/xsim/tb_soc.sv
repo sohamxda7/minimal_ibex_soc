@@ -1,13 +1,16 @@
 // ============================================================================
 // Full-SoC xsim testbench: boots the Ibex from the boot ROM, which jumps to
 // the program baked into SRAM (sw/asm-demo/sram_init_sim.vmem), then checks
-// every user-visible function:
-//   * UART TX (banner), UART RX (echo)
-//   * GPIO out (LED walking pattern), GPIO in (buttons/switches)
-//   * PWM/RGB breathing (duty cycle is sampled and printed over time)
+// every user-visible function including the UART command interface:
+//   * UART TX (banner) and RX (echo/ack of every byte)
+//   * '3' command -> LED pattern switches to alternating (0xA0/0x50)
+//   * 'b' command -> RGB forced to blue (blue PWM active, red PWM silent)
+//   * button held -> LEDs mirror switches
 //
 // Run from the REPO ROOT (paths to boot.mem / sram vmem are relative):
-//   xvlog -sv -f dv/xsim/filelist.f
+//   xvlog -sv -f dv/xsim/filelist.f dv/xsim/tb_soc.sv dv/xsim/sim_stubs.sv ^
+//         -i vendor/lowrisc_ip/ip/prim/rtl -i rtl/system ^
+//         -i vendor/lowrisc_ibex/vendor/lowrisc_ip/dv/sv/dv_utils
 //   xelab tb_soc -s soc_sim -timescale 1ns/1ps
 //   xsim soc_sim -R
 // ============================================================================
@@ -27,8 +30,8 @@ module tb_soc;
   end
 
   // Fast UART for simulation: 2 Mbaud @ 20 MHz -> 10 clocks per bit
-  localparam int unsigned SimBaud  = 2_000_000;
-  localparam int unsigned BitNs    = 500;        // 10 clk * 50 ns
+  localparam int unsigned SimBaud = 2_000_000;
+  localparam int unsigned BitNs   = 500;
 
   logic [7:0] gp_i = 8'h00;
   wire  [7:0] gp_o;
@@ -46,30 +49,24 @@ module tb_soc;
   ) dut (
     .clk_sys_i  (clk),
     .rst_sys_ni (rst_n),
-
     .gp_i       (gp_i),
     .gp_o       (gp_o),
     .pwm_o      (pwm),
-
     .uart_rx_i  (uart_rx),
     .uart_tx_o  (uart_tx),
-
     .spi_rx_i   (1'b0),
     .spi_tx_o   (),
     .spi_sck_o  (),
-
     .xip_spi_sck_o  (),
     .xip_spi_csn_o  (),
     .xip_spi_mosi_o (),
     .xip_spi_miso_i (1'b0),
-
     .i2c_scl_i    (1'b1),
     .i2c_scl_o    (),
     .i2c_scl_oe_o (),
     .i2c_sda_i    (1'b1),
     .i2c_sda_o    (),
     .i2c_sda_oe_o (),
-
     .tck_i   (1'b0),
     .tms_i   (1'b0),
     .trst_ni (1'b1),
@@ -78,15 +75,15 @@ module tb_soc;
   );
 
   // -------------------------------------------------------------------
-  // UART TX decoder — every byte the SoC sends is printed to the console
+  // UART TX decoder — every byte the SoC sends is printed and buffered
   // -------------------------------------------------------------------
   byte rx_buf [0:4095];
   int  rx_cnt = 0;
   initial begin
     forever begin
       byte b;
-      @(negedge uart_tx);              // start bit
-      #(BitNs + BitNs/2);              // centre of data bit 0
+      @(negedge uart_tx);
+      #(BitNs + BitNs/2);
       for (int i = 0; i < 8; i++) begin
         b[i] = uart_tx;
         #(BitNs);
@@ -99,7 +96,12 @@ module tb_soc;
     end
   end
 
-  // PC types a byte
+  function automatic bit saw_byte(byte needle);
+    for (int i = 0; i < rx_cnt; i++)
+      if (rx_buf[i] == needle) return 1;
+    return 0;
+  endfunction
+
   task automatic send_byte(input byte b);
     uart_rx = 1'b0;  #(BitNs);
     for (int i = 0; i < 8; i++) begin
@@ -109,71 +111,72 @@ module tb_soc;
   endtask
 
   // -------------------------------------------------------------------
-  // GPIO monitor — log LED changes (first 12 only, to keep output short)
+  // GPIO monitor (first 16 changes logged)
   // -------------------------------------------------------------------
   int led_changes = 0;
   always @(gp_o) begin
     led_changes++;
-    if (led_changes <= 12)
-      $display("[%0t ns] LEDs/GPO = %b", $time, gp_o);
+    if (led_changes <= 16)
+      $display("[%0t] LEDs/GPO = %b", $time, gp_o);
   end
 
-  // -------------------------------------------------------------------
-  // PWM duty sampler — measure duty of the red channel of RGB LED0
-  // (pwm[2] = led0_r per pins_artya7.xdc) every 100 us
-  // -------------------------------------------------------------------
-  int hi_cnt = 0, tot_cnt = 0;
+  // PWM duty counters, resettable from the sequence below
+  int blue_hi = 0, red_hi = 0;
   always @(posedge clk) begin
-    tot_cnt <= tot_cnt + 1;
-    if (pwm[2]) hi_cnt <= hi_cnt + 1;
-    if (tot_cnt == 2000) begin  // every 100 us
-      $display("[%0t ns] RGB0 red duty = %0d/2000", $time, hi_cnt);
-      hi_cnt  <= 0;
-      tot_cnt <= 0;
-    end
+    if (pwm[0]) blue_hi <= blue_hi + 1;   // pwm[0] = led0_b
+    if (pwm[2]) red_hi  <= red_hi  + 1;   // pwm[2] = led0_r
   end
+
+  int pass_cnt = 0, fail_cnt = 0;
+  task automatic check(input bit cond, input string name);
+    if (cond) begin pass_cnt++; $display("PASS: %s", name); end
+    else      begin fail_cnt++; $display("FAIL: %s", name); end
+  endtask
 
   // -------------------------------------------------------------------
   // Test sequence
   // -------------------------------------------------------------------
   initial begin
-    $display("=== Ibex SoC bring-up simulation ===");
+    int red_before, blue_before;
+    $display("=== Ibex SoC UART-command simulation ===");
 
-    // Phase 1: boot + banner + LED walk + RGB ramp (nothing driven)
-    #3_000_000;   // 3 ms
+    // Phase 1: boot, banner, default walking pattern, auto RGB
+    #2_000_000;
+    check(rx_cnt > 10, "UART TX banner present");
+    check(led_changes >= 3, "default walking pattern runs");
 
-    // Phase 2: UART echo
-    $display("\n[%0t ns] >>> sending 'K' over UART RX", $time);
+    // Phase 2: '3' -> alternating pattern (0xA0 <-> 0x50)
+    $display("\n[%0t] >>> command '3' (alternating pattern)", $time);
+    send_byte("3");
+    #1_000_000;
+    check(saw_byte("3"), "'3' command acked (echoed)");
+    check(gp_o[7:4] == 4'hA || gp_o[7:4] == 4'h5,
+          "pattern 3 active (LEDs alternate A/5)");
+
+    // Phase 3: 'b' -> RGB forced blue; red channel must go silent
+    $display("[%0t] >>> command 'b' (force RGB blue)", $time);
+    send_byte("b");
+    #500_000;                       // let the forced colour take effect
+    red_before  = red_hi;
+    blue_before = blue_hi;
+    #400_000;                       // measure window
+    check(saw_byte("b"), "'b' command acked (echoed)");
+    check(blue_hi - blue_before > 0,  "blue PWM active after 'b'");
+    check(red_hi  - red_before  == 0, "red PWM silent after 'b'");
+
+    // Phase 4: plain echo of a non-command byte
     send_byte("K");
     #300_000;
+    check(saw_byte("K"), "non-command byte 'K' echoed");
 
-    // Phase 3: button + switches -> LEDs must mirror switches.
-    // The program refreshes LEDs every 32nd main loop (~2.5 ms of sim time),
-    // so hold the button for over 3 ms before checking.
+    // Phase 5: button + switches -> LEDs mirror switches
     $display("[%0t] >>> BTN0 held, SW=0101", $time);
-    gp_i = 8'b0101_0001;   // {SW=0101, BTN=0001}
-    #3_200_000;
-    if (gp_o[7:4] == 4'b0101)
-      $display("PASS: LEDs mirror switches while button held (gp_o=%b)", gp_o);
-    else
-      $display("FAIL: LEDs did not mirror switches (gp_o=%b)", gp_o);
+    gp_i = 8'b0101_0001;
+    #1_000_000;
+    check(gp_o[7:4] == 4'b0101, "LEDs mirror switches while button held");
     gp_i = 8'h00;
-    #500_000;
 
-    // Verdict
-    $display("\n=== RESULTS ===");
-    if (rx_cnt > 10)  $display("PASS: UART TX produced %0d bytes", rx_cnt);
-    else              $display("FAIL: UART TX produced almost nothing");
-    begin
-      bit got_echo = 0;
-      for (int i = 0; i < rx_cnt; i++)
-        if (rx_buf[i] == "K") got_echo = 1;
-      if (got_echo) $display("PASS: UART RX echo ('K' came back)");
-      else          $display("FAIL: UART RX echo missing");
-    end
-    if (led_changes >= 3)   $display("PASS: LEDs changed %0d times", led_changes);
-    else                    $display("FAIL: LEDs static");
-    $display("(RGB duty progression printed above = breathing proof)");
+    $display("\n=== RESULTS: %0d PASS, %0d FAIL ===", pass_cnt, fail_cnt);
     $finish;
   end
 

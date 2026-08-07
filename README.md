@@ -3,9 +3,11 @@
 > **⚡ Quick start (Windows, Vivado only — nothing else needed):**
 > ```
 > build_fpga.bat        -> build/fpga/top_artya7.bit  (program baked in)
-> program_fpga.bat      -> board runs: UART banner+echo, LED walk, RGB breathing
+> program_fpga.bat      -> board runs: UART banner+echo, LED patterns, RGB breathing
 > ```
-> Serial console: 115200 8N1 on the board's COM port.
+> Serial console: 115200 8N1 on the board's COM port. **Interactive:** type
+> `1`-`4` for LED patterns, `f/m/s` for speed, `r/g/b/w/a` for RGB colour —
+> see [docs/UART_CONTROL.md](docs/UART_CONTROL.md).
 
 ## Status of this fork (2026-08-07)
 
@@ -28,6 +30,7 @@ frequency; the FPGA PLL was corrected to match).
 | [docs/FPGA_BRINGUP.md](docs/FPGA_BRINGUP.md) | The four root-cause bugs that made the board "glitch", every fix, the no-FuseSoC build flow, the xsim simulation flow |
 | [docs/BRINGUP_TEST_REPORT.md](docs/BRINGUP_TEST_REPORT.md) | Recorded simulation + on-board test results with evidence |
 | [docs/BRINGUP_OVERVIEW.md](docs/BRINGUP_OVERVIEW.md) | The whole bring-up journey, including the board IO qualification that preceded this (separate `arty-io-test` repo), and every decision taken with its reasoning |
+| [docs/UART_CONTROL.md](docs/UART_CONTROL.md) | The UART command interface (LED patterns `1-4`, speed `f/m/s`, RGB `r/g/b/w/a`): command reference, review of the DV draft it came from, decisions, test evidence |
 
 ### Map of files added/changed by the bring-up (branch `fix/fpga-bringup`)
 
