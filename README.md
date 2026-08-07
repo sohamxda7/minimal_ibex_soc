@@ -32,6 +32,7 @@ frequency; the FPGA PLL was corrected to match).
 | [docs/BRINGUP_TEST_REPORT.md](docs/BRINGUP_TEST_REPORT.md) | Recorded simulation + on-board test results with evidence |
 | [docs/BRINGUP_OVERVIEW.md](docs/BRINGUP_OVERVIEW.md) | The whole bring-up journey, including the board IO qualification that preceded this (separate `arty-io-test` repo), and every decision taken with its reasoning |
 | [docs/UART_CONTROL.md](docs/UART_CONTROL.md) | The UART command interface (LED patterns `1-4`, speed `f/m/s`, RGB `r/g/b/w/a`): command reference, review of the DV draft it came from, decisions, test evidence |
+| [board-io-test/](board-io-test/) | Phase 1 — the standalone Arty A7 board IO qualification project (LEDs/RGB/switches/buttons/UART/Pmods, all PASS) that preceded the SoC work, with its own guide and filled test report |
 
 ### Map of files added/changed by the bring-up (branch `fix/fpga-bringup`)
 
