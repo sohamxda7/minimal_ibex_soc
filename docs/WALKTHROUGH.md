@@ -1,0 +1,152 @@
+# Walkthrough — Clean PC to Working Board, Step by Step
+
+*Follow this top to bottom and you will reproduce exactly what we have:
+the Ibex SoC running on an Arty A7 with UART-interactive LED/RGB control.
+Time: ~1–2 h if Vivado needs installing, ~20 min if it's already there.*
+
+Every utility script is documented in §7, every known gotcha in §8.
+
+---
+
+## 1. Prerequisites
+
+| Need | Notes |
+|---|---|
+| Windows PC, ~40 GB free disk | Linux works too (adapt the `.bat` steps to the same Tcl scripts) |
+| **Vivado ML Standard** (free) | Installer: https://www.xilinx.com/support/download.html — needs a free AMD account. Select product **Vivado**, edition **Standard**, devices: **Artix-7 only** (saves ~50 GB), and **keep "Install Cable Drivers" ticked** (without it the board is invisible). Default install path (`C:\Xilinx` or `C:\AMD`) — the `.bat` scripts auto-detect both, including the new `C:\AMD\<version>\Vivado` layout |
+| Python 3.x | Any recent version; stock library only. Optional `pip install pyserial` for the scripted serial tools |
+| Arty A7 board + **micro-USB data cable** | Some charging cables have no data lines — if no COM port appears, try another cable first |
+| Git | To clone the repo |
+
+> **Gotcha #0:** clone to a path **without spaces** and **outside OneDrive**
+> (e.g. `C:\FPGA\minimal-ibex-soc`). Vivado misbehaves with spaces in paths,
+> and OneDrive sync fights the thousands of build files.
+
+## 2. Get the code
+
+```
+git clone https://github.com/ArfDesign-DB/minimal-ibex-soc.git C:\FPGA\minimal-ibex-soc
+cd C:\FPGA\minimal-ibex-soc
+git checkout fix/fpga-bringup
+```
+
+The branch matters: it contains the fixes that make the FPGA flow work at
+all (see [FPGA_BRINGUP.md](FPGA_BRINGUP.md) for what was broken).
+
+## 3. Build the bitstream (~15 min)
+
+Double-click **`build_fpga.bat`** (or run
+`vivado -mode batch -source build_fpga.tcl` from the repo root).
+
+Success looks like:
+
+```
+BUILD OK  ->  build/fpga/top_artya7.bit
+```
+
+Verify the program really went in — `build\fpga\build.log` must contain BOTH:
+
+```
+$readmem data file 'rtl/system/boot.mem' is read successfully
+$readmem data file 'sw/asm-demo/sram_init.vmem' is read successfully
+```
+
+and `build\fpga\timing_summary.rpt` must say
+*"All user specified timing constraints are met."*
+
+> Board variant: the script targets the **Arty A7-100T**
+> (`xc7a100tcsg324-1`). For an A7-35T change one line in `build_fpga.tcl`:
+> `set part xc7a35ticsg324-1L`.
+
+## 4. Program the board (~30 s)
+
+1. Plug the board in (red power LED on).
+2. Double-click **`program_fpga.bat`** → wait for `BOARD PROGRAMMED`.
+3. The green LEDs start the walking pattern immediately; the RGB LEDs
+   breathe through red → green → blue.
+
+> Programming is **volatile**: power-cycling the board restores whatever is
+> in its QSPI flash (usually the Digilent factory demo). Just re-run
+> `program_fpga.bat`. This is normal and convenient during development.
+
+## 5. Talk to it over UART
+
+1. Find the COM port: Device Manager → *Ports (COM & LPT)* →
+   "USB Serial Port (COMx)". **The number is per-PC** — ours was COM4,
+   yours may differ.
+2. PuTTY: Connection type *Serial*, Serial line *COMx*, Speed **115200**,
+   Open.
+3. You should see `IBEX-SOC UP <n>` every few seconds. Now type single
+   characters (no Enter):
+
+   `1`-`4` LED pattern · `f/m/s` speed · `r/g/b/w` force RGB colour ·
+   `a` RGB auto · anything else echoes.
+
+> **Reading the terminal:** your typed keys are echoed back by the FPGA as
+> the acknowledgement, so they appear interleaved with the heartbeat lines
+> (`srgIBEX-SOC UP 4` = you pressed s, r, g just before a heartbeat).
+> That interleaving is expected, not corruption.
+
+4. Optional scripted check (close PuTTY first — **only one program can own
+   a COM port**):
+
+```
+python util\uart_command_test.py
+```
+
+Expected: 8× PASS, `overall: ALL PASS`.
+
+## 6. Optional: run the full-SoC simulation
+
+From the repo root (paths are relative to it):
+
+```
+python sw\asm-demo\assemble.py --sim
+xvlog -sv -f dv/xsim/filelist.f dv/xsim/tb_soc.sv dv/xsim/sim_stubs.sv -i vendor/lowrisc_ip/ip/prim/rtl -i rtl/system -i vendor/lowrisc_ibex/vendor/lowrisc_ip/dv/sv/dv_utils
+xelab tb_soc -s soc_sim -timescale 1ns/1ps
+xsim soc_sim -R
+```
+
+(`xvlog`/`xelab`/`xsim` live in `C:\AMD\<ver>\Vivado\bin` — use a "Vivado
+Tcl shell" or add that dir to PATH.) Expected: `9 PASS, 0 FAIL` in a few
+minutes of wall clock (~6 ms of simulated time).
+
+## 7. Script & file reference
+
+| Script | What it does | How to run | Notes / gotchas |
+|---|---|---|---|
+| `build_fpga.bat` → `build_fpga.tcl` | Full synth→place→route→bitstream with the demo program baked into SRAM | double-click / `vivado -mode batch -source build_fpga.tcl` | Must run from the repo root (the Tcl `cd`s there itself). Auto-detects Vivado under `C:\Xilinx\Vivado\*`, `C:\AMD\Vivado\*`, `C:\AMD\*\Vivado`; edit `VIVADO=` if yours is elsewhere. Change `set part` for other boards |
+| `program_fpga.bat` → `program_fpga.tcl` | Loads `build/fpga/top_artya7.bit` over USB-JTAG | double-click | Board must be plugged in; fails cleanly if the bitstream hasn't been built |
+| `sw/asm-demo/assemble.py` | RV32IM mini-assembler **and** the demo program in one file; regenerates `sram_init.vmem` | `python assemble.py` (hardware) / `--sim` (simulation image) | Rebuild the bitstream after regenerating. The two `.vmem` files are committed so this step is only needed when *changing* the program. Program entry must stay at SRAM+0x80 (the boot ROM jumps there) |
+| `util/uart_command_test.py` | Scripted hardware test of every UART command with PASS/FAIL output | `python util\uart_command_test.py [COMx]` | Needs `pip install pyserial`; auto-detects the FTDI port; **close PuTTY first** or you get "Access is denied" |
+| `dv/xsim/filelist.f` | The single compile-order list used by BOTH xsim and synthesis | consumed by the commands in §6 and by `build_fpga.tcl` | Add new RTL files here (packages before users). Keeping one list is what guarantees sim==hardware |
+| `dv/xsim/tb_soc.sv` | Full-SoC testbench: boots the real ROM+SRAM images, drives UART/buttons, self-checks | §6 | Uses a 2 Mbaud sim UART and the `--sim` program image so everything happens in ms, not minutes |
+| `dv/xsim/prim_shims.sv` | Hand-written stand-ins for the FuseSoC-generated "abstract primitives" | always in the filelist | With `FPGA_XILINX` defined (synthesis) the clock gate becomes a real BUFGCE |
+| `dv/xsim/sim_stubs.sv` | Behavioural stub for the Xilinx `BSCANE2` JTAG macro | **simulation only** | Never add to a synthesis file list — Vivado supplies the real primitive |
+| `program_fpga`/`build_fpga` logs | `build\fpga\build.log`, `program.log`, timing + utilisation reports | — | First place to look when something fails |
+| `util/load_demo_system.sh`, `util/*openocd*` | Upstream lowRISC helpers (Linux, OpenOCD/JTAG debug) | see upstream README below the divider | Untested in this Windows flow |
+
+## 8. Gotchas — the complete list
+
+1. **Path with spaces / OneDrive** → Vivado fails in odd ways. Use `C:\FPGA\...`.
+2. **Wrong branch** → `develop` doesn't build for FPGA. Use `fix/fpga-bringup`.
+3. **"Vivado not found"** from a `.bat` → non-standard install path; edit the `VIVADO=` detection at the top of the script.
+4. **No COM port in Device Manager** → charge-only USB cable (try another), or cable drivers weren't installed with Vivado (rerun `install_digilent.exe` from `Vivado\<ver>\data\xicom\cable_drivers\...`).
+5. **COM number differs per PC** → always check Device Manager; never hard-code a teammate's port number.
+6. **"Access is denied" opening the COM port** → PuTTY (or another monitor) still has it open. One owner at a time.
+7. **Board reverts to factory demo after power-cycle** → expected; JTAG programming is volatile; re-run `program_fpga.bat`.
+8. **Terminal shows commands mixed into heartbeat lines** → that's the echo-ack interleaving; normal (see §5).
+9. **Changed `assemble.py` but board behaves the same** → you must re-run `python assemble.py` *and* rebuild the bitstream; the `.vmem` is read at synthesis time.
+10. **Waveforms look "frozen" / PWM looks "too fast" in a simulator** → time-scale illusion; human-visible effects live in ms–s while sims show µs. Use the `--sim` image (short delays) as the testbench does.
+11. **xsim fails compiling generated C with DPI errors** → some `ifndef SYNTHESIS` DPI export snuck back in; guard Verilator-only DPI with `ifdef VERILATOR` (this bit us twice — see FPGA_BRINGUP.md).
+12. **`timer_enable()` in a loop freezes ticks** (C software) → it re-arms mtimecmp and zeroes the elapsed counter; arm once, re-arm only on speed change (see UART_CONTROL.md).
+13. **Editing LED patterns in C**: only `gp_o[7:4]` are LEDs on Arty; `gp_o[3:0]` go to the DISP/LCD lines.
+14. **Simulating after `git clean` / fresh clone** → recompile everything with the full `xvlog -f` command first; `xelab` alone can't find modules if `xsim.dir` was deleted.
+15. **A7-35T vs A7-100T** → one-line part change in `build_fpga.tcl` (see §3).
+
+## 9. Where to read more
+
+- [FPGA_BRINGUP.md](FPGA_BRINGUP.md) — the four root-cause bugs + technical detail
+- [UART_CONTROL.md](UART_CONTROL.md) — command interface design + draft review
+- [BRINGUP_TEST_REPORT.md](BRINGUP_TEST_REPORT.md) — all recorded evidence
+- [BRINGUP_OVERVIEW.md](BRINGUP_OVERVIEW.md) — the whole journey + decision log

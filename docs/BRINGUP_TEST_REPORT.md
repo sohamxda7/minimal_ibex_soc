@@ -79,6 +79,37 @@ PASS: 'K' (plain echo of non-command byte) acked=yes
 overall: ALL PASS
 ```
 
+### Manual verification by the user (PuTTY session, COM4 @ 115200)
+
+All commands exercised by hand; user confirmed patterns, speeds and RGB
+colours changed on the board as commanded ("nice all worked"):
+
+```
+IBEX-SOC UP 0
+IBEX-SOC UP 1
+1IBEX-SOC UP 2
+23IBEX-SOC UP 3
+IBEX-SOC UP 4
+4IBEX-SOC UP 5
+1IBEX-SOC UP 6
+2IBEX-SOC UP 7
+IBEX-SOC UP 8
+34IBEX-SOC UP 9
+IBEX-SOC UP 0
+fIBEX-SOC UP 1
+IBEX-SOC UP 2
+mIBEX-SOC UP 3
+srgIBEX-SOC UP 4
+bwaIBEX-SOC UP 5
+IBEX-SOC UP 6
+```
+
+Reading this log: the stray characters (`1`, `23`, `f`, `srg`, `bwa`, …)
+are the **command acknowledgements** — each typed key is echoed by the FPGA
+and lands wherever the cursor happens to be, interleaved with the
+asynchronous `IBEX-SOC UP <n>` heartbeat. This interleaving is normal and
+expected; it is not corruption.
+
 ## 5. Not covered (future work)
 
 - SPI-flash XIP execute-in-place (controller in fabric, no board pins wired;

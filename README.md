@@ -27,6 +27,7 @@ frequency; the FPGA PLL was corrected to match).
 
 | Document | Contents |
 |---|---|
+| **[docs/WALKTHROUGH.md](docs/WALKTHROUGH.md)** | **Start here** — clean PC → working board step by step, every script explained, all 15 known gotchas |
 | [docs/FPGA_BRINGUP.md](docs/FPGA_BRINGUP.md) | The four root-cause bugs that made the board "glitch", every fix, the no-FuseSoC build flow, the xsim simulation flow |
 | [docs/BRINGUP_TEST_REPORT.md](docs/BRINGUP_TEST_REPORT.md) | Recorded simulation + on-board test results with evidence |
 | [docs/BRINGUP_OVERVIEW.md](docs/BRINGUP_OVERVIEW.md) | The whole bring-up journey, including the board IO qualification that preceded this (separate `arty-io-test` repo), and every decision taken with its reasoning |
