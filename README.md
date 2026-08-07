@@ -1,4 +1,59 @@
-# Ibex Demo System
+# Ibex Demo System — ARF Design fork
+
+> **⚡ Quick start (Windows, Vivado only — nothing else needed):**
+> ```
+> build_fpga.bat        -> build/fpga/top_artya7.bit  (program baked in)
+> program_fpga.bat      -> board runs: UART banner+echo, LED walk, RGB breathing
+> ```
+> Serial console: 115200 8N1 on the board's COM port.
+
+## Status of this fork (2026-08-07)
+
+**The SoC is verified working on an Arty A7-100T**: the Ibex CPU boots from
+the Boot ROM into a program stored in bitstream-initialised SRAM, prints
+`IBEX-SOC UP <n>` over UART, echoes received characters, walks the green
+LEDs, mirrors switches while a button is held, and breathes the RGB LEDs
+smoothly (red → green → blue). Full-SoC simulation passes in Vivado xsim.
+
+This fork replaces the upstream "memory bus" architecture with a custom
+**OBI → Wishbone fabric** (2:1 arbiter → `obi2wb` bridge →
+`wb_interconnect`) and adds I2C, SPI-flash XIP, PWM-on-Wishbone and an
+8 KiB SRAM. The system clock is **20 MHz** (team decision — the ASIC target
+frequency; the FPGA PLL was corrected to match).
+
+**Read these before touching anything:**
+
+| Document | Contents |
+|---|---|
+| [docs/FPGA_BRINGUP.md](docs/FPGA_BRINGUP.md) | The four root-cause bugs that made the board "glitch", every fix, the no-FuseSoC build flow, the xsim simulation flow |
+| [docs/BRINGUP_TEST_REPORT.md](docs/BRINGUP_TEST_REPORT.md) | Recorded simulation + on-board test results with evidence |
+| [docs/BRINGUP_OVERVIEW.md](docs/BRINGUP_OVERVIEW.md) | The whole bring-up journey, including the board IO qualification that preceded this (separate `arty-io-test` repo), and every decision taken with its reasoning |
+
+### Map of files added/changed by the bring-up (branch `fix/fpga-bringup`)
+
+| Path | What it is |
+|---|---|
+| `build_fpga.tcl` / `build_fpga.bat` | Plain-Vivado batch build (no FuseSoC/Python): reads `dv/xsim/filelist.f`, part `xc7a100tcsg324-1`, bakes the SRAM program into the bitstream |
+| `program_fpga.tcl` / `program_fpga.bat` | Loads `build/fpga/top_artya7.bit` over USB-JTAG |
+| `sw/asm-demo/assemble.py` | Dependency-free Python RV32IM mini-assembler + the demo program; generates `sram_init.vmem` (hardware) and `sram_init_sim.vmem` (simulation). Self-checks against the known-good `jal` word in `boot.mem` |
+| `sw/asm-demo/sram_init*.vmem` | Generated SRAM images (committed so nobody needs any toolchain) |
+| `dv/xsim/filelist.f` | Single compile-order list shared by xsim **and** synthesis — sim and hardware can never drift apart |
+| `dv/xsim/prim_shims.sv` | Hand-written replacements for the FuseSoC-generated "abstract primitives" (`prim_clock_gating` → BUFGCE under `FPGA_XILINX`, plus buf/flop/mux leaf cells) |
+| `dv/xsim/sim_stubs.sv` | Simulation-only stub for the Xilinx `BSCANE2` JTAG primitive (never include in synthesis) |
+| `dv/xsim/tb_soc.sv` | Full-SoC testbench: boots the real ROM+SRAM images, decodes UART, checks echo/GPIO/PWM duty, prints PASS/FAIL |
+| `rtl/system/wrapper_top.sv` | **fixed**: `ClockFrequency`/`BaudRate`/`SRAMInitFile` parameters added and passed to `uart`/`sram_model` |
+| `rtl/system/ibex_demo_system.sv` | **fixed**: parameter pass-through; personal hardcoded path removed |
+| `rtl/fpga/top_artya7.sv` | **fixed**: 20 MHz + SRAMInitFile passed; new XIP/I2C ports tied off (no board pins yet) |
+| `vendor/lowrisc_ibex/.../clkgen_xil7series.sv` | **fixed**: PLL 50 MHz → 20 MHz (`CLKOUT0_DIVIDE` 24 → 60) |
+| `rtl/system/sram_model.sv`, `vendor/lowrisc_ibex/rtl/ibex_if_stage.sv` | **fixed**: Verilator-only DPI exports re-guarded `ifdef VERILATOR` (xsim could not compile them) |
+| `sw/c/demo/hello_world/main.c` | **fixed**: timer tick 10000 → 2 000 000 cycles (0.1 s @ 20 MHz) — this was the visible RGB strobing |
+| `docs/` | Bring-up documentation (see table above) |
+
+Everything below this line is the upstream lowRISC documentation (Linux,
+FuseSoC, Verilator, RISC-V GCC flow). It still applies to this fork wherever
+it doesn't conflict with the above.
+
+---
 
 ![Ibex demo system block diagram](doc/IbexDemoSystemBlockDiagram.png "Ibex demo system block diagram with in the center an Ibex processor connected by a memory bus to the RAM, GPIO, SPI, UART and debug module. Switches, buttons and LEDs are connected to the GPIO. The LCD is driven by SPI. The UART is used for a serial console. Finally, the debug module is used to drive the JTAG.")
 
