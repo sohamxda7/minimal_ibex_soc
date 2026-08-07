@@ -54,13 +54,13 @@ module ibex_demo_system #(
 
   parameter int                 PwmWidth       = 12,  // kept for port compat; PWM not wired
 
-  parameter int unsigned        ClockFrequency = 50_000_000,
+  parameter int unsigned        ClockFrequency = 20_000_000,
 
   parameter int unsigned        BaudRate       = 115_200,
 
   parameter ibex_pkg::regfile_e RegFile        = ibex_pkg::RegFileFPGA,
 
-  parameter                     SRAMInitFile   = "C:/Users/Raji/project/minimal-ibex-soc/build/lowrisc_ibex_demo_system_0/synth-vivado/lowrisc_ibex_demo_system_0.srcs/sources_1/new/sram.mem"   // unused in new arch; kept for compat
+  parameter                     SRAMInitFile   = ""  // .vmem image baked into the SRAM (passed down to wrapper_top/sram_model)
 
 ) (
 
@@ -374,7 +374,13 @@ module ibex_demo_system #(
 
     .GpiWidth (GpiWidth),
 
-    .GpoWidth (GpoWidth)
+    .GpoWidth (GpoWidth),
+
+    .ClockFrequency (ClockFrequency),
+
+    .BaudRate       (BaudRate),
+
+    .SRAMInitFile   (SRAMInitFile)
 
   ) u_wrapper (
 

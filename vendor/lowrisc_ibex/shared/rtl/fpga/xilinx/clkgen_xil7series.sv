@@ -28,7 +28,9 @@ module clkgen_xil7series (
     .DIVCLK_DIVIDE        (1),
     .CLKFBOUT_MULT        (12),
     .CLKFBOUT_PHASE       (0.000),
-    .CLKOUT0_DIVIDE       (24),
+    // 100 MHz x 12 / 60 = 20 MHz system clock (was /24 = 50 MHz; the SoC
+    // is parameterised for 20 MHz, so the divider must match)
+    .CLKOUT0_DIVIDE       (60),
     .CLKOUT0_PHASE        (0.000),
     .CLKOUT0_DUTY_CYCLE   (0.500),
     .CLKIN1_PERIOD        (10)

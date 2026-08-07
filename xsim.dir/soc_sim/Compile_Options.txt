@@ -1,0 +1,1 @@
+"tb_soc" -s "soc_sim" -timescale "1ns/1ps" 

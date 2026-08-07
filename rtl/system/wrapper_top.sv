@@ -40,7 +40,18 @@ module wrapper_top #(
 
   parameter int unsigned GpoWidth        = 16,
 
-  parameter int unsigned PwmWidth     =12
+  parameter int unsigned PwmWidth     =12,
+
+  // System clock / UART baud — MUST be passed down to the uart instance
+  // and MUST match the clock the FPGA PLL actually generates (20 MHz).
+  parameter int unsigned ClockFrequency  = 20_000_000,
+
+  parameter int unsigned BaudRate        = 115_200,
+
+  // SRAM initialisation image (.vmem). On FPGA this is what puts the
+  // program into the bitstream — without it the CPU jumps into empty
+  // SRAM and crash-loops (the "glitching" seen on the board).
+  parameter              SRAMInitFile    = ""
 
 ) (
 
@@ -906,7 +917,9 @@ module wrapper_top #(
 
     .Width (DW),
 
-    .Depth (1 << SramWordAddrWidth)
+    .Depth (1 << SramWordAddrWidth),
+
+    .MemInitFile (SRAMInitFile)
 
   ) u_sram_model (
 
@@ -930,7 +943,13 @@ module wrapper_top #(
 
   // ===========================================================
 
-  uart u_uart (
+  uart #(
+
+    .ClockFrequency (ClockFrequency),
+
+    .BaudRate       (BaudRate)
+
+  ) u_uart (
 
     .clk_i,
 

@@ -359,7 +359,10 @@ module ibex_if_stage import ibex_pkg::*; #(
     assign ic_scr_key_req_o      = 'b0;
     assign icache_ecc_error_o    = 'b0;
 
-`ifndef SYNTHESIS
+`ifdef VERILATOR
+    // (guard changed from `ifndef SYNTHESIS`: these DPI exports exist only
+    // for the Verilator C++ harness; xsim fails to compile DPI exports
+    // inside a generate block, so restrict them to Verilator builds)
     // If we don't instantiate an icache and this is a simulation then we have a problem because the
     // simulator might discard the icache module entirely, including some DPI exports that it
     // implies. This then causes problems for linking against C++ testbench code that expected them.

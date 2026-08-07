@@ -48,7 +48,10 @@ module sram_model #(
   // Exports exactly the same DPI-C interface as prim_util_memload.svh
   // so VerilatorMemUtil can load ELF images into this SRAM.
   // =========================================================
-`ifndef SYNTHESIS
+`ifdef VERILATOR
+  // These DPI exports exist for the VERILATOR harness only (--meminit).
+  // They were previously guarded with `ifndef SYNTHESIS`, which broke the
+  // xsim flow: xsim tried to compile the DPI export glue and failed.
   // Load the entire memory from a hex file (used by the sim harness
   // via --meminit=<name>,<file>).
   export "DPI-C" task simutil_memload;

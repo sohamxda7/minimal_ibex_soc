@@ -41,14 +41,17 @@ int main(void)
  
     uart_enable_rx_int();
     //------------------------------------------------------
- 
-    // Faster timer (100000 instead of 5000000)
- 
+
+    // Timer tick = 0.1 s at the 20 MHz system clock (2_000_000 cycles).
+    // NOTE: this was 10000 (= 0.5 ms), which made the RGB brightness ramp
+    // and colour cycle run ~200x too fast — the LEDs strobed colours at
+    // ~kHz rates, which looks like flickering/"glitching" on the board.
+
     //------------------------------------------------------
- 
+
     timer_init();
- 
-    timer_enable(10000);
+
+    timer_enable(2000000);
     uint64_t last_elapsed_time = get_elapsed_time();
     //------------------------------------------------------
  

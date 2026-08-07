@@ -24,11 +24,15 @@ module top_artya7 #(
   logic clk_sys, rst_sys_n;
 
   // Instantiating the Ibex Demo System.
+  // ClockFrequency MUST match what clkgen_xil7series produces (20 MHz — the
+  // PLL divide was corrected from 50 MHz) or the UART baud will be wrong.
   ibex_demo_system #(
-    .GpiWidth     ( 8            ),
-    .GpoWidth     ( 8            ),
-    .PwmWidth     ( 12           ),
-    .SRAMInitFile ( SRAMInitFile )
+    .GpiWidth       ( 8           ),
+    .GpoWidth       ( 8           ),
+    .PwmWidth       ( 12          ),
+    .ClockFrequency ( 20_000_000  ),
+    .BaudRate       ( 115_200     ),
+    .SRAMInitFile   ( SRAMInitFile )
   ) u_ibex_demo_system (
     //input
     .clk_sys_i (clk_sys),
@@ -44,6 +48,21 @@ module top_artya7 #(
     .spi_rx_i (SPI_RX),
     .spi_tx_o (SPI_TX),
     .spi_sck_o(SPI_SCK),
+
+    // XIP SPI flash — not wired to board pins yet (QSPI pins are commented
+    // out in pins_artya7.xdc and the flash clock needs a STARTUPE2 macro).
+    .xip_spi_sck_o  (),
+    .xip_spi_csn_o  (),
+    .xip_spi_mosi_o (),
+    .xip_spi_miso_i (1'b0),
+
+    // I2C — no board pins assigned; bus inputs idle high.
+    .i2c_scl_i    (1'b1),
+    .i2c_scl_o    (),
+    .i2c_scl_oe_o (),
+    .i2c_sda_i    (1'b1),
+    .i2c_sda_o    (),
+    .i2c_sda_oe_o (),
 
     .trst_ni(1'b1),
     .tms_i  (1'b0),
