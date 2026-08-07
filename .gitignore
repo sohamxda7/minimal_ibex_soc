@@ -6,3 +6,15 @@ target/
 *.fst
 *.log
 *.csv
+
+# Vivado / xsim batch-flow junk
+xsim.dir/
+build/
+*.jou
+*.pb
+*.wdb
+xelab.log
+xvlog.log
+xsim*.log
+vivado*.log
+.Xil/
