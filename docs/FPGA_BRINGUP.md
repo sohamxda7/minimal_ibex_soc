@@ -94,7 +94,7 @@ Key enablers (all in-repo):
 When a `riscv32-unknown-elf-gcc` toolchain is available, build
 `sw/c` as before, convert the binary to a **word-per-line hex (.vmem)** image
 based at SRAM+0x80, point `SRAMInitFile` in `build_fpga.tcl` at it, and
-rebuild. (Reminder: SRAM is 8 KiB — `0x00102000..0x00103FFF` — with entry at
+rebuild. (Reminder: SRAM is 128 KiB — `0x00102000..0x00121FFF` — with entry at
 `0x00102080`; see `sw/common/link.ld`.)
 
 ## Simulation flow (xsim, Windows-friendly)

@@ -282,7 +282,10 @@ module wb_interconnect #(
 
   localparam logic [31:0] SRAM_BASE    = 32'h0010_2000;
 
-  localparam logic [31:0] SRAM_MASK    = 32'hFFFF_E000;
+  // 128 KiB SRAM (0x0010_2000 .. 0x0012_1FFF). The base is not aligned to
+  // the size, so the decode uses a range compare instead of a mask.
+  // Must stay consistent with SramWordAddrWidth in wrapper_top.sv.
+  localparam logic [31:0] SRAM_SIZE    = 32'h0002_0000;
  
   localparam logic [31:0] XIP_BASE     = 32'h2000_0000;
 
@@ -362,9 +365,7 @@ module wb_interconnect #(
  
     sram_sel =
 
-      ((wb_adr_i & SRAM_MASK) == SRAM_BASE);
-
-     //sram_sel = (wb_adr_i >= 32'h0010_1000) && (wb_adr_i <= 32'h0010_2FFF);
+      (wb_adr_i >= SRAM_BASE) && (wb_adr_i < (SRAM_BASE + SRAM_SIZE));
  
     xip_sel =
 

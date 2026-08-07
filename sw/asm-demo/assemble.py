@@ -411,7 +411,7 @@ def main():
 
     words = assemble(demo_program(speeds), base_addr=0x80)
 
-    sram_words = 2048                       # 8 KiB
+    sram_words = 32768                      # 128 KiB
     image = [0] * sram_words
     entry_word = 0x80 // 4                  # program entry at SRAM + 0x80
     assert len(words) < sram_words - entry_word, "program too large for SRAM"

@@ -6,11 +6,12 @@ module sram_controller #(
   parameter int AW = 32,
   parameter int DW = 32,
   // Number of word-address bits: 2^WORD_ADDR_WIDTH words × (DW/8) bytes = SRAM bytes.
-  // Default 11 → 2048 words × 4 B = 8 KiB.
-  parameter int WORD_ADDR_WIDTH = 11,
+  // Default 15 → 32768 words × 4 B = 128 KiB (grown from 8 KiB for the
+  // Zephyr RTOS port — see docs/RTOS_RESEARCH.md Phase A).
+  parameter int WORD_ADDR_WIDTH = 15,
   parameter ECC_ENABLE = 0,           // Set to 1 for SECDED ECC
   parameter logic [31:0] SRAM_BASE = 32'h0010_2000,
-  parameter int          SRAM_SIZE = 32'd8192        // bytes (must equal 2^WORD_ADDR_WIDTH * DW/8)
+  parameter int          SRAM_SIZE = 32'd131072      // bytes (must equal 2^WORD_ADDR_WIDTH * DW/8)
 )(
   input  logic              clk_i,
   input  logic              rst_ni,

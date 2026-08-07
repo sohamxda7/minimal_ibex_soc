@@ -12,7 +12,7 @@
 
 // The legacy "bus" crossbar, ram_2p, and pwm_wrapper are no longer used.
 
-// All peripherals (Boot ROM 4 KiB, SRAM 8 KiB, UART, GPIO, Timer, I2C,
+// All peripherals (Boot ROM 4 KiB, SRAM 128 KiB, UART, GPIO, Timer, I2C,
 
 // SPI Host) are accessed through the WB fabric at 0x4000_xxxx / 0x0010_xxxx.
 
@@ -26,7 +26,7 @@
 
 //   0x0010_0000 – 0x0010_0FFF  Boot ROM  4 KiB  (RO, instr + data)
 
-//   0x0010_2000 – 0x0010_3FFF  SRAM      8 KiB  (RW)
+//   0x0010_2000 – 0x0012_1FFF  SRAM    128 KiB  (RW)
 
 //   0x1A11_0000 – 0x1A11_FFFF  Debug module registers
 

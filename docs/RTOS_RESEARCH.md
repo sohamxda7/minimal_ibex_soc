@@ -74,7 +74,7 @@ advantage over these two for this platform.
 | PWM @ `0x4000_0600` | custom `pwm` driver (12 channels) | ~1 day |
 | I2C @ `0x4000_0400` (OpenCores) | Zephyr has an existing OpenCores-compatible pattern to crib | ~1–2 days |
 | SPI host @ `0x4000_0500` | custom `spi` driver | ~1–2 days |
-| SRAM 8 KiB | — | ❌ **must grow first**: 128 KiB minimum for Zephyr (Phase A below) |
+| SRAM 128 KiB | — | ✅ grown 8 → 128 KiB (Phase A, done 2026-08-07) |
 | Boot ROM → SRAM entry `+0x80` | Zephyr image linked to SRAM base, entry aligned | linker script in board port |
 | QSPI flash / XIP | `flash` driver + littlefs (later: XIP execution) | after pins are wired (Phase D) |
 | DDR3 256 MB | MIG controller RTL + Zephyr `mem` region | Phase E (RTL project) |

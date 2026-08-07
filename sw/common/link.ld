@@ -12,23 +12,24 @@ OUTPUT_ARCH(riscv)
  *     'jal x0, +0x2000' which jumps to the SRAM entry point.
  *
  *   SRAM (read-write):
- *     0x00102000 – 0x00103FFF   8 KiB  (DFFRAM-style register array)
+ *     0x00102000 – 0x00121FFF   128 KiB  (BRAM; grown from 8 KiB for the
+ *     RTOS port — docs/RTOS_RESEARCH.md Phase A)
  *     Application code, data, BSS, and stack live here.
  *     Entry point = ORIGIN(ram) + 0x80 = 0x00102080.
  *
- *   NOTE: The 8 KiB SRAM is split 6 KiB code/data + 2 KiB stack.
- *         Enlarge SramWordAddrWidth in wrapper_top.sv and update
- *         SRAM_MASK in wb_interconnect.sv to use more RAM.
+ *   NOTE: The 128 KiB SRAM is split 120 KiB code/data + 8 KiB stack.
+ *         Size is set by SramWordAddrWidth in wrapper_top.sv and
+ *         SRAM_SIZE in wb_interconnect.sv — keep all three in sync.
  */
 
 MEMORY
 {
-    ram         : ORIGIN = 0x00102000, LENGTH = 0x1800 /*  6 KiB code + data */
-    stack       : ORIGIN = 0x00103800, LENGTH = 0x0800 /*  2 KiB stack       */
+    ram         : ORIGIN = 0x00102000, LENGTH = 0x1E000 /* 120 KiB code + data */
+    stack       : ORIGIN = 0x00120000, LENGTH = 0x2000  /*   8 KiB stack       */
 }
 
 /* Stack information variables */
-_min_stack      = 0x800;    /* 2 KiB minimum stack — matches LENGTH(stack) */
+_min_stack      = 0x2000;   /* 8 KiB minimum stack — matches LENGTH(stack) */
 _stack_len     = LENGTH(stack);
 _stack_start   = ORIGIN(stack) + LENGTH(stack);
 

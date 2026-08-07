@@ -34,7 +34,7 @@ module wrapper_top #(
 
   parameter int unsigned BootRomAddrWidth  = 10,
 
-  parameter int unsigned SramWordAddrWidth = 11,
+  parameter int unsigned SramWordAddrWidth = 15,  // 128 KiB SRAM (RTOS-ready)
 
   parameter int unsigned GpiWidth        = 8,
 
@@ -847,7 +847,7 @@ module wrapper_top #(
 
   // ===========================================================
 
-  // SRAM (8 KiB)
+  // SRAM (128 KiB)
 
   // sram_controller handles WB handshake and address decode;
 
@@ -879,7 +879,9 @@ module wrapper_top #(
 
     .DW              (DW),
 
-    .WORD_ADDR_WIDTH (SramWordAddrWidth)
+    .WORD_ADDR_WIDTH (SramWordAddrWidth),
+
+    .SRAM_SIZE       (4 * (1 << SramWordAddrWidth))
 
   ) u_sram_controller (
 
