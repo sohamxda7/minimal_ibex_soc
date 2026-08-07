@@ -58,7 +58,28 @@ IBEX-SOC UP 1
 echo test: sent A, got b'AIBEX-SO'
 ```
 
-## 4. Not covered (future work)
+## 4. UART command interface (added later the same day — see docs/UART_CONTROL.md)
+
+Simulation: **9/9 checks PASS** (pattern switch visible on gp_o, forced-blue
+with red channel measured silent, acks, button override).
+
+Hardware (scripted via `util/uart_command_test.py` on COM4):
+
+```
+IBEX-SOC UP 0
+IBEX-SOC UP 1
+PASS: '3' (pattern 3 (alternating)) acked=yes
+PASS: 'b' (RGB force blue) acked=yes
+PASS: 'f' (speed fast) acked=yes
+PASS: '2' (pattern 2 (nibble flip)) acked=yes
+PASS: 'r' (RGB force red) acked=yes
+PASS: 'a' (RGB auto-cycle) acked=yes
+PASS: 'm' (speed medium) acked=yes
+PASS: 'K' (plain echo of non-command byte) acked=yes
+overall: ALL PASS
+```
+
+## 5. Not covered (future work)
 
 - SPI-flash XIP execute-in-place (controller in fabric, no board pins wired;
   needs `STARTUPE2` for the flash clock + un-commenting QSPI pins in the XDC)
