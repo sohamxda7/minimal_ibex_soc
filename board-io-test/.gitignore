@@ -1,0 +1,11 @@
+# Vivado build outputs and junk
+build/
+*.jou
+*.log
+*.str
+.Xil/
+vivado*.backup*
+xsim.dir/
+*.wdb
+*.vcd
+*.pb
