@@ -86,7 +86,7 @@ advantage over these two for this platform.
 | Phase | Work | Acceptance |
 |---|---|---|
 | **A. Memory** | Grow SRAM 8 → 128 KiB (BRAM budget: uses ~32/135 tiles), update decode + linker + docs | xsim regression passes; current demo still runs on board |
-| **B. Minimal Zephyr port** | SoC + board definition (`boards/riscv/arf_ibex_arty`), DTS, custom UART driver, machine-timer config | `samples/hello_world` + `samples/synchronization` print on the board console |
+| **B. Minimal Zephyr port** | ✅ port in `zephyr-port/` (board `ibex_arty`, SoC `ibex_soc`, DTS, UART driver). `hello_world` **boots in xsim** 2026-08-08 (banner + print, 5 ms sim time); board console run pending hardware availability | `samples/hello_world` prints — DONE in simulation |
 | **C. Peripheral drivers** | GPIO, PWM, I2C, SPI drivers + shell enabled | `blinky`, `button`, shell over UART; RGB controlled from a Zephyr thread |
 | **D. Storage** | Wire QSPI pins (STARTUPE2), flash driver, littlefs | mount + file read/write from shell |
 | **E. Full capability** | MIG/DDR3 and Ethernet MAC RTL, net stack | 256 MB heap visible; ping + TCP echo server on the RJ-45 |

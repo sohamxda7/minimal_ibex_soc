@@ -1,9 +1,17 @@
 # Zephyr port for the ARF Ibex SoC (`ibex_arty` board)
 
 Out-of-tree Zephyr module: board + SoC definition + drivers for this repo's
-SoC. **Status: DRAFT skeleton** — written ahead of the first build; symbol
-names and binding details get finalised against the installed Zephyr version
-(some `select`s / the machine-timer `reg` layout are marked DRAFT in-file).
+SoC. **Status: BUILDS AND BOOTS (simulation).** 2026-08-08, Zephyr v4.4.0-dev:
+`hello_world` compiles and links at the boot-ROM entry (0x00102080, 11.7 KB)
+and boots in the full-SoC xsim testbench (`dv/xsim/tb_zephyr.sv`):
+
+```
+*** Booting Zephyr OS build v4.4.0-10814-gdb85c02404ca ***
+Hello World! ibex_arty/ibex_soc
+```
+
+Hardware run pending board availability: `build_fpga_zephyr.bat` →
+`program_fpga.bat`.
 
 Selection rationale, compatibility map and the phased plan:
 [../docs/RTOS_RESEARCH.md](../docs/RTOS_RESEARCH.md).

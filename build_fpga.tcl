@@ -12,6 +12,11 @@
 # Arty A7-100T. For the A7-35T use: xc7a35ticsg324-1L
 set part xc7a100tcsg324-1
 
+# SRAM program image. Default: the asm demo. Override with e.g.
+#   vivado -mode batch -source build_fpga.tcl -tclargs build/zephyr_sram.vmem
+set sram_image sw/asm-demo/sram_init.vmem
+if {$argc > 0} { set sram_image [lindex $argv 0] }
+
 # Work from the repo root (directory of this script) so the relative
 # $readmemh paths inside the RTL (boot.mem, sram vmem) resolve.
 cd [file dirname [file normalize [info script]]]
@@ -39,7 +44,7 @@ read_xdc data/pins_artya7.xdc
 synth_design -top top_artya7 -part $part \
     -include_dirs {vendor/lowrisc_ip/ip/prim/rtl rtl/system vendor/lowrisc_ibex/vendor/lowrisc_ip/dv/sv/dv_utils} \
     -verilog_define FPGA_XILINX=1 \
-    -generic SRAMInitFile=sw/asm-demo/sram_init.vmem
+    -generic SRAMInitFile=$sram_image
 
 opt_design
 place_design
