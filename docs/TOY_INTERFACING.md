@@ -104,9 +104,10 @@ Zephyr devicetree nodes (`bosch,bme280`, `solomon,ssd1306fb`) + an I2C
 controller driver for Zephyr (or a minimal shim over the OpenCores core),
 then live sensor readings in the Zephyr shell on hardware.
 
-## Purchases (verified listings, ~₹3,300)
+## Purchases (verified listings, ~₹4,550)
 
 ST7735 1.8" SPI (pre-soldered) · BME280 I2C 3.3 V (genuine) · SSD1306 OLED
 I2C 4-pin · 80× M-F jumpers · 840-pt breadboard kit · 24 MHz/8ch logic
-analyzer (Saleae-compatible) · 60 W soldering kit (10 header joints needed
+analyzer (Saleae-compatible) · Mextech DT830 PRO multimeter (True RMS,
+continuity beeper) · 60 W soldering kit (10 header joints needed
 on BME280 + OLED). Links in the procurement email / chat log.
