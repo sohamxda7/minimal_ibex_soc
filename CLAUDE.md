@@ -159,6 +159,19 @@ about); release moved to the following scl_fall, unsafe multi-byte pre-drive
 removed. I2C-side lesson mirrors the SPI one: never change bus lines on the
 sampling edge.
 
+**2026-08-08 — lowRISC upstream sync**: added remote `lowrisc`
+(github.com/lowRISC/ibex-demo-system). Fork base 0a8ce38 (2025-11-25);
+only ONE upstream commit existed (d37beb7, container/Dockerfile fix) —
+merged cleanly, zero overlap with fork files, branding/RTL/docs intact.
+Full post-merge regression: SoC demo 9/9, Zephyr boot, LCD 5/5, I2C, and
+bitstream (timing met) — ALL PASS. Safety branch backup-pre-upstream-sync
+kept locally. Policy for future syncs: fetch lowrisc, merge, take OURS for
+fork-owned files, re-apply the two vendored patches (clkgen 20 MHz divide,
+ibex_if_stage VERILATOR guard) if vendor/ is updated, then run the full
+regression (build/regression.log via scratchpad run_all_tests.ps1 pattern)
+before pushing. Note: Out-File default UTF-16 encoding corrupts grep-based
+log watchers — strip NULs or use ASCII encoding in log scripts.
+
 ## 5. Current status / next steps
 
 - Bitstream with UART-command demo + 128 KiB SRAM: built, timing met —
