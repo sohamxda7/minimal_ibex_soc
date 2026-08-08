@@ -137,6 +137,16 @@ analyzer + soldering kit; LCD ships pre-soldered, OLED/BME280 need 10
 header joints). Sim-first plan: behavioral ST7735 SPI model + I2C models
 in xsim before hardware arrives.
 
+**2026-08-08 — Tier-1 LCD sim PASS (5/5)**: hand-assembled ST7735 driver
+(sw/asm-demo/lcd_spi_test.py) + behavioural LCD model (dv/xsim/tb_lcd.sv)
+verify the full 26-byte init+pixel sequence on the SoC's real SPI pins.
+SPI facts confirmed: TX +0 / STATUS +4 (bit0 full, bit1 empty), mode 0,
+MSB first, 5 MHz; FIFO-empty is not shifter-idle (drain ~32 clks before DC
+changes); LCD pins = GPIO_OUT[3:0] = CS/RST/DC/BL. Sim caught a real
+testbench race: this host updates MOSI on rising SCK — sample a delayed
+copy, never the raw wire on the same edge. Docs: docs/TOY_INTERFACING.md
+(incl. hardware wiring table: LCD -> ChipKit A6..A11 + 3V3/GND).
+
 ## 5. Current status / next steps
 
 - Bitstream with UART-command demo + 128 KiB SRAM: built, timing met —
