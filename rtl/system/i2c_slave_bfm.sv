@@ -432,7 +432,13 @@ begin
                 begin
                     if(bit_cnt==0)
                     begin
-                        sda_drive_low <= 1'b0;
+                        // Do NOT release SDA here: this scl_rise is the
+                        // master's sampling edge for bit 0, and releasing
+                        // now makes SDA rise while SCL is high — a phantom
+                        // STOP condition (same bug class as the old
+                        // ST_ACK_ADDR release-on-rise, see comment there).
+                        // The release happens on the next scl_fall, in
+                        // ST_READ_ACK.
                         state <= ST_READ_ACK;
                     end
                     else
@@ -450,6 +456,11 @@ begin
             ST_READ_ACK:
             begin
 
+                // First scl_fall after the last data bit: SCL is low, so
+                // it is now safe to release SDA for the master's ACK/NACK.
+                if(scl_fall)
+                    sda_drive_low <= 1'b0;
+
                 if(scl_rise)
                 begin
                     master_ack <= ~sda_ff1;
@@ -464,14 +475,13 @@ begin
 
                         state <= ST_READ;
 
-                        // Same reasoning as ST_ACK_ADDR: this scl_rise
-                        // (master's ACK sample) is followed by a
-                        // scl_fall that starts bit 7's low period, but
-                        // that fall is consumed transitioning INTO
-                        // ST_READ on the NEXT clock, not caught by
-                        // ST_READ's own logic. Pre-drive bit 7 now so
-                        // it's ready in time.
-                        sda_drive_low <= ~mem[mem_addr+1][7];
+                        // NOTE: no pre-drive of bit 7 here. Driving SDA on
+                        // this scl_rise changes the line while SCL is high
+                        // (phantom START/STOP hazard). The state/tx_data
+                        // updates land within one 20 MHz clock, long before
+                        // the next scl_fall (~2.5 us at 100 kHz), so
+                        // ST_READ's own scl_fall logic drives bit 7 safely
+                        // in its low period.
                     end
                     else
                     begin

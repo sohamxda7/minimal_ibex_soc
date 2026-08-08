@@ -147,6 +147,18 @@ testbench race: this host updates MOSI on rising SCK — sample a delayed
 copy, never the raw wire on the same edge. Docs: docs/TOY_INTERFACING.md
 (incl. hardware wiring table: LCD -> ChipKit A6..A11 + 3V3/GND).
 
+**2026-08-08 — Tier-2 I2C sim PASS + team BFM bug fixed**: I2C pinned out
+to Pmod JA1/JA2 (open-drain, XDC pull-ups; OpenCores pad-enable is ACTIVE
+LOW). OpenCores reg map via wrapper: PRERlo +0x00, PRERhi +0x04, CTR +0x08,
+TXR/RXR +0x0C, CR/SR +0x10; PRER=39 -> 100 kHz @ 20 MHz; CR bits STA=80
+STO=40 RD=20 WR=10 NACK=08; SR TIP=bit1. Full register read verified against
+the team's i2c_slave_bfm (addr 0x50, mem[i]=i). Found+fixed a real bug in
+that BFM: ST_READ released SDA on scl_rise after the last bit (phantom STOP
++ corrupted final bit — same class its ST_ACK_ADDR comments already warn
+about); release moved to the following scl_fall, unsafe multi-byte pre-drive
+removed. I2C-side lesson mirrors the SPI one: never change bus lines on the
+sampling edge.
+
 ## 5. Current status / next steps
 
 - Bitstream with UART-command demo + 128 KiB SRAM: built, timing met —

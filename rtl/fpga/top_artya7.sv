@@ -18,10 +18,18 @@ module top_artya7 #(
   output        UART_TX,
   input         SPI_RX,
   output        SPI_TX,
-  output        SPI_SCK
+  output        SPI_SCK,
+  // I2C bus on Pmod JA pins 1/2 (open-drain, internal + module pull-ups)
+  inout         I2C_SCL,
+  inout         I2C_SDA
 );
 
   logic clk_sys, rst_sys_n;
+
+  // I2C open-drain pad wiring
+  logic i2c_scl_o, i2c_scl_oe, i2c_sda_o, i2c_sda_oe;
+  assign I2C_SCL = i2c_scl_oe ? 1'bz : i2c_scl_o;
+  assign I2C_SDA = i2c_sda_oe ? 1'bz : i2c_sda_o;
 
   // Instantiating the Ibex Demo System.
   // ClockFrequency MUST match what clkgen_xil7series produces (20 MHz — the
@@ -56,13 +64,15 @@ module top_artya7 #(
     .xip_spi_mosi_o (),
     .xip_spi_miso_i (1'b0),
 
-    // I2C — no board pins assigned; bus inputs idle high.
-    .i2c_scl_i    (1'b1),
-    .i2c_scl_o    (),
-    .i2c_scl_oe_o (),
-    .i2c_sda_i    (1'b1),
-    .i2c_sda_o    (),
-    .i2c_sda_oe_o (),
+    // I2C — routed to Pmod JA pins 1/2 as an open-drain bus.
+    // OpenCores pad-enable is ACTIVE LOW: oe=0 -> drive (pad_o is 0),
+    // oe=1 -> release (pull-ups make the 1).
+    .i2c_scl_i    (I2C_SCL),
+    .i2c_scl_o    (i2c_scl_o),
+    .i2c_scl_oe_o (i2c_scl_oe),
+    .i2c_sda_i    (I2C_SDA),
+    .i2c_sda_o    (i2c_sda_o),
+    .i2c_sda_oe_o (i2c_sda_oe),
 
     .trst_ni(1'b1),
     .tms_i  (1'b0),

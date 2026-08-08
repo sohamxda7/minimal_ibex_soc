@@ -63,11 +63,46 @@ the 5×5 window top-left. Capture SPI with the logic analyzer for the report.
 
 ## Tier 2 — I2C devices via Zephyr (BME280 + SSD1306)
 
-Status: in progress. Plan: pin `i2c_scl/sda` out to a Pmod as open-drain
-(small RTL change in `top_artya7.sv` + XDC), verify in xsim against
-`rtl/system/i2c_slave_bfm.sv` (team-authored I2C slave model) with a
-hand-assembled chip-ID read, then Zephyr devicetree nodes so the in-tree
-`bosch,bme280` and `solomon,ssd1306fb` drivers run against the real parts.
+### Pin-out (done)
+
+`I2C_SCL` / `I2C_SDA` routed to **Pmod JA pins 1 (G13) / 2 (B11)** as an
+open-drain bus (OpenCores pad-enable is active low), internal pull-ups in
+the XDC plus the sensor modules' onboard pull-ups.
+
+Hardware wiring when the parts arrive (both devices share the bus):
+
+| Module pin | Connect to |
+|---|---|
+| VCC / VDD | Pmod JA pin 6 (3.3 V) via breadboard rail |
+| GND | Pmod JA pin 5 (GND) via breadboard rail |
+| SCL / SCK | Pmod JA pin 1 |
+| SDA | Pmod JA pin 2 |
+
+### Simulation (2026-08-08) — PASS
+
+Program `sw/asm-demo/i2c_test.py` drives the OpenCores master
+(PRER=39 -> 100 kHz @ 20 MHz) through a full register read of the team's
+`i2c_slave_bfm` (EEPROM-style slave, addr 0x50, mem[i]=i): START, addr+W,
+pointer 0x42, repeated START, addr+R, read+NACK, STOP -> byte 0x42
+verified by the CPU, "I2C OK" on the UART (`dv/xsim/tb_i2c.sv`).
+The same driver sequence reads the BME280 chip-ID (reg 0xD0 -> 0x60) on
+real hardware.
+
+**Finding — genuine bug found and fixed in the team's `i2c_slave_bfm`:**
+the ST_READ path released SDA on a rising SCL edge after the last data
+bit, making SDA rise while SCL was high — a phantom STOP condition that
+also corrupted the final bit as sampled by the master. This is the same
+bug class the BFM's own ST_ACK_ADDR comments describe having fixed
+before; the read path had been missed. Fixed by releasing on the
+following falling edge (and removing an equally unsafe pre-drive on the
+multi-byte ACK path). The integration sim caught what unit testing had
+not.
+
+### Remaining for Tier 2
+
+Zephyr devicetree nodes (`bosch,bme280`, `solomon,ssd1306fb`) + an I2C
+controller driver for Zephyr (or a minimal shim over the OpenCores core),
+then live sensor readings in the Zephyr shell on hardware.
 
 ## Purchases (verified listings, ~₹3,300)
 
