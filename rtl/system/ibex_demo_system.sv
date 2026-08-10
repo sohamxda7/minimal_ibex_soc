@@ -58,6 +58,8 @@ module ibex_demo_system #(
 
   parameter int unsigned        BaudRate       = 115_200,
 
+  parameter int unsigned        Uart2BaudRate  = 115_200,
+
   parameter ibex_pkg::regfile_e RegFile        = ibex_pkg::RegFileFPGA,
 
   parameter                     SRAMInitFile   = "", // .vmem image baked into the SRAM (passed down to wrapper_top/sram_model)
@@ -84,7 +86,11 @@ module ibex_demo_system #(
 
   input  logic uart_rx_i,
 
+  input  logic uart2_rx_i,   // v1.1: ESP32 companion UART
+
   output logic uart_tx_o,
+
+  output logic uart2_tx_o,
 
   input  logic spi_rx_i,
 
@@ -386,6 +392,8 @@ module ibex_demo_system #(
 
     .BaudRate       (BaudRate),
 
+    .Uart2BaudRate  (Uart2BaudRate),
+
     .SRAMInitFile   (SRAMInitFile),
 
     .XipClkDiv      (XipClkDiv)
@@ -430,7 +438,11 @@ module ibex_demo_system #(
 
     .uart_rx_i  (uart_rx_i),
 
+    .uart2_rx_i (uart2_rx_i),
+
     .uart_tx_o  (uart_tx_o),
+
+    .uart2_tx_o (uart2_tx_o),
 
     .uart_irq_o (uart_irq),
 

@@ -118,6 +118,26 @@ module wb_interconnect #(
  
   // =========================================================
 
+  // UART2 Interface (v1.1 - ESP32 companion link)
+
+  // =========================================================
+ 
+  output logic             uart2_req_o,
+
+  output logic             uart2_we_o,
+
+  output logic [AW-1:0]    uart2_addr_o,
+
+  output logic [DW-1:0]    uart2_wdata_o,
+
+  output logic [DW/8-1:0]  uart2_be_o,
+ 
+  input  logic             uart2_rvalid_i,
+
+  input  logic [DW-1:0]    uart2_rdata_i,
+ 
+  // =========================================================
+
   // GPIO Interface
 
   // =========================================================
@@ -264,7 +284,9 @@ module wb_interconnect #(
 
     DEV_SPIHOST = 4'd8,
 
-    DEV_PWM     = 4'd9
+    DEV_PWM     = 4'd9,
+
+    DEV_UART2   = 4'd10
 
 } device_e;
  
@@ -316,6 +338,8 @@ module wb_interconnect #(
   localparam logic [31:0] SPIHOST_MASK = 32'hFFFF_FF00;
 
   localparam PWM_BASE = 32'h4000_0600;
+
+  localparam UART2_BASE = 32'h4000_0700;   // v1.1: ESP32 companion UART
  
   // =========================================================
 
@@ -330,6 +354,8 @@ module wb_interconnect #(
   logic xip_sel;     // to wb_addr_i value
 
   logic uart_sel;
+
+  logic uart2_sel;
 
   logic gpio_sel;
 
@@ -398,6 +424,10 @@ module wb_interconnect #(
     pwm_sel =
 
       ((wb_adr_i & 32'hFFFF_FF00) == PWM_BASE);
+
+    uart2_sel =
+
+      ((wb_adr_i & 32'hFFFF_FF00) == UART2_BASE);
  
   end
  
@@ -454,6 +484,8 @@ module wb_interconnect #(
       else if (spihost_sel) device_sel_resp <= DEV_SPIHOST;
 
       else if (pwm_sel)     device_sel_resp <= DEV_PWM;
+
+      else if (uart2_sel)   device_sel_resp <= DEV_UART2;
  
       decode_err_resp <=
 
@@ -478,6 +510,8 @@ module wb_interconnect #(
   	i2c_sel |
 
   	spihost_sel |
+
+  	uart2_sel |
 
   	pwm_sel);
  
@@ -589,6 +623,16 @@ module wb_interconnect #(
 
     spihost_be_o    = '0;
 
+    uart2_req_o   = '0;
+
+    uart2_we_o    = '0;
+
+    uart2_addr_o  = '0;
+
+    uart2_wdata_o = '0;
+
+    uart2_be_o    = '0;
+
     pwm_req_o   = '0;
 
     pwm_we_o    = '0;
@@ -654,6 +698,20 @@ module wb_interconnect #(
       uart_wdata_o = wb_dat_i;
 
       uart_be_o    = wb_sel_i;
+
+    end
+
+    if (uart2_sel) begin
+
+      uart2_req_o   = wb_cyc_i & wb_stb_i;
+
+      uart2_we_o    = wb_we_i;
+
+      uart2_addr_o  = wb_adr_i;
+
+      uart2_wdata_o = wb_dat_i;
+
+      uart2_be_o    = wb_sel_i;
 
     end
  
@@ -795,6 +853,14 @@ module wb_interconnect #(
           wb_ack_o = uart_rvalid_i;
 
           wb_dat_o = uart_rdata_i;
+
+        end
+
+        DEV_UART2: begin
+
+          wb_ack_o = uart2_rvalid_i;
+
+          wb_dat_o = uart2_rdata_i;
 
         end
  

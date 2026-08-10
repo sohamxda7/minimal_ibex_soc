@@ -48,6 +48,10 @@ module wrapper_top #(
 
   parameter int unsigned BaudRate        = 115_200,
 
+  // v1.1: ESP32 companion link. ESP-AT firmware default is 115200; sim
+  // testbenches override to 2 MBaud to bound simulation time.
+  parameter int unsigned Uart2BaudRate   = 115_200,
+
   // SRAM initialisation image (.vmem). On FPGA this is what puts the
   // program into the bitstream — without it the CPU jumps into empty
   // SRAM and crash-loops (the "glitching" seen on the board).
@@ -108,6 +112,10 @@ module wrapper_top #(
   input  logic             uart_rx_i,
 
   output logic             uart_tx_o,
+
+  input  logic             uart2_rx_i,   // v1.1: ESP32 companion UART
+
+  output logic             uart2_tx_o,
 
   output logic             uart_irq_o,
 
@@ -210,6 +218,8 @@ module wrapper_top #(
   // ===========================================================
 
   localparam logic [AW-1:0] UART_BASE    = 32'h4000_0000;
+
+  localparam logic [AW-1:0] UART2_BASE   = 32'h4000_0700;   // v1.1
 
   localparam logic [AW-1:0] GPIO_BASE    = 32'h4000_0100;
 
@@ -545,6 +555,20 @@ module wrapper_top #(
  
   logic             uart_req;
 
+  logic             uart2_req;
+
+  logic             uart2_we;
+
+  logic [AW-1:0]    uart2_addr;
+
+  logic [DW-1:0]    uart2_wdata;
+
+  logic [DW/8-1:0]  uart2_be;
+
+  logic             uart2_rvalid;
+
+  logic [DW-1:0]    uart2_rdata;
+
   logic             uart_we;
 
   logic [AW-1:0]    uart_addr;
@@ -730,6 +754,20 @@ module wrapper_top #(
     .uart_rvalid_i (uart_rvalid),
 
     .uart_rdata_i  (uart_rdata),
+
+    .uart2_req_o    (uart2_req),
+
+    .uart2_we_o     (uart2_we),
+
+    .uart2_addr_o   (uart2_addr),
+
+    .uart2_wdata_o  (uart2_wdata),
+
+    .uart2_be_o     (uart2_be),
+
+    .uart2_rvalid_i (uart2_rvalid),
+
+    .uart2_rdata_i  (uart2_rdata),
 
     .gpio_req_o    (gpio_req),
 
@@ -978,6 +1016,43 @@ module wrapper_top #(
     .uart_irq_o,
 
     .uart_tx_o
+
+  );
+
+  // v1.1: UART2 - companion link to the external ESP32 (WiFi/TCP-IP
+  // offload). Polled only; no IRQ wired (fast IRQs stay as documented).
+
+  uart #(
+
+    .ClockFrequency (ClockFrequency),
+
+    .BaudRate       (Uart2BaudRate)
+
+  ) u_uart2 (
+
+    .clk_i,
+
+    .rst_ni,
+
+    .device_req_i   (uart2_req),
+
+    .device_addr_i  (uart2_addr - UART2_BASE),
+
+    .device_we_i    (uart2_we),
+
+    .device_be_i    (uart2_be),
+
+    .device_wdata_i (uart2_wdata),
+
+    .device_rvalid_o(uart2_rvalid),
+
+    .device_rdata_o (uart2_rdata),
+
+    .uart_rx_i      (uart2_rx_i),
+
+    .uart_irq_o     (),
+
+    .uart_tx_o      (uart2_tx_o)
 
   );
 
