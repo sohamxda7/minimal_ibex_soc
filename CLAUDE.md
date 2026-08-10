@@ -321,6 +321,13 @@ docs/ASIC_SPEC.md section 3.
   -tclargs sw/asm-demo/xip_stub.vmem`, then `sw\freertos\build.bat`, then
   `program_flash.bat` (PuTTY 115200: banner + tick lines + walking LEDs).
   Record results in BRINGUP_TEST_REPORT section 5.
+- CI: evaluated 2026-08-10 and DEFERRED by Soham ("ignore for now").
+  When revisited: Tier A/A+ (firmware + images + sv2v/Yosys check) fits
+  free GitHub runners; full xsim/Vivado regression needs a self-hosted
+  runner (repo is PUBLIC - push-to-main-only trigger, never PRs);
+  GitHub ships no EDA images (licensing). tsfpga evaluated: flow-automation
+  overlap with what we built, does not solve Vivado hosting - v2-era
+  tooling candidate at most.
 - Procurement: batch-1 parts (~Rs 4,550) in transit; batch-2 v1.1 parts
   (~Rs 1,800: ESP32, PSRAM, OV7670-FIFO, mic chain, speaker chain) mail
   PREPARED and handed to Soham 2026-08-10 (Outlook clipboard flow);
