@@ -48,6 +48,8 @@ if not exist "%HERE%build" mkdir "%HERE%build"
   -Wl,-Map="%HERE%build\%NAME%.map" ^
   "%HERE%startup.S" "%HERE%main.c" "%HERE%uart.c" ^
   "%HERE%drivers\i2c.c" "%HERE%drivers\st7735.c" ^
+  "%HERE%drivers\spi_bus.c" "%HERE%drivers\psram.c" ^
+  "%HERE%drivers\esp_at.c" "%HERE%drivers\audio.c" "%HERE%drivers\camera.c" ^
   "%HERE%drivers\bme280.c" "%HERE%drivers\ssd1306.c" ^
   "%KERNEL%\tasks.c" "%KERNEL%\list.c" "%KERNEL%\queue.c" ^
   "%KERNEL%\portable\MemMang\heap_4.c" ^

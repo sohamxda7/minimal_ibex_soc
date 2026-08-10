@@ -47,7 +47,7 @@
 /* --- Features off to save flash/RAM --------------------------------------- */
 #define configUSE_IDLE_HOOK             0
 #define configUSE_TICK_HOOK             0
-#define configUSE_MUTEXES               0
+#define configUSE_MUTEXES               1   /* spi_bus arbitration (v1.1) */
 #define configUSE_RECURSIVE_MUTEXES     0
 #define configUSE_COUNTING_SEMAPHORES   0
 #define configQUEUE_REGISTRY_SIZE       0

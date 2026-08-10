@@ -21,10 +21,19 @@
 /* ---- GPIO: OUT +0 (bits[7:4] LEDs, bits[3:0] display control), IN +8 ---- */
 #define GPIO_BASE         0x40000100UL
 #define GPIO_OUT_REG      ( GPIO_BASE + 0x0 )
+#define GPIO_IN_RAW_REG   ( GPIO_BASE + 0x4 )   /* camera bus reads (no debounce) */
 #define GPIO_IN_DBNC_REG  ( GPIO_BASE + 0x8 )
 #define GPIO_LED_SHIFT    4
 #define GPIO_LED_MASK     0xF0u
 #define GPIO_DISP_MASK    0x0Fu   /* ST7735: bit0 CS, bit1 RST, bit2 DC, bit3 BL */
+/* v1.1 production peripherals (gp_o[15:8], docs/PRODUCTION_PERIPHERALS.md) */
+#define GPO_PSRAM_CS      ( 1u << 8 )    /* APS6404 PSRAM, active low  */
+#define GPO_ADC_CS        ( 1u << 9 )    /* MCP3202 mic ADC, active low */
+#define GPO_CAM_WEN       ( 1u << 10 )   /* OV7670-FIFO write enable    */
+#define GPO_CAM_RRST      ( 1u << 11 )   /* FIFO read reset, ACTIVE LOW */
+#define GPO_CAM_RCLK      ( 1u << 12 )   /* FIFO read clock             */
+#define GPO_IDLE          ( GPO_PSRAM_CS | GPO_ADC_CS | GPO_CAM_RRST )
+#define GPI_CAM_SHIFT     8              /* camera byte = raw gp_i[15:8] */
 
 /* ---- Machine timer (CLINT-style): mtime +0/+4, mtimecmp +8/+12 ---------- */
 #define TIMER_BASE        0x40000200UL
@@ -57,9 +66,19 @@
 #define SPI_STATUS_REG    ( SPI_BASE + 0x4 )
 #define SPI_STATUS_TX_FULL   0x1u
 #define SPI_STATUS_TX_EMPTY  0x2u
+#define SPI_RX_REG        ( SPI_BASE + 0x8 )    /* v1.1: [7:0] rx byte, [15:8] seq */
 
 /* ---- PWM, 12 ch (in both FPGA and ASIC - team-confirmed 2026-08-10) ------ */
 #define PWM_BASE          0x40000600UL
+#define PWM_CH_PULSE( n ) ( PWM_BASE + 8u * ( n ) )
+#define PWM_CH_MAX( n )   ( PWM_BASE + 8u * ( n ) + 4u )
+#define PWM_SPKR_CH       3               /* SPKR pad on the board top */
+
+/* ---- UART2 (v1.1): ESP32 companion - WiFi/TCP-IP offload ------------------ */
+#define UART2_BASE        0x40000700UL
+#define UART2_RX_REG      ( UART2_BASE + 0x0 )
+#define UART2_TX_REG      ( UART2_BASE + 0x4 )
+#define UART2_STATUS_REG  ( UART2_BASE + 0x8 )
 
 static inline uint32_t soc_read32( uint32_t addr )
 {

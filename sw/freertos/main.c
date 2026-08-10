@@ -17,6 +17,8 @@
 #include "soc.h"
 #include "uart.h"
 
+#include "drivers/spi_bus.h"
+
 /* Heap lives in .noinit: not zeroed at boot (see FreeRTOSConfig.h). */
 uint8_t ucHeap[ configTOTAL_HEAP_SIZE ]
     __attribute__( ( aligned( portBYTE_ALIGNMENT ), section( ".noinit" ) ) );
