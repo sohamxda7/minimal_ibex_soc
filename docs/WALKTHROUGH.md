@@ -129,6 +129,7 @@ minutes of wall clock (~6 ms of simulated time).
 | `sw/freertos/build.bat` | Builds FreeRTOS firmware (variants: default / `sim` / `toy`) with the Zephyr-SDK GCC | `swreertosuild.bat toy` | Outputs `.bin` (for flash) + `_flash.vmem` (for sim). RAM budget printed at the end - keep data+bss+heap inside 8 KiB |
 | `sw/asm-demo/xip_test.py` | Generates the XIP boot trampoline (`xip_stub.vmem`) + the XIP proof program | `python xip_test.py` | The trampoline is the SRAM image for ANY XIP firmware build |
 | `scripts/*.ps1` | Detached-launch compile/sim/bitstream runners (write ASCII logs under `build/`) | `Start-Process powershell -File scripts\compile_sims.ps1` | See gotcha 16 - EDA tools hang if launched with piped stdio |
+| `scripts/find_tools.cmd` / `scripts/find_vivado.ps1` | Shared tool locators: `.toolpaths` -> env -> PATH -> all-drive scan -> ask-and-save (cmd) / no-prompt (PS, for detached runs) | called by every other script | Keep the two search orders in sync. `.toolpaths` is per-PC and gitignored |
 | `setup_check.bat` | Environment doctor: Vivado/Python/GCC/git/repo-path checks with fix hints; read-only | double-click, first thing on a new PC | The [WARN] on RISC-V GCC is fine unless you build FreeRTOS/C firmware |
 | `run_regression.bat` -> `scripts/run_regression.ps1` | The whole test suite in one click: images, FreeRTOS build, compile, 5 sims, bitstream, timing, scoreboard | double-click (~45-60 min) | Sequential on purpose - concurrent xelab+vivado has killed 16 GB machines. Log: `build\regression.log`, exit code 0 = all green |
 | `flash_freertos.bat` | Firmware -> XIP-boot bitstream -> QSPI flash, end to end; `toy` arg adds the LCD/sensor task | double-click with board attached | Persists across power-cycles (unlike JTAG). Press PROG after; expect the FreeRTOS banner at 115200 |
@@ -137,7 +138,7 @@ minutes of wall clock (~6 ms of simulated time).
 
 1. **Path with spaces / OneDrive** → Vivado fails in odd ways. Use `C:\FPGA\...`.
 2. **Wrong branch** → `develop` doesn't build for FPGA. Use `fix/fpga-bringup`.
-3. **"Vivado not found"** from a `.bat` → non-standard install path; edit the `VIVADO=` detection at the top of the script.
+3. **"Vivado not found"** from a `.bat` → the shared locator (`scripts/find_tools.cmd`) searches saved `.toolpaths` → env vars (`XILINX_VIVADO`) → PATH → `\Xilinx`/`\AMD` roots on every drive, then **asks you for the install dir and saves the answer** to `.toolpaths` (per-PC, gitignored). If a tool moves, delete `.toolpaths` or just re-run `setup_check.bat`. Never edit paths inside scripts.
 4. **No COM port in Device Manager** → charge-only USB cable (try another), or cable drivers weren't installed with Vivado (rerun `install_digilent.exe` from `Vivado\<ver>\data\xicom\cable_drivers\...`).
 5. **COM number differs per PC** → always check Device Manager; never hard-code a teammate's port number.
 6. **"Access is denied" opening the COM port** → PuTTY (or another monitor) still has it open. One owner at a time.

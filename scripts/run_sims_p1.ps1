@@ -1,8 +1,9 @@
 # Elab + run: tb_soc, tb_lcd, tb_i2c (8 KiB SRAM validation) and tb_xip
 # (first run against unmodified spi_flash_xip controller).
 $ErrorActionPreference = "Continue"
-$viv  = "C:\AMD\2026.1\Vivado\bin"
-$repo = "C:\FPGA\minimal-ibex-soc"
+. "$PSScriptRoot\find_vivado.ps1"
+$viv  = Find-VivadoBin
+$repo = Split-Path -Parent $PSScriptRoot
 Set-Location $repo
 $log = "$repo\build\sims_p1.log"
 "=== SIMS P1 $(Get-Date) ===" | Out-File $log -Encoding ascii

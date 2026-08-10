@@ -1,8 +1,9 @@
 # Elab + run tb_freertos (FreeRTOS booting over XIP). Longest sim in the
 # suite: ~20+ ms of simulated time at 128 sysclks per instruction fetch.
 $ErrorActionPreference = "Continue"
-$viv  = "C:\AMD\2026.1\Vivado\bin"
-$repo = "C:\FPGA\minimal-ibex-soc"
+. "$PSScriptRoot\find_vivado.ps1"
+$viv  = Find-VivadoBin
+$repo = Split-Path -Parent $PSScriptRoot
 Set-Location $repo
 $log = "$repo\build\freertos_sim.log"
 "=== FREERTOS SIM $(Get-Date) ===" | Out-File $log -Encoding ascii

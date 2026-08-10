@@ -20,3 +20,6 @@ vivado*.log
 .Xil/
 clockInfo.txt
 tight_setup_hold_pins.txt
+
+# per-PC tool locations saved by scripts/find_tools.cmd - never commit
+.toolpaths

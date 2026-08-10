@@ -15,15 +15,8 @@ $ErrorActionPreference = "Continue"
 $repo = Split-Path -Parent $PSScriptRoot
 Set-Location $repo
 
-$viv = $null
-foreach ($pat in @("C:\Xilinx\Vivado\*", "C:\AMD\Vivado\*", "C:\AMD\*")) {
-  Get-ChildItem $pat -Directory -ErrorAction SilentlyContinue | ForEach-Object {
-    foreach ($cand in @("$($_.FullName)\bin", "$($_.FullName)\Vivado\bin")) {
-      if (Test-Path "$cand\vivado.bat") { $viv = $cand }
-    }
-  }
-}
-if (-not $viv) { Write-Host "ERROR: Vivado not found (run setup_check.bat)"; exit 1 }
+. "$PSScriptRoot\find_vivado.ps1"
+try { $viv = Find-VivadoBin } catch { Write-Host "ERROR: $_"; exit 1 }
 
 New-Item -ItemType Directory -Force "$repo\build" | Out-Null
 $log = "$repo\build\regression.log"

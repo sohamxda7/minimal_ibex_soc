@@ -111,7 +111,13 @@ FPGA validation must run the silicon configuration or it isn't validation.
 - **Build/run commands**: README quick start; FreeRTOS in
   docs/FREERTOS_PORT.md; sim flow in docs/FPGA_BRINGUP.md; gotchas in
   docs/WALKTHROUGH.md section 8.
-- **One-click scripts (repo root, all Vivado auto-detecting)**:
+- **Tool location is centralized**: every script resolves Vivado/GCC via
+  `scripts/find_tools.cmd` (batch) or `scripts/find_vivado.ps1`
+  (PowerShell, no prompt - safe for detached runs). Search order:
+  `.toolpaths` (per-PC saved answers, gitignored) -> env vars -> PATH ->
+  common roots on ALL drives -> interactive ask-and-save (cmd only).
+  NEVER hard-code an install path in a script again; extend the locators.
+- **One-click scripts (repo root, all tool-locating via the above)**:
   `setup_check.bat` (environment doctor, run first on any new PC),
   `build_fpga.bat`, `program_fpga.bat` (JTAG, volatile),
   `run_regression.bat` (full suite: images + FreeRTOS build + compile +

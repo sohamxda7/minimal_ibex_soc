@@ -1,7 +1,8 @@
 # Incremental: recompile the fixed spi_flash_xip.sv, re-elab + rerun tb_xip.
 $ErrorActionPreference = "Continue"
-$viv  = "C:\AMD\2026.1\Vivado\bin"
-$repo = "C:\FPGA\minimal-ibex-soc"
+. "$PSScriptRoot\find_vivado.ps1"
+$viv  = Find-VivadoBin
+$repo = Split-Path -Parent $PSScriptRoot
 Set-Location $repo
 $log = "$repo\build\rerun_xip.log"
 "=== XIP RERUN $(Get-Date) ===" | Out-File $log -Encoding ascii

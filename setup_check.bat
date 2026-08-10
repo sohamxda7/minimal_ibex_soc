@@ -12,17 +12,16 @@ echo  minimal-ibex-soc environment check
 echo ============================================================
 echo.
 
-rem ---- 1. Vivado ----------------------------------------------------------
-set VIVADO=
-for /d %%v in ("C:\Xilinx\Vivado\*") do if exist "%%v\bin\vivado.bat" set "VIVADO=%%v\bin\vivado.bat"
-for /d %%v in ("C:\AMD\Vivado\*")    do if exist "%%v\bin\vivado.bat" set "VIVADO=%%v\bin\vivado.bat"
-for /d %%v in ("C:\AMD\*")           do if exist "%%v\Vivado\bin\vivado.bat" set "VIVADO=%%v\Vivado\bin\vivado.bat"
-if defined VIVADO (
-    echo [OK]   Vivado:            !VIVADO!
+rem ---- 1. Vivado + RISC-V GCC via the shared locator ----------------------
+rem (.toolpaths -> env -> PATH -> all-drive scan -> ask-and-save)
+call "%~dp0scripts\find_tools.cmd" all
+if defined VIVADO_BAT (
+    echo [OK]   Vivado:            !VIVADO_BAT!
 ) else (
-    echo [FAIL] Vivado not found under C:\Xilinx or C:\AMD.
+    echo [FAIL] Vivado not found anywhere ^(PATH, all drives^) and no path given.
     echo        Install Vivado ML Standard ^(free^) with Artix-7 support and
-    echo        cable drivers. See docs/WALKTHROUGH.md section 2.
+    echo        cable drivers ^(docs/WALKTHROUGH.md section 2^), or re-run this
+    echo        script and type the install dir when asked.
     set FAIL=1
 )
 
@@ -37,14 +36,13 @@ if not errorlevel 1 (
 )
 
 rem ---- 3. RISC-V GCC (needed only for FreeRTOS / C firmware) --------------
-if not defined RISCV_GCC_HOME set "RISCV_GCC_HOME=C:\FPGA\zephyr-sdk\gnu\riscv64-zephyr-elf"
-if exist "%RISCV_GCC_HOME%\bin\riscv64-zephyr-elf-gcc.exe" (
+if defined RISCV_GCC_HOME (
     echo [OK]   RISC-V GCC:        %RISCV_GCC_HOME%\bin
 ) else (
-    echo [WARN] RISC-V GCC not found at %RISCV_GCC_HOME%\bin
+    echo [WARN] RISC-V GCC not found ^(PATH, zephyr-sdk locations on all drives^).
     echo        Only needed for FreeRTOS/C firmware ^(the asm demo needs no
-    echo        toolchain^). Install per docs/FREERTOS_PORT.md, or set the
-    echo        RISCV_GCC_HOME environment variable to your install.
+    echo        toolchain^). Install per docs/FREERTOS_PORT.md, or run
+    echo        sw\freertos\build.bat which will ask for the path and save it.
 )
 
 rem ---- 4. Git -------------------------------------------------------------

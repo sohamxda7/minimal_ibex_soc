@@ -1,18 +1,12 @@
 @echo off
 rem Builds the Arty A7 bitstream with plain Vivado (no FuseSoC needed).
 setlocal
-set VIVADO=
-for /d %%v in ("C:\Xilinx\Vivado\*") do (
-    if exist "%%v\bin\vivado.bat" set "VIVADO=%%v\bin\vivado.bat"
-)
-for /d %%v in ("C:\AMD\Vivado\*") do (
-    if exist "%%v\bin\vivado.bat" set "VIVADO=%%v\bin\vivado.bat"
-)
-for /d %%v in ("C:\AMD\*") do (
-    if exist "%%v\Vivado\bin\vivado.bat" set "VIVADO=%%v\Vivado\bin\vivado.bat"
-)
+rem Locate Vivado dynamically: saved .toolpaths -> env -> PATH -> all-drive
+rem scan -> ask-and-save. Shared logic: scripts\find_tools.cmd
+call "%~dp0scripts\find_tools.cmd" vivado
+set "VIVADO=%VIVADO_BAT%"
 if "%VIVADO%"=="" (
-    echo ERROR: Vivado not found under C:\Xilinx or C:\AMD. Edit this file.
+    echo ERROR: Vivado not found - run setup_check.bat once to set it up.
     pause
     exit /b 1
 )

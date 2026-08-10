@@ -1,8 +1,9 @@
 # Compile all RTL + testbenches for xsim. Mirrors the known-good launch
 # pattern (detached powershell) from the bring-up regressions.
 $ErrorActionPreference = "Continue"
-$viv  = "C:\AMD\2026.1\Vivado\bin"
-$repo = "C:\FPGA\minimal-ibex-soc"
+. "$PSScriptRoot\find_vivado.ps1"
+$viv  = Find-VivadoBin
+$repo = Split-Path -Parent $PSScriptRoot
 Set-Location $repo
 New-Item -ItemType Directory -Force "$repo\build" | Out-Null
 $log = "$repo\build\compile_sims.log"

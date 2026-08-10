@@ -41,9 +41,12 @@ Artix-7 support + cable drivers) and Python 3. No FuseSoC needed; the demo
 program needs no RISC-V toolchain (Python mini-assembler); FreeRTOS builds
 with the RISC-V GCC from a Zephyr SDK install (see FREERTOS_PORT.md).
 
-**One-click scripts** (double-click from the repo root; each auto-detects
-Vivado under `C:\Xilinx`/`C:\AMD` and tells you what to fix if something
-is missing):
+**One-click scripts** (double-click from the repo root). Every script finds
+its tools dynamically through a shared locator (`scripts/find_tools.cmd`):
+saved answers (`.toolpaths`) → environment variables → the PATH → common
+install roots on **every drive** → and if all that fails it **asks you for
+the install directory once and remembers it** (per-PC `.toolpaths` file,
+gitignored). Nothing is hard-coded; no drive letter is assumed:
 
 | Script | One click does | Needs board? |
 |---|---|---|

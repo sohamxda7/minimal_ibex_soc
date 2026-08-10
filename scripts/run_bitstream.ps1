@@ -1,7 +1,8 @@
 # Bitstream build (8 KiB SRAM + QSPI XIP wiring + STARTUPE2).
 $ErrorActionPreference = "Continue"
-$viv  = "C:\AMD\2026.1\Vivado\bin"
-$repo = "C:\FPGA\minimal-ibex-soc"
+. "$PSScriptRoot\find_vivado.ps1"
+$viv  = Find-VivadoBin
+$repo = Split-Path -Parent $PSScriptRoot
 Set-Location $repo
 $log = "$repo\build\bitstream_run.log"
 "=== BITSTREAM $(Get-Date) ===" | Out-File $log -Encoding ascii
