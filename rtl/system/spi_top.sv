@@ -31,6 +31,11 @@ module spi_top #(
 
   localparam logic [RegAddr-1:0] SpiTxReg     = RegAddr'('h0);
   localparam logic [RegAddr-1:0] SpiStatusReg = RegAddr'('h4);
+  // RX register (v1.1, for read-capable SPI devices: PSRAM, ADC).
+  // [7:0]  = current receive shift register (stable once the bus is idle)
+  // [15:8] = byte-boundary sequence counter (increments per completed byte;
+  //          lets software pace multi-byte reads without a busy flag)
+  localparam logic [RegAddr-1:0] SpiRxReg     = RegAddr'('h8);
 
   logic [RegAddr-1:0] reg_addr;
 
@@ -69,14 +74,29 @@ module spi_top #(
   assign tx_fifo_wvalid = (device_req_i & (reg_addr == SpiTxReg) & device_we_i & device_be_i[0]);
 
   assign read_status_d = (device_req_i & (reg_addr == SpiStatusReg) & ~device_we_i);
+
+  // RX read path (v1.1)
+  logic       read_rx_q, read_rx_d;
+  logic [7:0] rx_seq_q;
+  assign read_rx_d = (device_req_i & (reg_addr == SpiRxReg) & ~device_we_i);
+
   always_ff @(posedge clk_i or negedge rst_ni) begin
     if (!rst_ni) begin
       read_status_q  <= 0;
+      read_rx_q      <= 0;
+      rx_seq_q       <= '0;
     end else begin
       read_status_q  <= read_status_d;
+      read_rx_q      <= read_rx_d;
+      // tx_fifo_rready pulses once per byte boundary
+      if (tx_fifo_rready) rx_seq_q <= rx_seq_q + 8'd1;
     end
   end
-  assign device_rdata_o = read_status_q ? {(DataWidth-2)'('0), tx_fifo_empty, tx_fifo_full} : DataWidth'('0);
+
+  assign device_rdata_o =
+      read_status_q ? {(DataWidth-2)'('0), tx_fifo_empty, tx_fifo_full} :
+      read_rx_q     ? {(DataWidth-16)'('0), rx_seq_q, byte_data_o}      :
+                      DataWidth'('0);
 
   prim_fifo_sync #(
     .Width ( 8    ),
