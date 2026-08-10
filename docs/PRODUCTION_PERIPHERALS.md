@@ -39,7 +39,8 @@ UART1 2 · UART2 2 · JTAG 4 (TRST tied high) · XIP-SPI 4 · SPI host 3 +
 CS×2 in gp_o · I2C 2 · PWM 2 (status RGB + SPKR) · gp_o 12 (4 display ctrl,
 2 status LED, 2 CS, 3 camera ctrl, 1 spare) · gp_i 8 (camera bus) =
 **37 of 38**. One pad spare — flagged for team review at pin-plan freeze.
-(On the Arty, the same signals map to Pmods JB/JC — see `pins_artya7.xdc`.)
+(On the Arty, the same signals map to Pmods JB/JC, with the shared SPI
+MISO return on Pmod JA3 — see `pins_artya7.xdc`.)
 
 ## 2. External memory: the PSRAM (the enabler for everything below)
 

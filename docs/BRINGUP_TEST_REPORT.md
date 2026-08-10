@@ -136,7 +136,38 @@ and failed exactly as code analysis predicted (byte-swapped instruction
 fetch, phantom re-read, write hang) — three real bugs fixed pre-silicon.
 Details: commit `fix(rtl): XIP controller byte order + phantom re-read`.
 
-## 6. Not covered (future work)
+## 6. Simulation round 3 (2026-08-10) — v1.1 production peripherals
+
+Full end-to-end regression (`run_regression.bat`, log `build/regression.log`)
+on the v1.1 configuration (UART2 + SPI-RX + GPIO 16/16 + external-first
+peripherals, docs/PRODUCTION_PERIPHERALS.md). Scoreboard:
+
+| Item | Result |
+|---|---|
+| Program images (7 generators incl. periph_tests.py) | **PASS** |
+| FreeRTOS firmware build (all variants incl. new drivers) | **PASS** |
+| Full RTL + tb compile | **PASS** (0 errors) |
+| tb_soc — UART cmds, LED patterns, **RGB/PWM**, switches/buttons | **9/9 PASS** |
+| tb_lcd — ST7735 byte-exact init+draw (purchased hw #1) | **5/5 PASS** |
+| tb_i2c — register read via team BFM (purchased hw #2/#3 path) | **PASS** |
+| tb_xip — CPU executing from SPI flash | **PASS** |
+| tb_freertos — RTOS boot + scheduling over XIP | **PASS** |
+| tb_psram — external-memory write/readback via SPI RX reg (NEW) | **PASS** |
+| tb_wifi — AT→OK round trip over UART2 / ESP32 model (NEW) | **PASS** |
+| tb_audio — mic ADC ramp + speaker PWM active (NEW) | **PASS** |
+| tb_cam — camera FIFO frame readout + checksum (NEW) | **PASS** |
+| Bitstream (v1.1 pins incl. camera bus, UART2, SPI_RX) | **BUILD OK, all timing met** |
+
+First bitstream attempt failed on an unconstrained `SPI_RX` port (the
+shared MISO return only became a real pad once the RX register used it) —
+fixed by pinning it to Pmod JA3; rebuild green.
+
+Debug findings of the round (now WALKTHROUGH gotchas 19a/19b): xsim does
+not propagate edge events through bit-select port connections (camera
+testbench), and UART lines emit a glitch 0xFF frame at reset (ESP32 model
+now noise-tolerant like real AT firmware).
+
+## 7. Not covered (future work)
 
 - XIP + FreeRTOS on the physical board (bitstream + `program_flash.bat`
   ready; needs the board back on the desk)

@@ -247,3 +247,6 @@ set_property -dict { PACKAGE_PIN J17   IOSTANDARD LVCMOS33 } [get_ports { CAM_D[
 set_property -dict { PACKAGE_PIN J18   IOSTANDARD LVCMOS33 } [get_ports { CAM_D[5] }]; #Sch=jb_n[3]
 set_property -dict { PACKAGE_PIN K15   IOSTANDARD LVCMOS33 } [get_ports { CAM_D[6] }]; #Sch=jb_p[4]
 set_property -dict { PACKAGE_PIN J15   IOSTANDARD LVCMOS33 } [get_ports { CAM_D[7] }]; #Sch=jb_n[4]
+## SPI host MISO (v1.1): shared return line - PSRAM SO and mic-ADC DOUT both
+## drive it (each tri-states when its CS is high). Pmod JA pin 3.
+set_property -dict { PACKAGE_PIN A11   IOSTANDARD LVCMOS33 } [get_ports { SPI_RX }]; #Sch=ja[3]
