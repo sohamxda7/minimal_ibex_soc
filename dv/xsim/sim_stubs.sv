@@ -29,3 +29,30 @@ module BSCANE2 #(
   assign TMS     = 1'b0;
   assign UPDATE  = 1'b0;
 endmodule
+
+// STARTUPE2: 7-series configuration-logic access block. Only USRCCLKO is
+// meaningful to us (it drives the flash CCLK pin on hardware); in simulation
+// the testbench connects the XIP SCK net directly, so the stub is inert.
+module STARTUPE2 #(
+  parameter PROG_USR      = "FALSE",
+  parameter SIM_CCLK_FREQ = 0.0
+) (
+  output wire CFGCLK,
+  output wire CFGMCLK,
+  output wire EOS,
+  output wire PREQ,
+  input  wire CLK,
+  input  wire GSR,
+  input  wire GTS,
+  input  wire KEYCLEARB,
+  input  wire PACK,
+  input  wire USRCCLKO,
+  input  wire USRCCLKTS,
+  input  wire USRDONEO,
+  input  wire USRDONETS
+);
+  assign CFGCLK  = 1'b0;
+  assign CFGMCLK = 1'b0;
+  assign EOS     = 1'b1;
+  assign PREQ    = 1'b0;
+endmodule

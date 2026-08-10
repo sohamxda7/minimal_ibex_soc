@@ -4,7 +4,10 @@
 
 // This is the top level SystemVerilog file that connects the IO on the board to the Ibex Demo System.
 module top_artya7 #(
-  parameter SRAMInitFile = ""
+  parameter SRAMInitFile = "",
+  // XIP SPI clock divider: SCK = 20MHz/(2*div). The onboard S25FL128 is
+  // rated 50 MHz for cmd 0x03, so 1 (10 MHz) is safe; spec default is 4.
+  parameter int unsigned XipClkDiv = 1
 ) (
   // These inputs are defined in data/pins_artya7.xdc
   input         IO_CLK,
@@ -21,10 +24,18 @@ module top_artya7 #(
   output        SPI_SCK,
   // I2C bus on Pmod JA pins 1/2 (open-drain, internal + module pull-ups)
   inout         I2C_SCL,
-  inout         I2C_SDA
+  inout         I2C_SDA,
+  // Onboard 16 MB QSPI config flash, used single-bit for XIP.
+  // NOTE: no SCK port here — the flash clock is the FPGA's dedicated CCLK
+  // configuration pin, which user logic can only reach through the
+  // STARTUPE2 primitive below.
+  output        QSPI_CS,
+  output        QSPI_DQ0,   // MOSI
+  input         QSPI_DQ1    // MISO
 );
 
   logic clk_sys, rst_sys_n;
+  logic xip_sck;
 
   // I2C open-drain pad wiring
   logic i2c_scl_o, i2c_scl_oe, i2c_sda_o, i2c_sda_oe;
@@ -40,7 +51,8 @@ module top_artya7 #(
     .PwmWidth       ( 12          ),
     .ClockFrequency ( 20_000_000  ),
     .BaudRate       ( 115_200     ),
-    .SRAMInitFile   ( SRAMInitFile )
+    .SRAMInitFile   ( SRAMInitFile ),
+    .XipClkDiv      ( XipClkDiv   )
   ) u_ibex_demo_system (
     //input
     .clk_sys_i (clk_sys),
@@ -57,12 +69,13 @@ module top_artya7 #(
     .spi_tx_o (SPI_TX),
     .spi_sck_o(SPI_SCK),
 
-    // XIP SPI flash — not wired to board pins yet (QSPI pins are commented
-    // out in pins_artya7.xdc and the flash clock needs a STARTUPE2 macro).
-    .xip_spi_sck_o  (),
-    .xip_spi_csn_o  (),
-    .xip_spi_mosi_o (),
-    .xip_spi_miso_i (1'b0),
+    // XIP SPI flash: onboard 16 MB QSPI flash, single-bit mode.
+    // Firmware lives at flash offset 0x40_0000 (behind the bitstream),
+    // memory-mapped at 0x2040_0000. See docs/ASIC_SPEC.md section 4.
+    .xip_spi_sck_o  (xip_sck),
+    .xip_spi_csn_o  (QSPI_CS),
+    .xip_spi_mosi_o (QSPI_DQ0),
+    .xip_spi_miso_i (QSPI_DQ1),
 
     // I2C — routed to Pmod JA pins 1/2 as an open-drain bus.
     // OpenCores pad-enable is ACTIVE LOW: oe=0 -> drive (pad_o is 0),
@@ -79,6 +92,28 @@ module top_artya7 #(
     .tck_i  (1'b0),
     .td_i   (1'b0),
     .td_o   ()
+  );
+
+  // The flash SCK pin is the FPGA's dedicated CCLK configuration pin: after
+  // configuration it is only reachable through STARTUPE2.USRCCLKO. All other
+  // STARTUPE2 functions are unused/tied off per UG470.
+  STARTUPE2 #(
+    .PROG_USR      ("FALSE"),
+    .SIM_CCLK_FREQ (10.0)
+  ) u_startupe2 (
+    .CFGCLK    (),
+    .CFGMCLK   (),
+    .EOS       (),
+    .PREQ      (),
+    .CLK       (1'b0),
+    .GSR       (1'b0),
+    .GTS       (1'b0),
+    .KEYCLEARB (1'b0),
+    .PACK      (1'b0),
+    .USRCCLKO  (xip_sck),
+    .USRCCLKTS (1'b0),
+    .USRDONEO  (1'b1),
+    .USRDONETS (1'b1)
   );
 
   // Generating the system clock and reset for the FPGA.

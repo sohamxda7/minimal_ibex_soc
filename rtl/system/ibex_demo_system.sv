@@ -60,7 +60,13 @@ module ibex_demo_system #(
 
   parameter ibex_pkg::regfile_e RegFile        = ibex_pkg::RegFileFPGA,
 
-  parameter                     SRAMInitFile   = ""  // .vmem image baked into the SRAM (passed down to wrapper_top/sram_model)
+  parameter                     SRAMInitFile   = "", // .vmem image baked into the SRAM (passed down to wrapper_top/sram_model)
+
+  // SPI clock divider for the XIP flash controller: SCK = clk/(2*XipClkDiv).
+  // Spec default 4 (2.5 MHz at 20 MHz). The Arty's S25FL128 flash is rated
+  // to 50 MHz for cmd 0x03, so 1 (10 MHz) is valid on hardware and is what
+  // the FreeRTOS sim uses to keep XIP fetch time bounded.
+  parameter int unsigned        XipClkDiv      = 4
 
 ) (
 
@@ -380,7 +386,9 @@ module ibex_demo_system #(
 
     .BaudRate       (BaudRate),
 
-    .SRAMInitFile   (SRAMInitFile)
+    .SRAMInitFile   (SRAMInitFile),
+
+    .XipClkDiv      (XipClkDiv)
 
   ) u_wrapper (
 

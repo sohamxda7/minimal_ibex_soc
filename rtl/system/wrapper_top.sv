@@ -51,7 +51,9 @@ module wrapper_top #(
   // SRAM initialisation image (.vmem). On FPGA this is what puts the
   // program into the bitstream — without it the CPU jumps into empty
   // SRAM and crash-loops (the "glitching" seen on the board).
-  parameter              SRAMInitFile    = ""
+  parameter              SRAMInitFile    = "",
+
+  parameter int unsigned XipClkDiv       = 4   // XIP SPI SCK = clk/(2*XipClkDiv)
 
 ) (
 
@@ -1189,7 +1191,7 @@ spi_flash_xip #(
 
     .DW(DW),
 
-    .CLK_DIV(4)
+    .CLK_DIV(XipClkDiv)
 
 ) u_spi_flash_xip (
 
