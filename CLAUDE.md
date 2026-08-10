@@ -312,6 +312,10 @@ docs/ASIC_SPEC.md section 3.
   -tclargs sw/asm-demo/xip_stub.vmem`, then `sw\freertos\build.bat`, then
   `program_flash.bat` (PuTTY 115200: banner + tick lines + walking LEDs).
   Record results in BRINGUP_TEST_REPORT section 5.
+- Procurement: batch-1 parts (~Rs 4,550) in transit; batch-2 v1.1 parts
+  (~Rs 1,800: ESP32, PSRAM, OV7670-FIFO, mic chain, speaker chain) mail
+  PREPARED and handed to Soham 2026-08-10 (Outlook clipboard flow);
+  awaiting order confirmation. Camera MUST be the AL422B-FIFO variant.
 - Parts arrive -> wire per docs/TOY_INTERFACING.md tables, flash the
   `build.bat toy` firmware; solder guidance promised for BME280/OLED
   headers ("ping me before you start").
