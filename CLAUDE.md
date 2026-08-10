@@ -33,6 +33,22 @@ FPGA validation must run the silicon configuration or it isn't validation.
 
 ## 2. Rules of engagement (learned & agreed with Soham)
 
+0. **THE ASIC IS THE PRODUCT — the FPGA is never a demo platform.**
+   (Soham, 2026-08-10: "we are not doing demo in FPGA, this is for real
+   deal.") The Arty exists ONLY to validate the exact silicon
+   configuration before tapeout. Consequences, applied to every proposal:
+   - No FPGA-only features. If it cannot run on the fabricated chip
+     (8 KiB SRAM, 38 Caravel pins, 20 MHz, no BRAM/DDR3), it is out of
+     scope until the team formally re-scopes the chip itself.
+   - Zephyr / dev-RAM / DDR3-MIG / camera / audio-streaming class ideas
+     all fail that test on this tapeout - do not build them; surface a
+     chip-v2 requirements note instead.
+   - FreeRTOS stays: it is the RTOS that runs on the silicon (XIP +
+     8 KiB), which is why the spec names it.
+   - Any capability request gets evaluated as "does this fit the chip's
+     area/pin/RAM budget?" FIRST (docs/ASIC_SPEC.md), and chip changes
+     (e.g. a second UART for an ESP32 companion) go to the team for
+     sign-off before RTL.
 1. **Simulation before hardware, always.** Nothing gets flashed that didn't
    pass an xsim testbench first. This has worked every single time.
 2. **Ask before**: pushing to team/upstream repos, force-pushes, deleting

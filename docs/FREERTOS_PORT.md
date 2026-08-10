@@ -1,7 +1,10 @@
 # FreeRTOS Port — ASIC-Representative Firmware
 
-**Why FreeRTOS:** the ASIC spec ([ASIC_SPEC.md](ASIC_SPEC.md)) caps on-chip
-SRAM at 8 KiB and names FreeRTOS as the XIP payload. FreeRTOS is a scheduler
+**Why FreeRTOS (and why this is settled):** the ASIC spec
+([ASIC_SPEC.md](ASIC_SPEC.md)) caps on-chip SRAM at 8 KiB and names FreeRTOS
+as the XIP payload. Project doctrine (2026-08-10): the ASIC is the product
+and the FPGA is only its validation vehicle - so the RTOS of record is the
+one that runs on the silicon. That is FreeRTOS. FreeRTOS is a scheduler
 plus queues/semaphores — no device-tree, no driver model — and runs in ~3–4 KiB
 of RAM. (The earlier Zephyr port targeted the 128 KiB dev configuration and was
 removed; decision trail in [ZEPHYR_DECISION.md](ZEPHYR_DECISION.md).)

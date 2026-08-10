@@ -177,6 +177,16 @@ lifecycle, alert handler, entropy) was deliberately removed — ~271 kGE saved.
 
 ## 9. What this spec means for work in this repo
 
+0. **The ASIC is the product; the FPGA is only its validation vehicle**
+   (team direction, 2026-08-10 - "not doing demo in FPGA, this is for
+   real deal"). Every proposed feature is judged against the CHIP's
+   area/pin/RAM budget in this document before any RTL is written.
+   FPGA-only capabilities are not built. Capability ceiling of this
+   silicon, for the record: sensors/display/UART/I2C/SPI/PWM and
+   basic internet via an external ESP32 over a (proposed) second UART
+   are IN reach; Zephyr, cameras (one QVGA frame = 18x total chip RAM,
+   +12 pins over budget), and audio streaming are NOT - those need a
+   chip v2.
 1. **SRAM = 8 KiB default** in RTL parameters; the 128 KiB configuration is
    history (it validated the fabric but is not silicon-representative).
 2. **Firmware model = XIP**: code in SPI flash at `0x2000_0000`, data/stack in

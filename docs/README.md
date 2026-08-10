@@ -22,6 +22,14 @@ System clock **20 MHz** (the ASIC target; the FPGA PLL divides the board's
 100 MHz down to match). RTOS: **FreeRTOS**, executing in place from the
 onboard 16 MB QSPI flash.
 
+> **Project doctrine — the ASIC is the product.** The FPGA board is strictly
+> the pre-silicon validation vehicle, never a demo or dev platform. Nothing
+> gets built here unless it runs (or is destined to run) on the fabricated
+> chip: 8 KiB SRAM, 38 Caravel pins, 20 MHz, no BRAM, no DDR3. Features that
+> cannot fit that budget (Zephyr, cameras, audio streaming, big-RAM network
+> stacks) are out of scope unless the team re-scopes the silicon itself —
+> see [ASIC_SPEC.md](ASIC_SPEC.md) section 9.
+
 ---
 
 ## 1. Where to start

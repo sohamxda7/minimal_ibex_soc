@@ -105,6 +105,11 @@ hard-capped at 8 KiB by the area budget.
   FreeRTOS explicitly. Port done, boots in full-SoC sim over XIP
   ([FREERTOS_PORT.md](FREERTOS_PORT.md)); Zephyr work preserved in git
   history + superseded decision docs.
+- **Doctrine set (2026-08-10)**: the ASIC is the product; the FPGA is
+  strictly the pre-silicon validation vehicle ("not doing demo in FPGA").
+  A proposed Zephyr-on-dev-RAM / camera / audio direction was evaluated
+  against the chip budget and correctly rejected on those grounds -
+  capability analysis recorded in ASIC_SPEC.md section 9.
 - **Flagged, not changed**: SRAM base and the PWM block (absent from the
   spec) were raised with the team. Both now **resolved (2026-08-10)**:
   SRAM base confirmed at our 0x0010_2000; PWM stays in BOTH FPGA and ASIC
