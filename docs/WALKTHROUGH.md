@@ -129,6 +129,9 @@ minutes of wall clock (~6 ms of simulated time).
 | `sw/freertos/build.bat` | Builds FreeRTOS firmware (variants: default / `sim` / `toy`) with the Zephyr-SDK GCC | `swreertosuild.bat toy` | Outputs `.bin` (for flash) + `_flash.vmem` (for sim). RAM budget printed at the end - keep data+bss+heap inside 8 KiB |
 | `sw/asm-demo/xip_test.py` | Generates the XIP boot trampoline (`xip_stub.vmem`) + the XIP proof program | `python xip_test.py` | The trampoline is the SRAM image for ANY XIP firmware build |
 | `scripts/*.ps1` | Detached-launch compile/sim/bitstream runners (write ASCII logs under `build/`) | `Start-Process powershell -File scripts\compile_sims.ps1` | See gotcha 16 - EDA tools hang if launched with piped stdio |
+| `setup_check.bat` | Environment doctor: Vivado/Python/GCC/git/repo-path checks with fix hints; read-only | double-click, first thing on a new PC | The [WARN] on RISC-V GCC is fine unless you build FreeRTOS/C firmware |
+| `run_regression.bat` -> `scripts/run_regression.ps1` | The whole test suite in one click: images, FreeRTOS build, compile, 5 sims, bitstream, timing, scoreboard | double-click (~45-60 min) | Sequential on purpose - concurrent xelab+vivado has killed 16 GB machines. Log: `build\regression.log`, exit code 0 = all green |
+| `flash_freertos.bat` | Firmware -> XIP-boot bitstream -> QSPI flash, end to end; `toy` arg adds the LCD/sensor task | double-click with board attached | Persists across power-cycles (unlike JTAG). Press PROG after; expect the FreeRTOS banner at 115200 |
 
 ## 8. Gotchas — the complete list
 

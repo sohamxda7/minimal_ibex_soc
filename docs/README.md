@@ -41,9 +41,24 @@ Artix-7 support + cable drivers) and Python 3. No FuseSoC needed; the demo
 program needs no RISC-V toolchain (Python mini-assembler); FreeRTOS builds
 with the RISC-V GCC from a Zephyr SDK install (see FREERTOS_PORT.md).
 
+**One-click scripts** (double-click from the repo root; each auto-detects
+Vivado under `C:\Xilinx`/`C:\AMD` and tells you what to fix if something
+is missing):
+
+| Script | One click does | Needs board? |
+|---|---|---|
+| `setup_check.bat` | **Run this first.** Environment doctor: verifies Vivado, Python, RISC-V GCC, git, repo location; changes nothing; prints fixes | no |
+| `build_fpga.bat` | Synthesise the bitstream with the demo program baked in (~15 min) | no |
+| `program_fpga.bat` | Load the bitstream over USB-JTAG (volatile — lost at power-cycle) | yes |
+| `run_regression.bat` | The **entire test suite**: regenerate images, build FreeRTOS, compile, all 5 simulations, bitstream + timing, PASS/FAIL scoreboard (~45–60 min, `build\regression.log`) | no |
+| `flash_freertos.bat` | **FreeRTOS to the board, end to end**: firmware → XIP-boot bitstream → QSPI flash (survives power-cycle). `toy` argument adds the LCD/sensor task | yes |
+| `program_flash.bat` | Just the flash-programming step (any firmware .bin) | yes |
+| `sw\freertos\build.bat` | Just the firmware (`sim`/`toy` variants); honours `RISCV_GCC_HOME` | no |
+
 ```
 git clone git@github.com:sohamxda7/minimal_ibex_soc.git
 cd minimal_ibex_soc
+setup_check.bat         # environment doctor - fix anything it flags
 build_fpga.bat          # synthesise -> build/fpga/top_artya7.bit  (~15 min)
 program_fpga.bat        # load onto the board over USB-JTAG (volatile)
 ```
@@ -61,9 +76,9 @@ prints an `IBEX-SOC UP <n>` heartbeat and accepts single-key commands:
 Scripted equivalent: `python util/uart_command_test.py`. Full-SoC simulation
 without hardware: [WALKTHROUGH.md](WALKTHROUGH.md) §6.
 
-FreeRTOS from flash (XIP): `build_fpga.tcl -tclargs sw/asm-demo/xip_stub.vmem`,
-then `sw\freertos\build.bat`, then `program_flash.bat` — details in
-[FREERTOS_PORT.md](FREERTOS_PORT.md).
+FreeRTOS from flash (XIP): one click — `flash_freertos.bat` (or
+`flash_freertos.bat toy` with the peripherals wired). Details and the
+manual step-by-step equivalent: [FREERTOS_PORT.md](FREERTOS_PORT.md).
 
 ## 3. Fixes we made (all confirmed by simulation, then hardware where possible)
 

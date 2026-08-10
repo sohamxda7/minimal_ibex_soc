@@ -111,6 +111,15 @@ FPGA validation must run the silicon configuration or it isn't validation.
 - **Build/run commands**: README quick start; FreeRTOS in
   docs/FREERTOS_PORT.md; sim flow in docs/FPGA_BRINGUP.md; gotchas in
   docs/WALKTHROUGH.md section 8.
+- **One-click scripts (repo root, all Vivado auto-detecting)**:
+  `setup_check.bat` (environment doctor, run first on any new PC),
+  `build_fpga.bat`, `program_fpga.bat` (JTAG, volatile),
+  `run_regression.bat` (full suite: images + FreeRTOS build + compile +
+  5 sims + bitstream + scoreboard, exit 0 = green),
+  `flash_freertos.bat [toy]` (firmware -> XIP bitstream -> QSPI flash,
+  persistent), `program_flash.bat`, `sw\freertos\build.bat`
+  (honours RISCV_GCC_HOME). Keep this inventory current when adding
+  scripts, and give every new script a WALKTHROUGH.md table row.
 
 ## 4. Findings Log (chronological, condensed)
 

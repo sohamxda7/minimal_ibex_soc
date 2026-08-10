@@ -11,9 +11,17 @@ rem   build.bat sim       simulation image (-DSIM_BUILD: fast tick/delays)
 rem   build.bat toy       hardware image + toy task (LCD/BME280/OLED wired)
 rem =========================================================================
 setlocal
-set GCC=C:\FPGA\zephyr-sdk\gnu\riscv64-zephyr-elf\bin\riscv64-zephyr-elf-gcc.exe
-set OBJCOPY=C:\FPGA\zephyr-sdk\gnu\riscv64-zephyr-elf\bin\riscv64-zephyr-elf-objcopy.exe
-set OBJDUMP=C:\FPGA\zephyr-sdk\gnu\riscv64-zephyr-elf\bin\riscv64-zephyr-elf-objdump.exe
+rem Toolchain root is overridable: set RISCV_GCC_HOME to any bare-metal
+rem riscv64-zephyr-elf install (setup_check.bat verifies this path).
+if not defined RISCV_GCC_HOME set "RISCV_GCC_HOME=C:\FPGA\zephyr-sdk\gnu\riscv64-zephyr-elf"
+set GCC=%RISCV_GCC_HOME%\bin\riscv64-zephyr-elf-gcc.exe
+set OBJCOPY=%RISCV_GCC_HOME%\bin\riscv64-zephyr-elf-objcopy.exe
+set OBJDUMP=%RISCV_GCC_HOME%\bin\riscv64-zephyr-elf-objdump.exe
+if not exist "%GCC%" (
+    echo ERROR: RISC-V GCC not found at %GCC%
+    echo Set RISCV_GCC_HOME or install per docs\FREERTOS_PORT.md.
+    exit /b 1
+)
 set HERE=%~dp0
 set KERNEL=%HERE%..\..\vendor\freertos_kernel
 set PORT=%KERNEL%\portable\GCC\RISC-V
