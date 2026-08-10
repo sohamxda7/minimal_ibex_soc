@@ -54,6 +54,14 @@ FPGA validation must run the silicon configuration or it isn't validation.
 8. When the user pastes team code to review: review honestly, list every
    bug with reasoning, fix, and document the review (see docs/UART_CONTROL.md
    as the pattern).
+9. **Documentation layout (2026-08-10 reorganization)**: the ROOT README.md
+   is the ORIGINAL lowRISC README restored, with only a short fork banner on
+   top pointing to **docs/README.md** — that file is the fork's front door
+   (where/how to start, fixes table minus Zephyr, additions, vendored
+   patches, ASIC constraints, open questions, full doc index). The verbatim
+   upstream copy also stays at docs/UPSTREAM_README.md. Keep it this way:
+   new fork content goes in docs/, never into the root README beyond the
+   banner. Zephyr-era docs live under the index's History/archive section.
 
 ## 3. Key technical facts (verified)
 
@@ -224,7 +232,20 @@ ST7735 (no framebuffer), BME280 (32-bit-only compensation), SSD1306
 variants compile clean. Lesson reinforced: sim-first caught
 silicon-killing bugs again, before tapeout instead of after.
 
-## 5. Current status / next steps
+## 5. Open questions for the team (track until answered)
+
+1. **SRAM base address**: ASIC spec sheet says `0x0010_1000`; the repo uses
+   `0x0010_2000` (keeps the boot-ROM jump contract SRAM+0x80=0x0010_2080 and
+   every existing image). One of the two must change before tapeout RTL
+   freeze. Decision owner: DV lead / tapeout stream.
+2. **PWM block at `0x4000_0600`**: the RGB demo uses it, but it is absent
+   from the ASIC spec and its ~44 kGE budget. Keep in silicon (costs gates)
+   or make it FPGA-only? Decision owner: DV lead.
+
+Both are documented for the team in docs/README.md section 6 and
+docs/ASIC_SPEC.md section 3.
+
+## 6. Current status / next steps
 
 - **Configuration is now ASIC-representative**: 8 KiB SRAM, XIP wired to
   the onboard QSPI flash, FreeRTOS as the RTOS. Full sim regression green
