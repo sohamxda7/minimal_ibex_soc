@@ -11,9 +11,14 @@ part of every push.***
 Fork of the lowRISC Ibex Demo System, heavily modified by ARF Design:
 custom **OBI → Wishbone fabric** (2:1 arbiter → `obi2wb` → `wb_interconnect`)
 around an **Ibex RV32IMC** core. Target platforms: **Digilent Arty A7-100T**
-FPGA (bring-up/prototyping — this repo's main concern) and an ASIC
-implementation (the `DFFRAM/`, `gds.tar.gz` artifacts — not used by any
-FPGA/sim/software flow here).
+FPGA (bring-up/prototyping — this repo's main concern) and a real **ASIC
+tapeout on GF180MCU (180 nm) via the Efabless Caravel shuttle** — the team's
+spec bundle (`opentitan_minimal_guide` HTML, from Soham's Downloads) is
+digested into **docs/ASIC_SPEC.md**, the binding constraints document:
+**SRAM = 8 KiB** (Caravel area budget), code >8 KiB executes via **SPI-flash
+XIP at 0x2000_0000**, RTOS = **FreeRTOS**, 20 MHz, no PLIC (flat fast IRQs).
+FPGA validation must run the silicon configuration or it isn't validation.
+(`DFFRAM/`, `gds.tar.gz` are ASIC-side artifacts, unused by FPGA flows.)
 
 - **System clock: 20 MHz** (team/ASIC decision — never "fix" it to 50 MHz;
   the PLL was corrected TO 20 MHz on purpose).
@@ -53,29 +58,50 @@ FPGA/sim/software flow here).
 ## 3. Key technical facts (verified)
 
 - **Memory map**: Boot ROM 4 KiB @ `0x0010_0000` (NOP sled + `jal` to
-  `0x0010_2080`); SRAM **128 KiB** @ `0x0010_2000..0x0012_1FFF` (range
-  decode, NOT mask — base isn't size-aligned); UART `0x4000_0000`
-  (RX +0 / TX +4 / STATUS +8: bit0 rx_empty, bit1 tx_full); GPIO
-  `0x4000_0100` (OUT +0: gp_o[7:4]=LEDs, [3:0]=DISP_CTRL; IN-dbnc +8 =
-  {SW,BTN}); Timer `0x4000_0200` (CLINT-style mtime +0/+4, mtimecmp +8/+12);
-  I2C `0x4000_0400` (OpenCores, **not pinned out yet**); SPI host
-  `0x4000_0500`; PWM `0x4000_0600` (pwm i: +8i pulse, +8i+4 max; i%3:
-  0=Blue,1=Green,2=Red); debug module window `0x1A11_0000` (pre-WB decode).
-- **Boot contract**: everything enters at SRAM+0x80 = `0x0010_2080`
-  (asm demo via assembler base; Zephyr via DTS declaring SRAM at that
-  address). Changing this breaks boot.mem — don't.
+  `0x0010_2080`); SRAM **8 KiB** @ `0x0010_2000..0x0010_3FFF` (ASIC-spec
+  size since 2026-08-10; range decode, NOT mask — base isn't size-aligned;
+  spec sheet says base 0x0010_1000, we keep 0x0010_2000 for the boot
+  contract — flagged deviation, docs/ASIC_SPEC.md section 3); **XIP flash
+  window @ `0x2000_0000`** (read-only, cmd 0x03 single-bit SPI; firmware
+  sits at flash offset 0x40_0000 behind the bitstream = CPU address
+  `0x2040_0000`); UART `0x4000_0000` (RX +0 / TX +4 / STATUS +8: bit0
+  rx_empty, bit1 tx_full); GPIO `0x4000_0100` (OUT +0: gp_o[7:4]=LEDs,
+  [3:0]=DISP_CTRL; IN-dbnc +8 = {SW,BTN}); Timer `0x4000_0200` (CLINT-style
+  mtime +0/+4, mtimecmp +8/+12); I2C `0x4000_0400` (OpenCores, Pmod
+  JA1/JA2); SPI host `0x4000_0500`; PWM `0x4000_0600` (FPGA-only — NOT in
+  the ASIC spec, pending team decision); debug window `0x1A11_0000`.
+- **Boot contract**: everything enters at SRAM+0x80 = `0x0010_2080`.
+  For XIP firmware the SRAM image is a 2-instruction trampoline
+  (`sw/asm-demo/xip_test.py` -> xip_stub.vmem) jumping to `0x2040_0000`.
+  Changing this contract breaks boot.mem — don't.
+- **QSPI flash pins**: CS=L13, DQ0(MOSI)=K17, DQ1(MISO)=K18; **SCK has no
+  package pin** — it's the CCLK config pin, driven via STARTUPE2.USRCCLKO
+  (top_artya7.sv). XipClkDiv param: FPGA top uses 1 (10 MHz; flash rated
+  50 MHz), ASIC-spec default 4. `program_flash.bat` = bitstream+firmware
+  MCS into flash.
+- **Ibex is vectored-only** (mtvec[1:0]=01 hardwired, 256-byte aligned):
+  RTOS trap entry needs a 32-entry vector table (sw/freertos/startup.S);
+  entry 7 = machine timer, base+0 = exceptions/ecall.
 - **SPI/display pins already routed** in `data/pins_artya7.xdc`: SPI_TX=E5,
   SPI_SCK=A4, DISP_CTRL[3:0]=B7/B6/E6/A3 (ChipKit AD header pins) — used by
   the upstream ST7735 LCD demo (`sw/c/demo/lcd_st7735`).
 - **Toolchain locations on this PC**: Vivado `C:\AMD\2026.1\Vivado\bin`
-  (xvlog/xelab/xsim there too); Zephyr workspace `C:\FPGA\zephyrproject`
-  (venv: `.venv\Scripts`, activate before west); Zephyr SDK
-  `C:\FPGA\zephyr-sdk` (riscv64-zephyr-elf tools); CMake
-  `C:\Program Files\CMake\bin`; Ninja via WinGet packages dir; gh CLI
-  `C:\Program Files\GitHub CLI\gh.exe`. My shells inherit a stale PATH —
-  use full paths or prepend per-call.
-- **Build/run commands**: see README quick start + `zephyr-port/README.md`;
-  sim flow in `docs/FPGA_BRINGUP.md`; all gotchas in `docs/WALKTHROUGH.md` §8.
+  (xvlog/xelab/xsim there too); **RISC-V GCC = the Zephyr SDK's
+  `C:\FPGA\zephyr-sdk\gnu\riscv64-zephyr-elf\bin`** (the SDK stays as a
+  plain bare-metal compiler even though the Zephyr port is gone — it is
+  what `sw/freertos/build.bat` uses); CMake `C:\Program Files\CMake\bin`;
+  gh CLI `C:\Program Files\GitHub CLI\gh.exe`. My shells inherit a stale
+  PATH — use full paths or prepend per-call.
+- **CRITICAL Windows gotcha**: xvlog/xelab/xsim HANG (100% CPU, zero
+  output, forever) when launched with piped stdio from the agent's
+  Bash/PowerShell tools. Always launch via detached
+  `Start-Process powershell -File scripts\<runner>.ps1` writing an ASCII
+  log, then watch the log (`scripts/compile_sims.ps1` etc. are the
+  pattern). Related: `Out-File` defaults to UTF-16 — always
+  `-Encoding ascii` or grep-based watchers see NUL soup.
+- **Build/run commands**: README quick start; FreeRTOS in
+  docs/FREERTOS_PORT.md; sim flow in docs/FPGA_BRINGUP.md; gotchas in
+  docs/WALKTHROUGH.md section 8.
 
 ## 4. Findings Log (chronological, condensed)
 
@@ -172,11 +198,45 @@ regression (build/regression.log via scratchpad run_all_tests.ps1 pattern)
 before pushing. Note: Out-File default UTF-16 encoding corrupts grep-based
 log watchers — strip NULs or use ASCII encoding in log scripts.
 
+**2026-08-10 — ASIC spec lands; SRAM 8 KiB; XIP proven; Zephyr -> FreeRTOS**:
+Team decision: SRAM cannot grow (chip area), use the 16 MB QSPI flash via
+XIP instead. Their spec bundle (opentitan_minimal_guide) digested into
+docs/ASIC_SPEC.md — this SoC is going to GF180MCU silicon via Caravel;
+8 KiB DFFRAM is an area-budget fact (64 KiB ~ 14 mm2 > the 10.27 mm2 user
+area). Executed: (1) SRAM 15->11 addr bits + all image tooling; regression
+green on the small SRAM (SoC 9/9, LCD 5/5, I2C). (2) New tb_xip +
+behavioral SPI NOR model: CPU boots from a 2-instruction SRAM trampoline
+and runs entirely from flash — **found 3 real bugs in the team's untested
+spi_flash_xip.sv** (byte order reversed [31:24] vs [7:0]; phantom re-read
+during the ack cycle that can serve stale data to a later request; writes
+hang the bus) — all fixed, tb_xip PASS. (3) QSPI wired on the board top:
+CS=L13/DQ0=K17/DQ1=K18 + STARTUPE2 for CCLK; program_flash.tcl builds a
+bitstream+firmware MCS. (4) Zephyr port REMOVED (8 KiB is below Zephyr's
+RAM floor; supersession notices keep the decision trail; SDK kept as our
+GCC). (5) **FreeRTOS V11.2.0 ported** (vendored subset, zero kernel
+mods): vector table for Ibex's vectored-only mtvec, CLINT timer at
+0x4000_0200 matches the official port out of the box, heap in .noinit,
+~770 B data+bss + 4 KiB heap inside 8 KiB. **Boots + schedules in
+full-SoC sim over XIP** (banner ~6 ms sim, tick reports; tb_freertos).
+(6) Drivers for the purchased toys (sw/freertos/drivers/): i2c helper,
+ST7735 (no framebuffer), BME280 (32-bit-only compensation), SSD1306
+(font-from-flash); `build.bat toy` adds the demo task. All 3 firmware
+variants compile clean. Lesson reinforced: sim-first caught
+silicon-killing bugs again, before tapeout instead of after.
+
 ## 5. Current status / next steps
 
-- Bitstream with UART-command demo + 128 KiB SRAM: built, timing met —
-  **board flash pending** (board away from desk; `program_fpga.bat`).
-- Zephyr hardware run pending same: `build_fpga_zephyr.bat` → program.
-- In progress: ST7735 behavioral sim model + SPI-path asm test; I2C pin-out
-  RTL + sim; then Zephyr devicetree nodes for LCD/BME280/OLED (Phase C).
-- Waiting on: parts delivery; PR #16 review by team.
+- **Configuration is now ASIC-representative**: 8 KiB SRAM, XIP wired to
+  the onboard QSPI flash, FreeRTOS as the RTOS. Full sim regression green
+  2026-08-10 (SoC 9/9, LCD 5/5, I2C, XIP, FreeRTOS boot; bitstream — see
+  build/bitstream_run.log).
+- Board returns -> (a) `program_fpga.bat` for the asm-demo sanity check;
+  (b) FreeRTOS-from-flash run: `vivado -mode batch -source build_fpga.tcl
+  -tclargs sw/asm-demo/xip_stub.vmem`, then `sw\freertos\build.bat`, then
+  `program_flash.bat` (PuTTY 115200: banner + tick lines + walking LEDs).
+  Record results in BRINGUP_TEST_REPORT section 5.
+- Parts arrive -> wire per docs/TOY_INTERFACING.md tables, flash the
+  `build.bat toy` firmware; solder guidance promised for BME280/OLED
+  headers ("ping me before you start").
+- Open team decisions: SRAM base 0x0010_2000 vs spec 0x0010_1000; PWM
+  keep/drop for the ASIC; PR #16 review.

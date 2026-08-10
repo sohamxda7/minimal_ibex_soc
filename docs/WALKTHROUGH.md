@@ -125,6 +125,10 @@ minutes of wall clock (~6 ms of simulated time).
 | `dv/xsim/sim_stubs.sv` | Behavioural stub for the Xilinx `BSCANE2` JTAG macro | **simulation only** | Never add to a synthesis file list — Vivado supplies the real primitive |
 | `program_fpga`/`build_fpga` logs | `build\fpga\build.log`, `program.log`, timing + utilisation reports | — | First place to look when something fails |
 | `util/load_demo_system.sh`, `util/*openocd*` | Upstream lowRISC helpers (Linux, OpenOCD/JTAG debug) | see upstream README below the divider | Untested in this Windows flow |
+| `program_flash.bat` -> `program_flash.tcl` | Combines bitstream + **XIP firmware** into one MCS and programs the onboard QSPI flash | `program_flash.bat [firmware.bin]` | Needed whenever XIP firmware changes; JTAG `program_fpga.bat` is faster for bitstream-only. Press PROG after |
+| `sw/freertos/build.bat` | Builds FreeRTOS firmware (variants: default / `sim` / `toy`) with the Zephyr-SDK GCC | `swreertosuild.bat toy` | Outputs `.bin` (for flash) + `_flash.vmem` (for sim). RAM budget printed at the end - keep data+bss+heap inside 8 KiB |
+| `sw/asm-demo/xip_test.py` | Generates the XIP boot trampoline (`xip_stub.vmem`) + the XIP proof program | `python xip_test.py` | The trampoline is the SRAM image for ANY XIP firmware build |
+| `scripts/*.ps1` | Detached-launch compile/sim/bitstream runners (write ASCII logs under `build/`) | `Start-Process powershell -File scripts\compile_sims.ps1` | See gotcha 16 - EDA tools hang if launched with piped stdio |
 
 ## 8. Gotchas — the complete list
 
@@ -143,6 +147,10 @@ minutes of wall clock (~6 ms of simulated time).
 13. **Editing LED patterns in C**: only `gp_o[7:4]` are LEDs on Arty; `gp_o[3:0]` go to the DISP/LCD lines.
 14. **Simulating after `git clean` / fresh clone** → recompile everything with the full `xvlog -f` command first; `xelab` alone can't find modules if `xsim.dir` was deleted.
 15. **A7-35T vs A7-100T** → one-line part change in `build_fpga.tcl` (see §3).
+16. **xvlog/xelab/xsim hang forever (100% CPU, empty log)** when launched with piped/captured stdio from automation (agent shells, some CI wrappers) → launch DETACHED: `Start-Process powershell -File scripts\<runner>.ps1`, write progress to an ASCII log, watch the log. The `scripts/` runners are the pattern.
+17. **`Out-File` writes UTF-16 by default** → grep/`Select-String` watchers see NUL-riddled text and never match; always pass `-Encoding ascii` in log-writing scripts.
+18. **Programs bigger than 8 KiB don't fit SRAM anymore** (ASIC spec) → that's what XIP is for: link against `sw/freertos/link_xip.ld`, put the firmware at flash offset 0x40_0000 (`program_flash.bat`), boot via the trampoline image.
+19. **XIP code runs ~500x slower than SRAM code** (no ICache, 128 sysclks per fetch at XipClkDiv=1) → keep tick rates coarse (20 Hz), avoid busy-wait loops in flash-resident code, and don't "fix" the slowness by raising the SPI clock past the flash's 50 MHz cmd-0x03 rating.
 
 ## 9. Where to read more
 

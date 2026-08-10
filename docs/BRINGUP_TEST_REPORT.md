@@ -110,14 +110,31 @@ and lands wherever the cursor happens to be, interleaved with the
 asynchronous `IBEX-SOC UP <n>` heartbeat. This interleaving is normal and
 expected; it is not corruption.
 
-## 5. Not covered (future work)
+## 5. Simulation round 2 (2026-08-10) — ASIC-spec configuration
 
-- SPI-flash XIP execute-in-place (controller in fabric, no board pins wired;
-  needs `STARTUPE2` for the flash clock + un-commenting QSPI pins in the XDC)
-- I2C master on real pins (no pins assigned yet)
+All reruns on the **8 KiB SRAM** configuration mandated by the tapeout spec
+([ASIC_SPEC.md](ASIC_SPEC.md)); logs in `build/*.log`.
+
+| Test | Bench | Result |
+|---|---|---|
+| SoC demo (UART cmds, patterns, GPIO) | tb_soc | **9/9 PASS** |
+| ST7735 LCD byte-exact init+draw | tb_lcd | **5/5 PASS** |
+| I2C master <-> slave BFM register read | tb_i2c | **PASS** |
+| **XIP: CPU executes from SPI flash** | tb_xip (new) | **PASS** (after 3 controller fixes) |
+| **FreeRTOS boots + schedules over XIP** | tb_freertos (new) | **PASS** (banner @~6 ms sim, 2 tick reports; one benign xsim `Multiple conditions true` unique-case warning during the tick trap, pre-existing RTL) |
+| Bitstream (8 KiB + QSPI/STARTUPE2 wiring) | build_fpga.tcl | see build log / timing summary |
+
+The XIP run first executed against the team's untested `spi_flash_xip.sv`
+and failed exactly as code analysis predicted (byte-swapped instruction
+fetch, phantom re-read, write hang) — three real bugs fixed pre-silicon.
+Details: commit `fix(rtl): XIP controller byte order + phantom re-read`.
+
+## 6. Not covered (future work)
+
+- XIP + FreeRTOS on the physical board (bitstream + `program_flash.bat`
+  ready; needs the board back on the desk)
+- I2C devices + LCD on real pins (parts on order)
 - JTAG debug via OpenOCD (dm_top synthesises with the BSCANE2 tap; not exercised)
-- Running compiled C software (needs a riscv32 GCC toolchain; flow documented
-  in FPGA_BRINGUP.md "Swapping in real C software")
 
 ## Verdict
 

@@ -86,6 +86,28 @@ Simulation: all checks PASS. Hardware: programmed on first attempt —
 mirrored on button hold, RGB breathing smoothly. Evidence in
 [BRINGUP_TEST_REPORT.md](BRINGUP_TEST_REPORT.md).
 
+## Phase 3 — ASIC spec alignment (2026-08-10)
+
+The team's tapeout guide (digested into [ASIC_SPEC.md](ASIC_SPEC.md))
+revealed the endgame: GF180MCU silicon via the Caravel shuttle, with SRAM
+hard-capped at 8 KiB by the area budget.
+
+### Decisions (with reasoning)
+
+- **SRAM back to 8 KiB** — chip-size constraint is physics, not preference:
+  64 KiB of DFFRAM alone (~14 mm²) exceeds the whole 10.27 mm² user area.
+  The FPGA now validates the exact silicon configuration.
+- **XIP from the onboard QSPI flash for anything bigger** — controller
+  existed but was untested; proven in sim (tb_xip), which exposed and fixed
+  3 real bugs (byte order, phantom re-read, write hang) before they could
+  reach silicon.
+- **Zephyr → FreeRTOS** — 8 KiB is below Zephyr's RAM floor; the spec names
+  FreeRTOS explicitly. Port done, boots in full-SoC sim over XIP
+  ([FREERTOS_PORT.md](FREERTOS_PORT.md)); Zephyr work preserved in git
+  history + superseded decision docs.
+- **Flagged, not changed**: SRAM base (ours 0x0010_2000 vs spec
+  0x0010_1000) and the PWM block (absent from the spec) await team calls.
+
 ## Repository landscape after bring-up
 
 | Location | Contents |
