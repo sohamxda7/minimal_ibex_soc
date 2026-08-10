@@ -1,0 +1,3 @@
+FreeRTOS-Kernel V11.2.0 (commit 0adc196, github.com/FreeRTOS/FreeRTOS-Kernel)
+Vendored subset: kernel core + include/ + portable/GCC/RISC-V + heap_4.
+Pruned: examples, other ports, CMake glue. License: MIT (LICENSE.md).
