@@ -24,26 +24,129 @@ uint8_t ucHeap[ configTOTAL_HEAP_SIZE ]
     __attribute__( ( aligned( portBYTE_ALIGNMENT ), section( ".noinit" ) ) );
 
 #ifdef SIM_BUILD
-#define BLINKY_PERIOD_TICKS   1
 #define REPORT_PERIOD_TICKS   1
+#define RGB_PERIOD_TICKS      1
+#define STEP_FAST             1
+#define STEP_MED              2
+#define STEP_SLOW             4
 #else
-#define BLINKY_PERIOD_TICKS   pdMS_TO_TICKS( 250 )
 #define REPORT_PERIOD_TICKS   pdMS_TO_TICKS( 1000 )
+#define RGB_PERIOD_TICKS      pdMS_TO_TICKS( 50 )
+#define STEP_FAST             pdMS_TO_TICKS( 50 )    /* asm-demo speeds */
+#define STEP_MED              pdMS_TO_TICKS( 150 )
+#define STEP_SLOW             pdMS_TO_TICKS( 400 )
 #endif
 
+/* ---- unified console state (the old asm-demo command set, now in the
+ * one-and-only FreeRTOS firmware) ------------------------------------------ */
+static volatile uint8_t    g_mode = 1;              /* patterns 1..4          */
+static volatile TickType_t g_step = 0;              /* set in main            */
+static volatile int8_t     g_rgb  = -1;             /* -1 auto; 0 R,1 G,2 B,3 W */
+
+/* LED patterns on gp_o[7:4]; while any button is held, mirror the switches
+ * (SW = gp_i[7:4], BTN = gp_i[3:0], debounced register). */
 static void prvBlinkyTask( void * pvParameters )
 {
-    uint32_t ulPattern = 1;
+    uint32_t ulPat = 1, ulCnt = 0, ulNib;
 
     ( void ) pvParameters;
 
     for( ; ; )
     {
-        /* Touch only the LED nibble; bits [3:0] belong to the display. */
-        uint32_t ulOut = soc_read32( GPIO_OUT_REG ) & ~GPIO_LED_MASK;
-        soc_write32( GPIO_OUT_REG, ulOut | ( ( ulPattern & 0xFu ) << GPIO_LED_SHIFT ) );
-        ulPattern = ( ulPattern << 1 ) | ( ulPattern >> 3 ); /* rotate 4-bit */
-        vTaskDelay( BLINKY_PERIOD_TICKS );
+        uint32_t ulIn = soc_read32( GPIO_IN_DBNC_REG );
+
+        if( ulIn & 0x0Fu )                       /* button held: mirror SW  */
+        {
+            ulNib = ( ulIn >> 4 ) & 0xFu;
+        }
+        else
+        {
+            switch( g_mode )
+            {
+                default:
+                case 1: ulPat = ( ( ulPat << 1 ) | ( ulPat >> 3 ) ) & 0xFu;
+                        ulNib = ulPat; break;    /* walking                 */
+                case 2: ulPat = ( ~ulPat ) & 0xFu;
+                        ulNib = ulPat; break;    /* nibble flip             */
+                case 3: ulPat = ( ulPat == 0xAu ) ? 0x5u : 0xAu;
+                        ulNib = ulPat; break;    /* alternating A/5         */
+                case 4: ulCnt++; ulNib = ulCnt & 0xFu; break; /* binary     */
+            }
+        }
+
+        gpio_out_update( GPIO_LED_MASK, ulNib << GPIO_LED_SHIFT );
+        vTaskDelay( g_step );
+    }
+}
+
+/* RGB LED0 via PWM ch0..2 (0=Blue 1=Green 2=Red): brightness breathes;
+ * colour auto-cycles unless forced by r/g/b/w. */
+static void prvRgbTask( void * pvParameters )
+{
+    uint32_t ulBri = 0, ulDir = 1, ulHue = 0, ulTick = 0;
+
+    ( void ) pvParameters;
+
+    for( int i = 0; i < 3; i++ )
+    {
+        soc_write32( PWM_CH_MAX( i ), 255 );
+    }
+
+    for( ; ; )
+    {
+        if( ulDir ) { ulBri += 8; if( ulBri >= 248 ) ulDir = 0; }
+        else        { ulBri -= 8; if( ulBri <= 8 )   ulDir = 1; }
+
+        if( ( g_rgb < 0 ) && ( ( ++ulTick & 0x3Fu ) == 0 ) )
+        {
+            ulHue = ( ulHue + 1 ) % 3;           /* auto colour cycle       */
+        }
+
+        for( int i = 0; i < 3; i++ )
+        {
+            uint32_t on;
+            if( g_rgb == 3 )      on = 1;                        /* white  */
+            else if( g_rgb >= 0 ) on = ( ( 2 - i ) == g_rgb );   /* forced */
+            else                  on = ( ( uint32_t ) i == ulHue );
+            soc_write32( PWM_CH_PULSE( i ), on ? ulBri : 0 );
+        }
+
+        vTaskDelay( RGB_PERIOD_TICKS );
+    }
+}
+
+/* The PuTTY command console - the asm demo's interface, verbatim:
+ * 1-4 patterns, f/m/s speed, r/g/b/w force colour, a auto, else echo. */
+static void prvConsoleTask( void * pvParameters )
+{
+    ( void ) pvParameters;
+
+    for( ; ; )
+    {
+        int c = uart_getc_nonblock();
+
+        if( c < 0 )
+        {
+            vTaskDelay( 1 );
+            continue;
+        }
+
+        switch( c )
+        {
+            case '1': case '2': case '3': case '4':
+                g_mode = ( uint8_t ) ( c - '0' ); break;
+            case 'f': g_step = STEP_FAST;   break;
+            case 'm': g_step = STEP_MED;    break;
+            case 's': g_step = STEP_SLOW;   break;
+            case 'r': g_rgb = 0;  break;
+            case 'g': g_rgb = 1;  break;
+            case 'b': g_rgb = 2;  break;
+            case 'w': g_rgb = 3;  break;
+            case 'a': g_rgb = -1; break;
+            default: break;
+        }
+
+        uart_putc( ( char ) c );                 /* echo-ack, as before     */
     }
 }
 
@@ -132,8 +235,12 @@ int main( void )
 {
     uart_puts( "FreeRTOS on Ibex (XIP, 8KiB SRAM)\r\n" );
 
+    g_step = STEP_MED;
+
     xTaskCreate( prvBlinkyTask, "blink", configMINIMAL_STACK_SIZE, NULL, 1, NULL );
-    xTaskCreate( prvReportTask, "report", 140, NULL, 2, NULL );
+    xTaskCreate( prvRgbTask, "rgb", 100, NULL, 1, NULL );
+    xTaskCreate( prvConsoleTask, "console", 120, NULL, 2, NULL );
+    xTaskCreate( prvReportTask, "report", 120, NULL, 2, NULL );
 #ifdef TOY_DEMO
     xTaskCreate( prvToyTask, "toy", 160, NULL, 1, NULL );
 #endif
