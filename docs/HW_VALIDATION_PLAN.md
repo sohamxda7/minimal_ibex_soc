@@ -8,20 +8,24 @@ SPI-RX, GPIO 16/16, FreeRTOS — passes **simulation only** (13/13,
 must therefore be **re-run on hardware** on the current build. Three phases,
 strictly in order; each phase's results get a dated table in the test report.
 
-Test-vehicle note: the UART command interface (patterns/speed/RGB via PuTTY)
-lives in the **asm demo** image baked into the bitstream; the FreeRTOS image
-proves boot/scheduler/blinky/tick. Phase 1 runs BOTH.
+**ONE FLOW (Soham, 2026-08-10):** the asm demo is retired as a user
+vehicle (it remains DV-internal: tb_soc + the XIP trampoline). The ONLY
+supported delivery is the non-volatile QSPI flow - `flash_freertos.bat` -
+and the unified FreeRTOS firmware now carries the full former asm-demo
+command console (1-4 patterns, f/m/s speed, r/g/b/w/a RGB, echo,
+switch-mirror-while-button-held) plus banner/tick/blinky. All Phase-1
+tests below run on that ONE image; `program_fpga.bat` is a dev-only tool.
 
 ---
 
 ## Phase 1 — base IO re-validation (needs: the board only)
 
-**1a. Asm-demo vehicle** — `build_fpga.bat` (fresh v1.1 bitstream) →
-`program_fpga.bat` → PuTTY 115200:
+**Phase 1 vehicle** — `flash_freertos.bat` (bitstream + firmware into QSPI,
+survives power-cycle) → press PROG → PuTTY 115200:
 
 | # | Test | Pass criterion | 2026-08-07 (old cfg) | v1.1 result |
 |---|---|---|---|---|
-| 1 | UART TX | `IBEX-SOC UP <n>` heartbeat | PASS | ☐ |
+| 1 | UART TX | `FreeRTOS on Ibex` banner + `tick=N` heartbeat | PASS (old cfg) | ☐ |
 | 2 | UART RX + echo | typed keys echoed | PASS | ☐ |
 | 3 | Green LEDs, patterns 1–4 | `1` `2` `3` `4` switch patterns | PASS | ☐ |
 | 4 | Speed control | `f` `m` `s` visibly change step rate | PASS | ☐ |
@@ -31,7 +35,7 @@ proves boot/scheduler/blinky/tick. Phase 1 runs BOTH.
 | 8 | Scripted sweep | `python util/uart_command_test.py` → 8/8 | 8/8 | ☐ |
 | 9 | Pmod continuity | touch-test on JA free pins (board-io-test procedure) | PASS | ☐ |
 
-**1b. FreeRTOS vehicle** — `flash_freertos.bat` → press PROG → PuTTY 115200:
+**Same image, RTOS-level checks:**
 
 | # | Test | Pass criterion | v1.1 result |
 |---|---|---|---|

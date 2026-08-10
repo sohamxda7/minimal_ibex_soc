@@ -102,10 +102,19 @@ vivado -mode batch -source build_fpga.tcl -tclargs sw/asm-demo/xip_stub.vmem
 (Flash programming script for the firmware partition: pending first board
 session — will use `write_cfgmem` to append the firmware to the bitstream MCS.)
 
-## 4. Demo application (`sw/freertos/main.c`)
+## 4. Demo application (`sw/freertos/main.c`) — THE one firmware
 
-- `blink` task (prio 1): rotates a pattern on LEDs `gp_o[7:4]`.
-- `report` task (prio 2): prints `tick=N` over UART.
+Unified 2026-08-10: the asm-demo command interface moved in here; the only
+supported delivery is `flash_freertos.bat` (non-volatile QSPI). Tasks:
+
+- `blink` (prio 1): LED patterns 1-4 on `gp_o[7:4]`; while any button is
+  held, mirrors the switches.
+- `rgb` (prio 1): RGB LED0 via PWM ch0-2 - brightness breathing, colour
+  auto-cycle or forced.
+- `console` (prio 2): PuTTY commands, same as the old asm demo -
+  `1`-`4` pattern, `f/m/s` speed (50/150/400 ms), `r/g/b/w` force colour,
+  `a` auto-cycle, all other keys echoed.
+- `report` (prio 2): prints `tick=N` over UART.
 - `toy` task (TOY_DEMO builds, prio 1): the toy-interfacing final test —
   ST7735 LCD banner over SPI, then a BME280 reading every 2 s to UART and the
   SSD1306 OLED. Needs hardware wired per

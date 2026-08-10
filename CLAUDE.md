@@ -307,6 +307,14 @@ docs/ASIC_SPEC.md section 3.
   the onboard QSPI flash, FreeRTOS as the RTOS. Full sim regression green
   2026-08-10 (SoC 9/9, LCD 5/5, I2C, XIP, FreeRTOS boot; bitstream BUILD OK with
   all timing constraints met).
+- **ONE FLOW decision (Soham, 2026-08-10)**: user-facing delivery is
+  ONLY the non-volatile QSPI path (`flash_freertos.bat`); the unified
+  FreeRTOS firmware absorbed the asm-demo console (patterns/speed/RGB/
+  echo/switch-mirror as tasks in main.c). The asm demo + program_fpga
+  (JTAG) remain DV/dev-internal only - do not present them as user
+  flows. Default bitstream SRAM init = xip_stub.vmem (every bitstream
+  boots FreeRTOS from flash). Rationale: FreeRTOS cannot fit in 8 KiB
+  SRAM, so a truly volatile FreeRTOS load is physically impossible.
 - **Hardware re-validation is phased and OWED**: the 2026-08-07 board
   pass was the OLD config; every base IO test (LEDs, RGB, buttons,
   switches, UART, Pmod, PuTTY RGB commands) must be RE-RUN on v1.1 -
