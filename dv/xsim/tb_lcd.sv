@@ -30,8 +30,8 @@ module tb_lcd;
     rst_n = 1'b1;
   end
 
-  logic [7:0] gp_i = 8'h00;
-  wire  [7:0] gp_o;
+  logic [15:0] gp_i = 16'h0000;
+  wire  [15:0] gp_o;
   wire [11:0] pwm;
   wire        uart_tx;
   wire        spi_tx, spi_sck;
@@ -43,8 +43,8 @@ module tb_lcd;
   wire lcd_bl  = gp_o[3];
 
   ibex_demo_system #(
-    .GpiWidth       (8),
-    .GpoWidth       (8),
+    .GpiWidth       (16),
+    .GpoWidth       (16),
     .PwmWidth       (12),
     .ClockFrequency (20_000_000),
     .BaudRate       (2_000_000),
@@ -57,6 +57,8 @@ module tb_lcd;
     .pwm_o      (pwm),
     .uart_rx_i  (1'b1),
     .uart_tx_o  (uart_tx),
+    .uart2_rx_i (1'b1),
+    .uart2_tx_o (),
     .spi_rx_i   (1'b0),
     .spi_tx_o   (spi_tx),
     .spi_sck_o  (spi_sck),

@@ -33,15 +33,15 @@ module tb_soc;
   localparam int unsigned SimBaud = 2_000_000;
   localparam int unsigned BitNs   = 500;
 
-  logic [7:0] gp_i = 8'h00;
-  wire  [7:0] gp_o;
+  logic [15:0] gp_i = 16'h0000;
+  wire  [15:0] gp_o;
   wire [11:0] pwm;
   wire        uart_tx;
   logic       uart_rx = 1'b1;
 
   ibex_demo_system #(
-    .GpiWidth       (8),
-    .GpoWidth       (8),
+    .GpiWidth       (16),
+    .GpoWidth       (16),
     .PwmWidth       (12),
     .ClockFrequency (20_000_000),
     .BaudRate       (SimBaud),
@@ -54,6 +54,8 @@ module tb_soc;
     .pwm_o      (pwm),
     .uart_rx_i  (uart_rx),
     .uart_tx_o  (uart_tx),
+    .uart2_rx_i (1'b1),
+    .uart2_tx_o (),
     .spi_rx_i   (1'b0),
     .spi_tx_o   (),
     .spi_sck_o  (),

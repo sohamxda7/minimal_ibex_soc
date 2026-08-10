@@ -31,11 +31,41 @@ module top_artya7 #(
   // STARTUPE2 primitive below.
   output        QSPI_CS,
   output        QSPI_DQ0,   // MOSI
-  input         QSPI_DQ1    // MISO
+  input         QSPI_DQ1,   // MISO
+  // v1.1 production peripherals (docs/PRODUCTION_PERIPHERALS.md):
+  // ESP32 companion UART (WiFi/TCP-IP offload) - Pmod JC1/JC2
+  output        UART2_TX,
+  input         UART2_RX,
+  // Chip selects for external SPI devices sharing the SPI host bus
+  output        PSRAM_CS,   // APS6404 8MB PSRAM   - Pmod JC3
+  output        ADC_CS,     // MCP3202 mic ADC     - Pmod JC4
+  // OV7670-FIFO camera: control on JC, 8-bit data bus on Pmod JB
+  output        CAM_WEN,    // FIFO write enable   - Pmod JC7
+  output        CAM_RRST,   // FIFO read reset     - Pmod JC8
+  output        CAM_RCLK,   // FIFO read clock     - Pmod JC9
+  input  [7:0]  CAM_D,      // FIFO data out       - Pmod JB
+  // Speaker: PWM channel 3 through an external amplifier - Pmod JC10
+  output        SPKR
 );
 
   logic clk_sys, rst_sys_n;
   logic xip_sck;
+  logic [15:0] gp_out;
+  logic [11:0] pwm_out;
+
+  // GPO map (v1.1): [3:0] DISP_CTRL, [7:4] LED, [8] PSRAM_CS, [9] ADC_CS,
+  // [10] CAM_WEN, [11] CAM_RRST, [12] CAM_RCLK, [15:13] spare.
+  // CS lines idle high: board pull-ups cover the reset window, software
+  // drives them high first thing (drivers do read-modify-write only).
+  assign DISP_CTRL = gp_out[3:0];
+  assign LED       = gp_out[7:4];
+  assign PSRAM_CS  = gp_out[8];
+  assign ADC_CS    = gp_out[9];
+  assign CAM_WEN   = gp_out[10];
+  assign CAM_RRST  = gp_out[11];
+  assign CAM_RCLK  = gp_out[12];
+  assign SPKR      = pwm_out[3];   // PWM ch3 = speaker (chip pin plan: dedicated pad)
+  assign RGB_LED   = pwm_out;
 
   // I2C open-drain pad wiring
   logic i2c_scl_o, i2c_scl_oe, i2c_sda_o, i2c_sda_oe;
@@ -46,8 +76,8 @@ module top_artya7 #(
   // ClockFrequency MUST match what clkgen_xil7series produces (20 MHz — the
   // PLL divide was corrected from 50 MHz) or the UART baud will be wrong.
   ibex_demo_system #(
-    .GpiWidth       ( 8           ),
-    .GpoWidth       ( 8           ),
+    .GpiWidth       ( 16          ),
+    .GpoWidth       ( 16          ),
     .PwmWidth       ( 12          ),
     .ClockFrequency ( 20_000_000  ),
     .BaudRate       ( 115_200     ),
@@ -57,13 +87,16 @@ module top_artya7 #(
     //input
     .clk_sys_i (clk_sys),
     .rst_sys_ni(rst_sys_n),
-    .gp_i      ({SW, BTN}),
+    .gp_i      ({CAM_D, SW, BTN}),
     .uart_rx_i (UART_RX),
 
     //output
-    .gp_o     ({LED, DISP_CTRL}),
-    .pwm_o    (RGB_LED),
+    .gp_o     (gp_out),
+    .pwm_o    (pwm_out),
     .uart_tx_o(UART_TX),
+
+    .uart2_rx_i(UART2_RX),
+    .uart2_tx_o(UART2_TX),
 
     .spi_rx_i (SPI_RX),
     .spi_tx_o (SPI_TX),
