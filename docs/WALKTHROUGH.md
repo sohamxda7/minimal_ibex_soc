@@ -154,6 +154,13 @@ minutes of wall clock (~6 ms of simulated time).
 16. **xvlog/xelab/xsim hang forever (100% CPU, empty log)** when launched with piped/captured stdio from automation (agent shells, some CI wrappers) → launch DETACHED: `Start-Process powershell -File scripts\<runner>.ps1`, write progress to an ASCII log, watch the log. The `scripts/` runners are the pattern.
 17. **`Out-File` writes UTF-16 by default** → grep/`Select-String` watchers see NUL-riddled text and never match; always pass `-Encoding ascii` in log-writing scripts.
 18. **Programs bigger than 8 KiB don't fit SRAM anymore** (ASIC spec) → that's what XIP is for: link against `sw/freertos/link_xip.ld`, put the firmware at flash offset 0x40_0000 (`program_flash.bat`), boot via the trampoline image.
+19a. **xsim does not reliably propagate edge events through BIT-SELECT port
+    connections** (`.rclk(gp_o[12])`): the value changes but `@(posedge ...)`
+    inside the model never fires. Route through an explicit intermediate wire
+    (`wire cam_rclk = gp_o[12];`) - cost us the camera testbench.
+19b. **UART lines glitch during reset** (one spurious low pulse -> a garbage
+    0xFF frame). Any UART-listening model/tool must tolerate line noise -
+    the ESP32 model filters non-printable bytes exactly like real AT firmware.
 19. **XIP code runs ~500x slower than SRAM code** (no ICache, 128 sysclks per fetch at XipClkDiv=1) → keep tick rates coarse (20 Hz), avoid busy-wait loops in flash-resident code, and don't "fix" the slowness by raising the SPI clock past the flash's 50 MHz cmd-0x03 rating.
 
 ## 9. Where to read more

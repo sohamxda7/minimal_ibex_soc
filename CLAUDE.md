@@ -133,6 +133,8 @@ FPGA validation must run the silicon configuration or it isn't validation.
   `.toolpaths` (per-PC saved answers, gitignored) -> env vars -> PATH ->
   common roots on ALL drives -> interactive ask-and-save (cmd only).
   NEVER hard-code an install path in a script again; extend the locators.
+- **GUI**: `control_panel.bat` -> gui/ibex_control_panel.ps1 (WinForms,
+  Windows-only per team direction; no Linux user utilities).
 - **One-click scripts (repo root, all tool-locating via the above)**:
   `setup_check.bat` (environment doctor, run first on any new PC),
   `build_fpga.bat`, `program_fpga.bat` (JTAG, volatile),
@@ -181,8 +183,8 @@ docs/UPSTREAM_README.md).
 
 **2026-08-08 — RTOS**: evaluated Zephyr/FreeRTOS/ThreadX/RT-Thread/NuttX
 against "use full board capability" (DDR3, Ethernet, QSPI roadmap).
-**Zephyr selected** (decision memo: docs/ZEPHYR_DECISION.md; plan:
-docs/RTOS_RESEARCH.md; FreeRTOS = documented contingency). Phase A: SRAM
+**Zephyr selected** (decision memo + plan docs since deleted in the
+v1.1 cleanup - git history keeps them; FreeRTOS was the contingency). Phase A: SRAM
 8→128 KiB (range decode; 32.5/135 BRAM; regression 9/9). Phase B: out-of-tree
 port `zephyr-port/` — **hello_world BOOTS in xsim** (banner + print, 5 ms sim
 time, entry exactly at boot-ROM target via DTS trick; zero RTL changes).
@@ -237,6 +239,28 @@ ibex_if_stage VERILATOR guard) if vendor/ is updated, then run the full
 regression (build/regression.log via scratchpad run_all_tests.ps1 pattern)
 before pushing. Note: Out-File default UTF-16 encoding corrupts grep-based
 log watchers — strip NULs or use ASCII encoding in log scripts.
+
+**2026-08-10 (later) — v1.1 production peripherals, external-first**:
+Team direction: WiFi/camera/mic/speaker/internet, production, all through
+EXTERNAL memory/parts, everything sim-proven and tapeout-compatible.
+Silicon additions (all small, doctrine-checked): UART2 @0x4000_0700
+(ESP32 companion = the whole internet story), SPI-host RX register
+(SPI+0x8: {seq,byte}) - the host could only transmit before, GPIO widened
+8/8 -> 16/16 (gp_o[12:8]=CS+camera ctrl, gp_i[15:8]=camera byte bus,
+read via the RAW +4 register, NOT the debounced +8). Pin plan 37/38
+Caravel pads. External: APS6404 8MB PSRAM (bulk store: frames/clips/
+buffers - the desk-vs-warehouse rule; NOT cpu/stack memory), OV7670-FIFO
+camera (snapshots only), MCP3202+MAX9814 mic, PAM8302+PWM-ch3 speaker.
+Four behavioral models (periph_models.sv) + 4 tbs + 4 asm programs;
+FreeRTOS drivers: spi_bus (bus mutex + atomic GPIO RMW), psram, esp_at,
+audio, camera. GUI control panel (WinForms) at control_panel.bat.
+Debug lessons -> gotchas 19a/19b: xsim drops edge events through
+bit-select port connections (use intermediate wires), and UART models
+must tolerate the reset-glitch 0xFF frame. Superseded RTOS docs
+(RTOS_RESEARCH, ZEPHYR_DECISION) deleted - git history keeps them;
+conclusion lives in CHIP_ROADMAP.md. New docs: PRODUCTION_PERIPHERALS.md
+(architecture/pins/BOM/ceilings), CHIP_ROADMAP.md (v1/v2/never-on-die +
+carrier board).
 
 **2026-08-10 — ASIC spec lands; SRAM 8 KiB; XIP proven; Zephyr -> FreeRTOS**:
 Team decision: SRAM cannot grow (chip area), use the 16 MB QSPI flash via

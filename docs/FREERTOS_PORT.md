@@ -6,8 +6,9 @@ as the XIP payload. Project doctrine (2026-08-10): the ASIC is the product
 and the FPGA is only its validation vehicle - so the RTOS of record is the
 one that runs on the silicon. That is FreeRTOS. FreeRTOS is a scheduler
 plus queues/semaphores — no device-tree, no driver model — and runs in ~3–4 KiB
-of RAM. (The earlier Zephyr port targeted the 128 KiB dev configuration and was
-removed; decision trail in [ZEPHYR_DECISION.md](ZEPHYR_DECISION.md).)
+of RAM. (A Zephyr port existed for the pre-spec 128 KiB dev configuration;
+removed with the 8 KiB constraint - retrievable from git history. Zephyr's
+future, if any, is a v2-chip item: [CHIP_ROADMAP.md](CHIP_ROADMAP.md).)
 
 **Kernel:** FreeRTOS-Kernel **V11.2.0** (MIT), vendored subset at
 `vendor/freertos_kernel/` (core + `include/` + `portable/GCC/RISC-V` +
@@ -118,6 +119,11 @@ session — will use `write_cfgmem` to append the firmware to the bitstream MCS.
 | `st7735.c` | SPI host | 0 | No framebuffer (40 KB doesn't exist here); streams pixels to RAMWR. Control lines on GPIO[3:0] per TOY_INTERFACING wiring |
 | `bme280.c` | I2C 0x76 | 33 B calib | Forced-mode one-shot; 32-bit-only Bosch compensation (no 64-bit math on RV32IMC) |
 | `ssd1306.c` | I2C 0x3C | 0 | Zero-framebuffer text rendering from flash-resident 5×7 font; ~21×8 chars |
+| `spi_bus.c` | — | ~80 B mutex | v1.1: shared-bus arbitration + atomic GPIO RMW + RX-paced byte primitives |
+| `psram.c` | SPI CS=gp_o[8] | 0 | v1.1: 8 MB external memory - write/read/selftest (docs/PRODUCTION_PERIPHERALS.md) |
+| `esp_at.c` | UART2 | 0 | v1.1: WiFi/internet via ESP32 AT commands; bulk upload streams from PSRAM |
+| `audio.c` | SPI + PWM ch3 | 0 | v1.1: mic sample/record + speaker play/beep, clips in PSRAM |
+| `camera.c` | GPIO + I2C | 32 B bounce | v1.1: OV7670-FIFO snapshot capture into PSRAM |
 
 Status: compile-clean in all three build variants; ST7735 protocol previously
 validated against the behavioral LCD model (tb_lcd) at the assembly level;

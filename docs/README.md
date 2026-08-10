@@ -65,6 +65,7 @@ gitignored). Nothing is hard-coded; no drive letter is assumed:
 | `flash_freertos.bat` | **FreeRTOS to the board, end to end**: firmware → XIP-boot bitstream → QSPI flash (survives power-cycle). `toy` argument adds the LCD/sensor task | yes |
 | `program_flash.bat` | Just the flash-programming step (any firmware .bin) | yes |
 | `sw\freertos\build.bat` | Just the firmware (`sim`/`toy` variants); honours `RISCV_GCC_HOME` | no |
+| `control_panel.bat` | **The Windows GUI**: buttons for everything above + firmware variants + docs + live log viewer | no |
 
 ```
 git clone git@github.com:sohamxda7/minimal_ibex_soc.git
@@ -125,6 +126,13 @@ manual step-by-step equivalent: [FREERTOS_PORT.md](FREERTOS_PORT.md).
   regression runners (`scripts/*.ps1`).
 - **Phase-1 board IO qualification project** (`board-io-test/`) with its own
   test report — the board itself is known-good.
+- **v1.1 production-peripheral stack** ([PRODUCTION_PERIPHERALS.md](PRODUCTION_PERIPHERALS.md)):
+  UART2 + SPI-RX + GPIO-16 silicon additions; external 8 MB PSRAM, ESP32
+  WiFi/internet, OV7670-FIFO camera snapshots, mic ADC + PWM speaker;
+  behavioral models + 4 dedicated testbenches; FreeRTOS drivers for all of it.
+- **A Windows GUI control panel** (`control_panel.bat`, WinForms, zero
+  dependencies) driving setup/build/program/flash/regression with live logs.""),
+(### Open questions for the team
 
 ## 5. Patches to vendored code (re-apply if `vendor/` is ever re-imported)
 
@@ -201,15 +209,19 @@ tapeout configuration.
 | [TOY_INTERFACING.md](TOY_INTERFACING.md) | Final acceptance test: LCD + I2C sensors, wiring tables, sim evidence |
 | [BRINGUP_TEST_REPORT.md](BRINGUP_TEST_REPORT.md) | All recorded results: builds, simulations, hardware tests |
 | [BRINGUP_OVERVIEW.md](BRINGUP_OVERVIEW.md) | Project narrative + decision log with reasoning |
+| [PRODUCTION_PERIPHERALS.md](PRODUCTION_PERIPHERALS.md) | **v1.1**: WiFi/camera/mic/speaker/PSRAM architecture, pin budget, BOM, sim evidence |
+| [CHIP_ROADMAP.md](CHIP_ROADMAP.md) | v1 frozen / v2 multimedia MCU / what never goes on-die; the carrier-board plan |
 | [../board-io-test/README.md](../board-io-test/README.md) | Phase-1 board IO qualification project |
 
 **History / archive** (kept for the record; superseded by the ASIC pivot)
 
 | Document | What it was |
 |---|---|
-| [RTOS_RESEARCH.md](RTOS_RESEARCH.md) | RTOS evaluation for the 128 KiB dev configuration |
-| [ZEPHYR_DECISION.md](ZEPHYR_DECISION.md) | The Zephyr selection memo (superseded → FreeRTOS) |
 | [UPSTREAM_README.md](UPSTREAM_README.md) | The original lowRISC README, verbatim (also restored at the repo root) |
+
+(The Zephyr-era evaluation documents were removed in the v1.1 cleanup —
+recoverable from git history; their conclusion lives on in
+[CHIP_ROADMAP.md](CHIP_ROADMAP.md).)
 
 ## 9. Continuous integration
 

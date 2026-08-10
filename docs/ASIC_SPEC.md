@@ -23,7 +23,7 @@ silicon (an ASIC respin costs $50K+; an FPGA reflash takes seconds).
 | **SRAM** | **8 KB** (DFFRAM macro + SRAM controller) | Area budget — see §2 |
 | Boot ROM | 4 KB, synthesized | Initial boot code |
 | External memory | SPI flash, XIP, up to 16 MB | Larger programs (**FreeRTOS**) |
-| Peripherals | UART, JTAG, 8-bit GPIO, RV Timer, I2C, SPI Host | Sensor/peripheral I/O |
+| Peripherals | UART x2, JTAG, 16-bit GPIO, RV Timer, I2C, SPI Host (with RX), PWM | v1.1 additions team-directed 2026-08-10; see [PRODUCTION_PERIPHERALS.md](PRODUCTION_PERIPHERALS.md) |
 | Interrupts | Flat — 7 sources direct to Ibex fast IRQs (no PLIC) | PLIC ≈ 5 kGE, unnecessary |
 | Target frequency | **20 MHz** (ASIC) | Prior art on open EDA: 12–25 MHz |
 | Gate count | ~44 kGE excl. SRAM | Fits Caravel user area |
@@ -74,6 +74,7 @@ Planned floorplan: DFFRAM ~1.8 mm² + logic (~44 kGE) ~4.0 mm² + power/routing
 | `0x4000_0400` | 256 B | I2C | OpenCores master |
 | `0x4000_0500` | 256 B | SPI Host | General-purpose master |
 | `0x4000_0600` | 256 B | PWM (12 ch) | *(not printed in the guide; team-confirmed in-chip 2026-08-10 - carried over from upstream ibex-demo-system)* |
+| `0x4000_0700` | 256 B | UART2 | *(v1.1 addition: ESP32 companion link - WiFi/TCP-IP offload)* |
 
 ### Known deviations in this repo (flagged to team, pending decision)
 
@@ -177,6 +178,12 @@ lifecycle, alert handler, entropy) was deliberately removed — ~271 kGE saved.
 
 ## 9. What this spec means for work in this repo
 
+-1. **v1.1 spec additions (team-directed, 2026-08-10)**: UART2 at
+   `0x4000_0700` (+2 pins, ~1.5 kGE), an RX register on the SPI host
+   (SPI+0x8), and GPIO widened to 16/16 - the three small silicon changes
+   that let external parts deliver WiFi/internet, camera snapshots, mic and
+   speaker on this chip. Architecture, pin budget (37/38 pads) and honest
+   ceilings: [PRODUCTION_PERIPHERALS.md](PRODUCTION_PERIPHERALS.md).
 0. **The ASIC is the product; the FPGA is only its validation vehicle**
    (team direction, 2026-08-10 - "not doing demo in FPGA, this is for
    real deal"). Every proposed feature is judged against the CHIP's
@@ -194,7 +201,7 @@ lifecycle, alert handler, entropy) was deliberately removed — ~271 kGE saved.
 3. **RTOS = FreeRTOS** — named by the spec itself, and the only mainstream RTOS
    comfortable in 8 KiB RAM. (The earlier Zephyr port was built against the
    128 KiB dev configuration and was removed when the 8 KiB constraint landed —
-   decision trail in [ZEPHYR_DECISION.md](ZEPHYR_DECISION.md).)
+   decision docs removed in the v1.1 cleanup, recoverable from git history; the conclusion lives in [CHIP_ROADMAP.md](CHIP_ROADMAP.md).)
 4. **20 MHz stays the system clock** — same number the ASIC targets.
 5. Everything we validate on the FPGA must be in the **same configuration the
    chip will have** (8 KiB SRAM, XIP boot, flat IRQs), or it isn't validation.
