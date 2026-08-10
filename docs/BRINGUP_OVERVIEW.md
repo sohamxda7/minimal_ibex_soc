@@ -105,8 +105,9 @@ hard-capped at 8 KiB by the area budget.
   FreeRTOS explicitly. Port done, boots in full-SoC sim over XIP
   ([FREERTOS_PORT.md](FREERTOS_PORT.md)); Zephyr work preserved in git
   history + superseded decision docs.
-- **Flagged, not changed**: SRAM base (ours 0x0010_2000 vs spec
-  0x0010_1000) and the PWM block (absent from the spec) await team calls.
+- **Flagged, not changed**: SRAM base and the PWM block (absent from the
+  spec) were raised with the team. SRAM base is now **resolved — team
+  confirmed our 0x0010_2000** (2026-08-10); PWM keep/drop is still open.
 
 ## Repository landscape after bring-up
 

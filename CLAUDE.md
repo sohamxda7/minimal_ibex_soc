@@ -68,8 +68,8 @@ FPGA validation must run the silicon configuration or it isn't validation.
 - **Memory map**: Boot ROM 4 KiB @ `0x0010_0000` (NOP sled + `jal` to
   `0x0010_2080`); SRAM **8 KiB** @ `0x0010_2000..0x0010_3FFF` (ASIC-spec
   size since 2026-08-10; range decode, NOT mask — base isn't size-aligned;
-  spec sheet says base 0x0010_1000, we keep 0x0010_2000 for the boot
-  contract — flagged deviation, docs/ASIC_SPEC.md section 3); **XIP flash
+  base 0x0010_2000 TEAM-CONFIRMED 2026-08-10 — the spec sheet's printed
+  0x0010_1000 is stale, docs/ASIC_SPEC.md section 3); **XIP flash
   window @ `0x2000_0000`** (read-only, cmd 0x03 single-bit SPI; firmware
   sits at flash offset 0x40_0000 behind the bitstream = CPU address
   `0x2040_0000`); UART `0x4000_0000` (RX +0 / TX +4 / STATUS +8: bit0
@@ -234,13 +234,12 @@ silicon-killing bugs again, before tapeout instead of after.
 
 ## 5. Open questions for the team (track until answered)
 
-1. **SRAM base address**: ASIC spec sheet says `0x0010_1000`; the repo uses
-   `0x0010_2000` (keeps the boot-ROM jump contract SRAM+0x80=0x0010_2080 and
-   every existing image). One of the two must change before tapeout RTL
-   freeze. Decision owner: DV lead / tapeout stream.
-2. **PWM block at `0x4000_0600`**: the RGB demo uses it, but it is absent
-   from the ASIC spec and its ~44 kGE budget. Keep in silicon (costs gates)
-   or make it FPGA-only? Decision owner: DV lead.
+1. ~~SRAM base address~~ **RESOLVED 2026-08-10: team confirmed
+   `0x0010_2000` (the repo's value) is correct**; the spec sheet's printed
+   `0x0010_1000` is stale. Boot contract SRAM+0x80 = 0x0010_2080 stands.
+2. **PWM block at `0x4000_0600`** — STILL OPEN: the RGB demo uses it, but it
+   is absent from the ASIC spec and its ~44 kGE budget. Keep in silicon
+   (costs gates) or make it FPGA-only? Decision owner: DV lead.
 
 Both are documented for the team in docs/README.md section 6 and
 docs/ASIC_SPEC.md section 3.
@@ -259,5 +258,5 @@ docs/ASIC_SPEC.md section 3.
 - Parts arrive -> wire per docs/TOY_INTERFACING.md tables, flash the
   `build.bat toy` firmware; solder guidance promised for BME280/OLED
   headers ("ping me before you start").
-- Open team decisions: SRAM base 0x0010_2000 vs spec 0x0010_1000; PWM
-  keep/drop for the ASIC; PR #16 review.
+- Open team decisions: PWM keep/drop for the ASIC (SRAM base resolved:
+  0x0010_2000 confirmed); PR #16 review.

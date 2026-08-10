@@ -65,7 +65,7 @@ Planned floorplan: DFFRAM ~1.8 mm² + logic (~44 kGE) ~4.0 mm² + power/routing
 | Start | Size | Block | Notes |
 |---|---|---|---|
 | `0x0010_0000` | 4 KB | Boot ROM | Reset vector; synthesized |
-| `0x0010_1000` | 8 KB | SRAM | *(spec value — see deviation note below)* |
+| `0x0010_2000` | 8 KB | SRAM | *(team-confirmed base, 2026-08-10; the guide's printed `0x0010_1000` is superseded)* |
 | `0x2000_0000` | 256 MB window | SPI Flash XIP | External, read-only, memory-mapped |
 | `0x4000_0000` | 256 B | UART | |
 | `0x4000_0100` | 256 B | GPIO | 8-bit |
@@ -78,7 +78,7 @@ Planned floorplan: DFFRAM ~1.8 mm² + logic (~44 kGE) ~4.0 mm² + power/routing
 
 | Item | Spec | This repo | Status |
 |---|---|---|---|
-| SRAM base | `0x0010_1000` | `0x0010_2000` | Kept at `0x0010_2000` — changing it breaks the boot ROM jump contract (entry = SRAM+0x80) and every existing image. Raise with team before tapeout RTL freeze. |
+| SRAM base | ~~`0x0010_1000`~~ | `0x0010_2000` | **RESOLVED 2026-08-10: team confirmed `0x0010_2000` is correct** (the guide's printed value is stale). Boot ROM jump contract (entry = SRAM+0x80 = `0x0010_2080`) stands. |
 | PWM block | absent | `0x4000_0600` (12 ch, RGB demo) | Not in the ASIC gate budget. Team must decide: keep (adds gates) or FPGA-only. |
 | SPI control regs | `0x4000_0300` | absent (XIP has no CSRs) | Fine for now — XIP controller is fixed-function. |
 

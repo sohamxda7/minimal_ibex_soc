@@ -127,13 +127,15 @@ Digest with full reasoning: **[ASIC_SPEC.md](ASIC_SPEC.md)**.
 - No PLIC — interrupts go flat into Ibex's fast IRQ inputs; Ibex is
   vectored-only (`mtvec[1:0]` hardwired), so trap code needs a vector table.
 
-### ⚠ Open questions for the team (unresolved deviations)
+### ⚠ Open questions for the team
 
-1. **SRAM base address**: spec sheet says `0x0010_1000`; this repo uses
-   `0x0010_2000` (preserves the boot-ROM jump contract and every existing
-   image). One of the two must change before tapeout RTL freeze.
+1. ~~SRAM base address~~ **RESOLVED (2026-08-10): the team confirmed
+   `0x0010_2000` — this repo's value — is correct**; the spec sheet's
+   printed `0x0010_1000` is stale. The boot contract (entry = SRAM+0x80 =
+   `0x0010_2080`) stands unchanged.
 2. **PWM block at `0x4000_0600`**: used by the RGB demo, but absent from the
    ASIC spec and its gate budget. Keep (costs gates) or make it FPGA-only?
+   **Still open.**
 
 ## 7. Repository layout
 
