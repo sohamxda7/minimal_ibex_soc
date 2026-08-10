@@ -228,8 +228,8 @@ silicon-killing bugs again, before tapeout instead of after.
 
 - **Configuration is now ASIC-representative**: 8 KiB SRAM, XIP wired to
   the onboard QSPI flash, FreeRTOS as the RTOS. Full sim regression green
-  2026-08-10 (SoC 9/9, LCD 5/5, I2C, XIP, FreeRTOS boot; bitstream — see
-  build/bitstream_run.log).
+  2026-08-10 (SoC 9/9, LCD 5/5, I2C, XIP, FreeRTOS boot; bitstream BUILD OK with
+  all timing constraints met).
 - Board returns -> (a) `program_fpga.bat` for the asm-demo sanity check;
   (b) FreeRTOS-from-flash run: `vivado -mode batch -source build_fpga.tcl
   -tclargs sw/asm-demo/xip_stub.vmem`, then `sw\freertos\build.bat`, then

@@ -122,7 +122,7 @@ All reruns on the **8 KiB SRAM** configuration mandated by the tapeout spec
 | I2C master <-> slave BFM register read | tb_i2c | **PASS** |
 | **XIP: CPU executes from SPI flash** | tb_xip (new) | **PASS** (after 3 controller fixes) |
 | **FreeRTOS boots + schedules over XIP** | tb_freertos (new) | **PASS** (banner @~6 ms sim, 2 tick reports; one benign xsim `Multiple conditions true` unique-case warning during the tick trap, pre-existing RTL) |
-| Bitstream (8 KiB + QSPI/STARTUPE2 wiring) | build_fpga.tcl | see build log / timing summary |
+| Bitstream (8 KiB + QSPI/STARTUPE2 wiring) | build_fpga.tcl | **BUILD OK, all timing constraints met** |
 
 The XIP run first executed against the team's untested `spi_flash_xip.sv`
 and failed exactly as code analysis predicted (byte-swapped instruction
