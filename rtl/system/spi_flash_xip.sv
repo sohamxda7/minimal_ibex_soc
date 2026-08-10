@@ -90,13 +90,22 @@ module spi_flash_xip #(
 
       case (state_q)
         S_IDLE: begin
-          if (xip_read_req) begin
+          // !xip_rvalid_o guard: during the ack cycle the master still holds
+          // cyc/stb high, so without it the controller would immediately
+          // launch a phantom second read whose stale rvalid could complete a
+          // LATER request with this address's data (found in tb_xip).
+          if (xip_read_req && !xip_rvalid_o) begin
             addr_reg_q   <= xip_addr_i;
             out_shift_q  <= READ_CMD;
             bit_cnt_q    <= 6'd7;
             addr_byte_q  <= 2'd0;
             data_shift_q <= '0;
             state_q      <= S_CMD;
+          end
+          else if (xip_req_i && xip_we_i && !xip_rvalid_o) begin
+            // Writes to the read-only XIP window: ack-and-discard so a stray
+            // store to flash space cannot hang the Wishbone bus forever.
+            xip_rvalid_o <= 1'b1;
           end
         end
 
@@ -141,7 +150,15 @@ module spi_flash_xip #(
           if (spi_rise) begin
             data_shift_q <= {data_shift_q[DW-3:0], spi_miso_i};
             if (bit_cnt_q == 0) begin
-              xip_rdata_o <= {data_shift_q, spi_miso_i};
+              // Byte swap: SPI NOR streams the byte at the LOWEST address
+              // first (MSB-first within each byte), but a little-endian
+              // 32-bit word wants that byte in bits [7:0]. Without the swap
+              // every fetched instruction/data word is reversed (found in
+              // tb_xip: CPU executed garbage).
+              xip_rdata_o <= {data_shift_q[6:0], spi_miso_i,   // byte @a+3
+                              data_shift_q[14:7],              // byte @a+2
+                              data_shift_q[22:15],             // byte @a+1
+                              data_shift_q[30:23]};            // byte @a+0
               state_q  <= S_ACK;
             end else begin
               bit_cnt_q <= bit_cnt_q - 1'b1;
