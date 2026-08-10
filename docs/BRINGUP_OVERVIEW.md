@@ -96,7 +96,7 @@ mirrored on button hold, RGB breathing smoothly. Evidence in
 ## Handy references
 
 - Memory map: Boot ROM `0x0010_0000` (4 KiB) → jumps to SRAM `0x0010_2080`;
-  SRAM `0x0010_2000` (128 KiB, to 0x0012_1FFF); UART `0x4000_0000`; GPIO `0x4000_0100`;
+  SRAM `0x0010_2000` (8 KiB, to 0x0010_3FFF - shrunk from the 128 KiB dev size per docs/ASIC_SPEC.md); UART `0x4000_0000`; GPIO `0x4000_0100`;
   Timer `0x4000_0200`; I2C `0x4000_0400`; SPI host `0x4000_0500`;
   PWM `0x4000_0600` (PWM *i*: `+8i` pulse width, `+8i+4` max count;
   index%3 → 0=blue, 1=green, 2=red per `pins_artya7.xdc`).

@@ -2,7 +2,7 @@
 
 *Agreed with the DV lead: the SoC's final acceptance test is driving real
 external devices. Tier 1: ST7735 LCD over SPI. Tier 2: BME280 sensor +
-SSD1306 OLED over I2C via Zephyr. Method: simulation-first — behavioural
+SSD1306 OLED over I2C from FreeRTOS tasks. Method: simulation-first — behavioural
 device models verify every byte in xsim before hardware is touched.*
 
 ## Tier 1 — ST7735 LCD (SPI)
@@ -61,7 +61,7 @@ Hardware test: build with `-tclargs sw/asm-demo/lcd_spi_test.vmem` (or run
 the upstream C demo once a RISC-V GCC is available) → red pixels appear in
 the 5×5 window top-left. Capture SPI with the logic analyzer for the report.
 
-## Tier 2 — I2C devices via Zephyr (BME280 + SSD1306)
+## Tier 2 — I2C devices from FreeRTOS (BME280 + SSD1306)
 
 ### Pin-out (done)
 
@@ -100,9 +100,13 @@ not.
 
 ### Remaining for Tier 2
 
-Zephyr devicetree nodes (`bosch,bme280`, `solomon,ssd1306fb`) + an I2C
-controller driver for Zephyr (or a minimal shim over the OpenCores core),
-then live sensor readings in the Zephyr shell on hardware.
+~~Zephyr devicetree nodes~~ Superseded by the FreeRTOS pivot
+([ASIC_SPEC.md](ASIC_SPEC.md) / [FREERTOS_PORT.md](FREERTOS_PORT.md)):
+C drivers now exist in `sw/freertos/drivers/` (i2c.c helper over the
+OpenCores core, bme280.c forced-mode with 32-bit compensation, ssd1306.c
+zero-framebuffer text, st7735.c for Tier 1) plus a `toy` demo task
+(`build.bat toy`) that shows a BME280 reading on UART + OLED every 2 s.
+All compile-clean; hardware run pending parts delivery.
 
 ## Purchases (verified listings, ~₹4,550)
 
