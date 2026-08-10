@@ -34,7 +34,7 @@ module wrapper_top #(
 
   parameter int unsigned BootRomAddrWidth  = 10,
 
-  parameter int unsigned SramWordAddrWidth = 15,  // 128 KiB SRAM (RTOS-ready)
+  parameter int unsigned SramWordAddrWidth = 11,  // 8 KiB SRAM per ASIC spec (docs/ASIC_SPEC.md §2)
 
   parameter int unsigned GpiWidth        = 8,
 

@@ -173,7 +173,7 @@ def main():
         out = "lcd_spi_test.vmem"
 
     words = assemble(program(short, long_), base_addr=0x80)
-    image = [0] * 32768
+    image = [0] * 2048   # 8 KiB SRAM (ASIC spec)
     for i, w in enumerate(words):
         image[0x80 // 4 + i] = w
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), out)

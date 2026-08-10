@@ -282,10 +282,13 @@ module wb_interconnect #(
 
   localparam logic [31:0] SRAM_BASE    = 32'h0010_2000;
 
-  // 128 KiB SRAM (0x0010_2000 .. 0x0012_1FFF). The base is not aligned to
-  // the size, so the decode uses a range compare instead of a mask.
-  // Must stay consistent with SramWordAddrWidth in wrapper_top.sv.
-  localparam logic [31:0] SRAM_SIZE    = 32'h0002_0000;
+  // 8 KiB SRAM (0x0010_2000 .. 0x0010_3FFF) per ASIC spec (docs/ASIC_SPEC.md).
+  // The base is not aligned to the size, so the decode uses a range compare
+  // instead of a mask. Must stay consistent with SramWordAddrWidth in
+  // wrapper_top.sv. NOTE: spec sheet says base 0x0010_1000; we keep 0x0010_2000
+  // to preserve the boot ROM jump contract (entry = SRAM+0x80 = 0x0010_2080) —
+  // deviation flagged in docs/ASIC_SPEC.md §3, pending team decision.
+  localparam logic [31:0] SRAM_SIZE    = 32'h0000_2000;
  
   localparam logic [31:0] XIP_BASE     = 32'h2000_0000;
 
