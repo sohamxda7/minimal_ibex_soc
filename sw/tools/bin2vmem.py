@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Convert a raw binary (e.g. objcopy -O binary output of a Zephyr/C ELF) into
+Convert a raw binary (objcopy -O binary output of a C/asm ELF) into
 the .vmem format consumed by the SoC's SRAMInitFile parameter.
 
 Usage:
     python bin2vmem.py input.bin output.vmem [--offset BYTES]
 
-The SRAM is 128 KiB (32768 x 32-bit words) based at 0x0010_2000. The output
-always contains exactly 32768 lines (missing tail zero-filled) so simulation
+The SRAM is 8 KiB (2048 x 32-bit words) based at 0x0010_2000. The output
+always contains exactly 2048 lines (missing tail zero-filled) so simulation
 never reads X.
 
 --offset places the image at a byte offset inside the SRAM (default 0x80,
@@ -22,7 +22,7 @@ little-endian memory layout, matching $readmemh into a 32-bit array.
 import argparse
 import sys
 
-SRAM_WORDS = 32768          # 128 KiB / 4
+SRAM_WORDS = 2048           # 8 KiB / 4 (ASIC spec)
 SRAM_BYTES = SRAM_WORDS * 4
 
 

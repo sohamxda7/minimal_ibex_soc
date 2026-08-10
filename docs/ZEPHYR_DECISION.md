@@ -10,6 +10,19 @@
 
 ---
 
+> **SUPERSEDED (2026-08-10).** The team's ASIC tapeout specification
+> ([ASIC_SPEC.md](ASIC_SPEC.md)) landed after this memo and caps on-chip SRAM
+> at **8 KiB** (Caravel area budget) with code executing in place from SPI
+> flash. Zephyr's minimum RAM footprint (~6-10 KiB) does not fit that budget
+> with any headroom, and the spec itself names **FreeRTOS** as the intended
+> payload. The Zephyr port was therefore removed from the tree (last present
+> at tag/commit before this notice; retrievable from git history) and replaced
+> by a FreeRTOS port -- see [FREERTOS_PORT.md](FREERTOS_PORT.md). Everything
+> below is preserved as the decision trail for the 128 KiB development
+> configuration it was written against, and remains the template for how we
+> evaluate RTOS choices.
+
+
 ## 1. Evaluation criteria
 
 Derived from the stated requirement and the platform's characteristics:

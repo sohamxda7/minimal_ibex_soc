@@ -1,8 +1,0 @@
-config UART_ARF
-	bool "ARF minimal UART driver"
-	default y
-	depends on DT_HAS_ARF_UART_ENABLED
-	select SERIAL_HAS_DRIVER
-	help
-	  Polling serial driver for the ARF SoC's minimal UART
-	  (rtl/system/uart.sv).

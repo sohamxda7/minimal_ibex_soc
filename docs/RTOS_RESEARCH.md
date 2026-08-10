@@ -1,5 +1,12 @@
 # RTOS Selection & Porting Plan
 
+> **SUPERSEDED (2026-08-10).** Written against the 128 KiB-SRAM development
+> build. The ASIC spec ([ASIC_SPEC.md](ASIC_SPEC.md)) later fixed SRAM at
+> 8 KiB + SPI-flash XIP, which flips the conclusion to **FreeRTOS** (the
+> RTOS the tapeout guide itself targets). Kept for the research record; the
+> live document is [FREERTOS_PORT.md](FREERTOS_PORT.md).
+
+
 *2026-08-07. Requirement from the DV lead: choose a widely supported, popular
 RTOS and port it, such that the full capability of the Arty A7-100T platform
 (CPU, memory, IO, all interfaces) can be exploited.*

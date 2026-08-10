@@ -1,6 +1,0 @@
-if SOC_IBEX_SOC
-
-config NUM_IRQS
-	default 32
-
-endif # SOC_IBEX_SOC

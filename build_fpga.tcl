@@ -13,7 +13,7 @@
 set part xc7a100tcsg324-1
 
 # SRAM program image. Default: the asm demo. Override with e.g.
-#   vivado -mode batch -source build_fpga.tcl -tclargs build/zephyr_sram.vmem
+#   vivado -mode batch -source build_fpga.tcl -tclargs sw/asm-demo/xip_stub.vmem
 set sram_image sw/asm-demo/sram_init.vmem
 if {$argc > 0} { set sram_image [lindex $argv 0] }
 

@@ -1,6 +1,0 @@
-board:
-  name: ibex_arty
-  full_name: ARF Ibex SoC on Arty A7-100T
-  vendor: arf
-  socs:
-    - name: ibex_soc
