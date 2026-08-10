@@ -76,8 +76,9 @@ FPGA validation must run the silicon configuration or it isn't validation.
   rx_empty, bit1 tx_full); GPIO `0x4000_0100` (OUT +0: gp_o[7:4]=LEDs,
   [3:0]=DISP_CTRL; IN-dbnc +8 = {SW,BTN}); Timer `0x4000_0200` (CLINT-style
   mtime +0/+4, mtimecmp +8/+12); I2C `0x4000_0400` (OpenCores, Pmod
-  JA1/JA2); SPI host `0x4000_0500`; PWM `0x4000_0600` (FPGA-only — NOT in
-  the ASIC spec, pending team decision); debug window `0x1A11_0000`.
+  JA1/JA2); SPI host `0x4000_0500`; PWM `0x4000_0600` (in BOTH FPGA and
+  ASIC — team-confirmed 2026-08-10; the guide had merely omitted an
+  upstream-inherited block); debug window `0x1A11_0000`.
 - **Boot contract**: everything enters at SRAM+0x80 = `0x0010_2080`.
   For XIP firmware the SRAM image is a 2-instruction trampoline
   (`sw/asm-demo/xip_test.py` -> xip_stub.vmem) jumping to `0x2040_0000`.
@@ -237,11 +238,12 @@ silicon-killing bugs again, before tapeout instead of after.
 1. ~~SRAM base address~~ **RESOLVED 2026-08-10: team confirmed
    `0x0010_2000` (the repo's value) is correct**; the spec sheet's printed
    `0x0010_1000` is stale. Boot contract SRAM+0x80 = 0x0010_2080 stands.
-2. **PWM block at `0x4000_0600`** — STILL OPEN: the RGB demo uses it, but it
-   is absent from the ASIC spec and its ~44 kGE budget. Keep in silicon
-   (costs gates) or make it FPGA-only? Decision owner: DV lead.
+2. ~~PWM block at `0x4000_0600`~~ **RESOLVED 2026-08-10: keep in BOTH FPGA
+   and ASIC** (sub-lead: spec omitted it only because it predates the fork;
+   it was present in the original ibex-demo-system). No RTL change.
 
-Both are documented for the team in docs/README.md section 6 and
+**All open questions resolved** — the validated FPGA configuration IS the
+tapeout configuration. Resolution trail: docs/README.md section 6 and
 docs/ASIC_SPEC.md section 3.
 
 ## 6. Current status / next steps
@@ -258,5 +260,5 @@ docs/ASIC_SPEC.md section 3.
 - Parts arrive -> wire per docs/TOY_INTERFACING.md tables, flash the
   `build.bat toy` firmware; solder guidance promised for BME280/OLED
   headers ("ping me before you start").
-- Open team decisions: PWM keep/drop for the ASIC (SRAM base resolved:
-  0x0010_2000 confirmed); PR #16 review.
+- No open spec questions (SRAM base 0x0010_2000 and PWM-in-both confirmed
+  2026-08-10). Waiting on: PR #16 review.

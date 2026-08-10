@@ -73,13 +73,14 @@ Planned floorplan: DFFRAM ~1.8 mm² + logic (~44 kGE) ~4.0 mm² + power/routing
 | `0x4000_0300` | 256 B | SPI Control | Flash config registers *(not yet in RTL)* |
 | `0x4000_0400` | 256 B | I2C | OpenCores master |
 | `0x4000_0500` | 256 B | SPI Host | General-purpose master |
+| `0x4000_0600` | 256 B | PWM (12 ch) | *(not printed in the guide; team-confirmed in-chip 2026-08-10 - carried over from upstream ibex-demo-system)* |
 
 ### Known deviations in this repo (flagged to team, pending decision)
 
 | Item | Spec | This repo | Status |
 |---|---|---|---|
 | SRAM base | ~~`0x0010_1000`~~ | `0x0010_2000` | **RESOLVED 2026-08-10: team confirmed `0x0010_2000` is correct** (the guide's printed value is stale). Boot ROM jump contract (entry = SRAM+0x80 = `0x0010_2080`) stands. |
-| PWM block | absent | `0x4000_0600` (12 ch, RGB demo) | Not in the ASIC gate budget. Team must decide: keep (adds gates) or FPGA-only. |
+| PWM block | absent from guide | `0x4000_0600` (12 ch, RGB demo) | **RESOLVED 2026-08-10: keep in BOTH FPGA and ASIC** (sub-lead: the guide omitted it only because it predates the fork; it was present in the original ibex-demo-system). Gate cost ~1-2 kGE on top of the ~44 kGE budget - inside the ~29% floorplan margin. |
 | SPI control regs | `0x4000_0300` | absent (XIP has no CSRs) | Fine for now — XIP controller is fixed-function. |
 
 ### Interrupt plan (spec)

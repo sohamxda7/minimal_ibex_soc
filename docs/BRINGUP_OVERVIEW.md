@@ -106,8 +106,10 @@ hard-capped at 8 KiB by the area budget.
   ([FREERTOS_PORT.md](FREERTOS_PORT.md)); Zephyr work preserved in git
   history + superseded decision docs.
 - **Flagged, not changed**: SRAM base and the PWM block (absent from the
-  spec) were raised with the team. SRAM base is now **resolved — team
-  confirmed our 0x0010_2000** (2026-08-10); PWM keep/drop is still open.
+  spec) were raised with the team. Both now **resolved (2026-08-10)**:
+  SRAM base confirmed at our 0x0010_2000; PWM stays in BOTH FPGA and ASIC
+  (spec had simply omitted a block inherited from upstream ibex-demo-system).
+  The validated FPGA configuration is the tapeout configuration.
 
 ## Repository landscape after bring-up
 

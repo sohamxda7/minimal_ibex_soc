@@ -124,6 +124,13 @@ All reruns on the **8 KiB SRAM** configuration mandated by the tapeout spec
 | **FreeRTOS boots + schedules over XIP** | tb_freertos (new) | **PASS** (banner @~6 ms sim, 2 tick reports; one benign xsim `Multiple conditions true` unique-case warning during the tick trap, pre-existing RTL) |
 | Bitstream (8 KiB + QSPI/STARTUPE2 wiring) | build_fpga.tcl | **BUILD OK, all timing constraints met** |
 
+**PWM-decision verification (2026-08-10, build/pwm_check.log):** after the
+team confirmed the PWM block stays in BOTH FPGA and ASIC, a confirming run
+was executed: tb_soc **9/9 PASS** (including the two PWM checks - blue
+channel active / red channel silent after the `b` command) and a fresh
+bitstream **BUILD OK with all timing constraints met**. No RTL change was
+involved; the block was already in the netlist.
+
 The XIP run first executed against the team's untested `spi_flash_xip.sv`
 and failed exactly as code analysis predicted (byte-swapped instruction
 fetch, phantom re-read, write hang) — three real bugs fixed pre-silicon.

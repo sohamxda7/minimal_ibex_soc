@@ -58,7 +58,7 @@
 #define SPI_STATUS_TX_FULL   0x1u
 #define SPI_STATUS_TX_EMPTY  0x2u
 
-/* ---- PWM (FPGA build only; not in the ASIC spec) ------------------------- */
+/* ---- PWM, 12 ch (in both FPGA and ASIC - team-confirmed 2026-08-10) ------ */
 #define PWM_BASE          0x40000600UL
 
 static inline uint32_t soc_read32( uint32_t addr )

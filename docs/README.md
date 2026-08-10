@@ -133,9 +133,13 @@ Digest with full reasoning: **[ASIC_SPEC.md](ASIC_SPEC.md)**.
    `0x0010_2000` — this repo's value — is correct**; the spec sheet's
    printed `0x0010_1000` is stale. The boot contract (entry = SRAM+0x80 =
    `0x0010_2080`) stands unchanged.
-2. **PWM block at `0x4000_0600`**: used by the RGB demo, but absent from the
-   ASIC spec and its gate budget. Keep (costs gates) or make it FPGA-only?
-   **Still open.**
+2. ~~PWM block at `0x4000_0600`~~ **RESOLVED (2026-08-10): keep in BOTH
+   FPGA and ASIC.** Sub-lead confirmed the spec omitted it only because it
+   predates the fork - the block was already present in the original
+   ibex-demo-system. No RTL change; it stays in the silicon netlist.
+
+**No open questions remain** - the validated FPGA configuration is the
+tapeout configuration.
 
 ## 7. Repository layout
 
