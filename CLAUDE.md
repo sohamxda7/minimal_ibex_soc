@@ -307,6 +307,15 @@ docs/ASIC_SPEC.md section 3.
   the onboard QSPI flash, FreeRTOS as the RTOS. Full sim regression green
   2026-08-10 (SoC 9/9, LCD 5/5, I2C, XIP, FreeRTOS boot; bitstream BUILD OK with
   all timing constraints met).
+- **Hardware re-validation is phased and OWED**: the 2026-08-07 board
+  pass was the OLD config; every base IO test (LEDs, RGB, buttons,
+  switches, UART, Pmod, PuTTY RGB commands) must be RE-RUN on v1.1 -
+  currently sim-proven only. The checklist of record is
+  docs/HW_VALIDATION_PLAN.md: Phase 1 = base IO on both vehicles (asm
+  demo bitstream = UART/RGB command suite; FreeRTOS flash = boot/tick/
+  blinky), Phase 2 = batch-1 parts (LCD/BME280/OLED), Phase 3 = batch-2
+  parts (ESP32/PSRAM/camera/mic/speaker). Results get dated tables in
+  BRINGUP_TEST_REPORT.md; a phase is not done until the report shows it.
 - Board returns -> (a) `program_fpga.bat` for the asm-demo sanity check;
   (b) FreeRTOS-from-flash run: `vivado -mode batch -source build_fpga.tcl
   -tclargs sw/asm-demo/xip_stub.vmem`, then `sw\freertos\build.bat`, then

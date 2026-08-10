@@ -40,6 +40,7 @@ onboard 16 MB QSPI flash.
 | Understand the binding chip constraints (why 8 KiB, why XIP) | [ASIC_SPEC.md](ASIC_SPEC.md) |
 | Build/run/flash FreeRTOS firmware | [FREERTOS_PORT.md](FREERTOS_PORT.md) |
 | See every recorded test result | [BRINGUP_TEST_REPORT.md](BRINGUP_TEST_REPORT.md) |
+| Run the hardware re-validation when board/parts arrive | **[HW_VALIDATION_PLAN.md](HW_VALIDATION_PLAN.md)** |
 | Follow the whole story + decision log | [BRINGUP_OVERVIEW.md](BRINGUP_OVERVIEW.md) |
 
 ## 2. How to start (quick start)
