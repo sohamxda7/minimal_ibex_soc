@@ -13,7 +13,9 @@ set_property PROGRAM.FILE build/fpga/top_artya7.bit $dev
 program_hw_devices $dev
 close_hw_manager
 puts "=============================================="
-puts "  BOARD PROGRAMMED — open PuTTY at 115200."
-puts "  Expect: 'IBEX-SOC UP n' lines + LED walk +"
-puts "  RGB breathing. Typing echoes back."
+puts "  BOARD PROGRAMMED (volatile, dev-only path)."
+puts "  NOTE: the default bitstream boots FreeRTOS from QSPI flash."
+puts "  If PuTTY shows NOTHING: the flash has no firmware yet - run"
+puts "  flash_freertos.bat ONCE (the supported flow), then retry."
+puts "  Expect in PuTTY 115200: FreeRTOS banner + tick=N + LED walk."
 puts "=============================================="
