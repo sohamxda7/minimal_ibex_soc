@@ -70,14 +70,14 @@ FPGA validation must run the silicon configuration or it isn't validation.
 8. When the user pastes team code to review: review honestly, list every
    bug with reasoning, fix, and document the review (see docs/UART_CONTROL.md
    as the pattern).
-9. **Documentation layout (2026-08-10 reorganization)**: the ROOT README.md
-   is the ORIGINAL lowRISC README restored, with only a short fork banner on
-   top pointing to **docs/README.md** — that file is the fork's front door
-   (where/how to start, fixes table minus Zephyr, additions, vendored
-   patches, ASIC constraints, open questions, full doc index). The verbatim
-   upstream copy also stays at docs/UPSTREAM_README.md. Keep it this way:
-   new fork content goes in docs/, never into the root README beyond the
-   banner. Zephyr-era docs live under the index's History/archive section.
+9. **Documentation layout (re-cut 2026-08-12 per Soham)**: the ROOT
+   README.md IS the fork guide (start-here, legends, fixes, constraints,
+   debugging pointers) - teams read it first. The original lowRISC README
+   lives ONLY at docs/UPSTREAM_README.md (verbatim). All other docs stay
+   under docs/. scripts/ holds only the KEEPER PowerShell tooling
+   (find_tools/find_vivado, run_regression, run_bitstream, compile_sims,
+   run_freertos_sim); one-off debug runners were deleted 2026-08-12 -
+   recover from git history, do not re-accumulate them.
 
 ## 3. Key technical facts (verified)
 
@@ -298,7 +298,7 @@ silicon-killing bugs again, before tapeout instead of after.
    it was present in the original ibex-demo-system). No RTL change.
 
 **All open questions resolved** — the validated FPGA configuration IS the
-tapeout configuration. Resolution trail: docs/README.md section 6 and
+tapeout configuration. Resolution trail: README.md section 6 and
 docs/ASIC_SPEC.md section 3.
 
 ## 6. Current status / next steps

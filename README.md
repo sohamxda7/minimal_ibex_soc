@@ -1,652 +1,236 @@
-> **ARF Design fork** — this repository is lowRISC's Ibex Demo System plus
-> ARF's OBI→Wishbone fabric, FPGA bring-up fixes, SPI-flash XIP, and a
-> FreeRTOS port, on the road to a GF180MCU tapeout.
-> **Start at [docs/README.md](docs/README.md)** for where/how to begin, every
-> fix and addition, patches, and the binding ASIC constraints.
-> Below this banner, the original lowRISC README is preserved unmodified.
+# ARF Design Fork Guide — minimal-ibex-soc
+
+The front door: where to start, what was fixed and added, the binding chip
+constraints, and where to look when debugging. The original lowRISC README
+is preserved verbatim at [docs/UPSTREAM_README.md](docs/UPSTREAM_README.md).
+
+A minimal RISC-V SoC around the [lowRISC Ibex](https://github.com/lowRISC/ibex)
+RV32IMC core, on a custom **OBI → Wishbone fabric**, validated on the
+**Digilent Arty A7-100T** and headed for **GF180MCU silicon** via the
+Efabless Caravel shuttle:
+
+```
+Ibex (RV32IMC) ──┬─ instr OBI ─┐
+                 └─ data  OBI ─┤ 2:1 arbiter ─→ obi2wb ─→ wb_interconnect
+                                                              │
+   Boot ROM 4 KiB · SRAM 8 KiB · UART · GPIO · Timer · PWM ──┘
+   I2C master · SPI host · SPI-flash XIP · RISC-V debug module
+```
+
+System clock **20 MHz** (the ASIC target; the FPGA PLL divides the board's
+100 MHz down to match). RTOS: **FreeRTOS**, executing in place from the
+onboard 16 MB QSPI flash.
+
+> **Project doctrine — the ASIC is the product.** The FPGA board is strictly
+> the pre-silicon validation vehicle, never a demo or dev platform. Nothing
+> gets built here unless it runs (or is destined to run) on the fabricated
+> chip: 8 KiB SRAM, 38 Caravel pins, 20 MHz, no BRAM, no DDR3. Features that
+> cannot fit that budget (Zephyr, cameras, audio streaming, big-RAM network
+> stacks) are out of scope unless the team re-scopes the silicon itself —
+> see [ASIC_SPEC.md](docs/ASIC_SPEC.md) section 9.
 
 ---
 
-# Ibex Demo System
-
-![Ibex demo system block diagram](doc/IbexDemoSystemBlockDiagram.png "Ibex demo system block diagram with in the center an Ibex processor connected by a memory bus to the RAM, GPIO, SPI, UART and debug module. Switches, buttons and LEDs are connected to the GPIO. The LCD is driven by SPI. The UART is used for a serial console. Finally, the debug module is used to drive the JTAG.")
-
-Ibex Demo System is an example RISC-V SoC primarily targeting the Arty A7-35T FPGA board.
-It comprises the [lowRISC Ibex core](https://www.github.com/lowrisc/ibex) along with the following features:
-
-* RISC-V debug support (using the [PULP RISC-V Debug Module](https://github.com/pulp-platform/riscv-dbg))
-* UART
-* GPIO
-* PWM
-* Timer
-* SPI
-* A basic peripheral to write ASCII output to a file and halt simulation from software
-
-Support has been added for several FPGA development boards in addition to the Arty A7-35T.
-Boards with good support are:
-
-* [Digilent Arty A7-35T](https://digilent.com/reference/programmable-logic/arty-a7/start)
-* [NewAE Sonata](https://github.com/newaetech/sonata-pcb) (a.k.a. [NAE-SONATA-ONE](https://www.mouser.co.uk/ProductDetail/NewAE/NAE-SONATA-ONE?qs=wT7LY0lnAe1k3dLvmL42Eg%3D%3D))
-
-Debug can be used via a USB connection to the boards.
-No external JTAG probe is required.
-
-![Arty A7-35T FPGA showing the Mandelbrot set](doc/ArtyA7WithMandelbrot.png "Arty A7-35T FPGA with a Mandelbrot fractal on the LCD screen.")
-
-Boards with community/experimental support are:
-
-* Digilent Arty S7-25T
-* Digilent Arty S7-50T
-* Nexys A7-100T
-* RealDigital Blackboard
-* RealDigital Boolean
-* NewAE CW305-A100
-* NewAE CW312T-XC7A35
-
-## Software Requirements
-
-Various software tools are required for building software and FPGA bitstreams.
-These include:
-
-* [Xilinx Vivado](https://www.xilinx.com/support/download.html)
-* rv32imc GCC toolchain - lowRISC provides one:
-  https://github.com/lowRISC/lowrisc-toolchains/releases
-  (For example: `lowrisc-toolchain-rv32imcb-20220524-1.tar.xz`)
-* cmake
-* python3 - Additional python dependencies in python-requirements.txt installed with pip
-* openocd (version 0.12.0 or above)
-* screen
-* srecord
-
-There are multiple ways these can be made available:
-
-* Loading the provided Docker/Podman container
-* Loading the provided Nix environment (excludes Vivado)
-* Manually installing each
-
-There are also some udev rules that will need to be set-up regardless of which approach is taken.
-
-Instructions are provided in the following sections.
-
-## Container Guide
-
-There is a prebuilt container of tools available you may want to use to get started quickly.
-There are instructions for building the container for either Docker/Podman located in ./container/README.md.
-
-### Linux/MacOS
-
-A container image may be provided to you in the form of a tarball.
-You can load the container file by running:
-
-```bash
-sudo docker load < ibex_demo_image.tar
-# OR
-podman load < ibex_demo_image.tar
-```
-
-If you already have a container file, you can start the container by running:
-
-```bash
-sudo docker run -it --rm \
-  -p 6080:6080 \
-  -p 3333:3333 \
-  -v $(pwd):/home/dev/demo:Z \
-  ibex
-```
-
-OR
-
-```bash
-podman unshare chown 1000:1000 -R .
-podman run -it --rm \
-  -p 6080:6080 \
-  -p 3333:3333 \
-  -v $(pwd):/home/dev/demo:Z \
-  ibex
-podman unshare chown 0:0 -R .
-```
-To access the container once running, go to [http://localhost:6080/vnc.html](http://localhost:6080/vnc.html).
-
-If you want to program the FPGA from the container, let's find out which bus and device the Arty is on:
-
-```bash
-$ lsusb
-...
-Bus 00X Device 00Y: ID 0403:6010 Future Technology Devices International, Ltd FT2232C/D/H Dual UART/FIFO IC
-...
-```
-
-Where X and Y are numbers.
-Please note down what X and Y is for you (this will change if you unplug and replug your FPGA).
-
-Then run Docker with the following parameters:
-
-```bash
-sudo docker run -it --rm \
-  -p 6080:6080 \
-  -p 3333:3333 \
-  -v $(pwd):/home/dev/demo:Z \
-  --privileged \
-  --device=/dev/bus/usb/00X/00Y \
-  --device=/dev/ttyUSB1 \
-  ibex
-```
-
-### Windows
-
-Run a command prompt in administrator mode and type:
-
-```powershell
-cd "C:\Program Files\Docker\Docker"
-.\DockerCli.exe -SwitchLinuxEngine
-```
-
-In case you have a tarball of the docker image, run:
-
-```powershell
-docker load -i ibex_demo_image.tar
-```
-
-Go to the folder where you have decompressed the demo system repository:
-
-```powershell
-docker run -it --rm -p 6080:6080 -p 3333:3333 -v %cd%:/home/dev/demo:Z ibex
-```
-
-## Add udev rules for our device
-
-For both the container and the native setups you will need to add user device permissions for our FPGA board.
-The following instructions are for Linux-based systems and are needed for the programmer to access the development board.
-
-Arty A7-35T:
-
-```bash
-sudo su
-cat <<EOF > /etc/udev/rules.d/90-arty-a7.rules
-# Future Technology Devices International, Ltd FT2232C/D/H Dual UART/FIFO IC
-# used on Digilent boards
-ACTION=="add|change", SUBSYSTEM=="usb|tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6010", ATTRS{manufacturer}=="Digilent", MODE="0666"
-
-# Future Technology Devices International, Ltd FT232 Serial (UART) IC
-ACTION=="add|change", SUBSYSTEM=="usb|tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", MODE="0666"
-EOF
-
-exit
-```
-
-RealDigital Boolean and Blackboard:
-
-```bash
-sudo su
-cat <<EOF > /etc/udev/rules.d/90-realdigital.rules
-# Future Technology Devices International, Ltd FT2232C/D/H Dual UART/FIFO IC
-# used on RealDigital boards
-ACTION=="add|change", SUBSYSTEM=="usb|tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6010", ATTRS{manufacturer}=="Xilinx", MODE="0666"
-EOF
-
-exit
-```
-
-openFPGAloader:
-
-```bash
-sudo su
-cat <<EOF > /etc/udev/rules.d/99-openfpgaloader.rules
-# Copy this file to /etc/udev/rules.d/
-
-ACTION!="add|change", GOTO="openfpgaloader_rules_end"
-
-# gpiochip subsystem
-SUBSYSTEM=="gpio", MODE="0664", GROUP="plugdev", TAG+="uaccess"
-
-SUBSYSTEM!="usb|tty|hidraw", GOTO="openfpgaloader_rules_end"
-
-# Original FT232/FT245 VID:PID
-ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", MODE="664", GROUP="plugdev", TAG+="uaccess"
-
-# Original FT2232 VID:PID
-ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6010", MODE="664", GROUP="plugdev", TAG+="uaccess"
-
-# Original FT4232 VID:PID
-ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6011", MODE="664", GROUP="plugdev", TAG+="uaccess"
-
-# Original FT232H VID:PID
-ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6014", MODE="664", GROUP="plugdev", TAG+="uaccess"
-
-# Original FT231X VID:PID
-ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6015", MODE="664", GROUP="plugdev", TAG+="uaccess"
-
-# anlogic cable
-ATTRS{idVendor}=="0547", ATTRS{idProduct}=="1002", MODE="664", GROUP="plugdev", TAG+="uaccess"
-
-# altera usb-blaster
-ATTRS{idVendor}=="09fb", ATTRS{idProduct}=="6001", MODE="664", GROUP="plugdev", TAG+="uaccess"
-ATTRS{idVendor}=="09fb", ATTRS{idProduct}=="6002", MODE="664", GROUP="plugdev", TAG+="uaccess"
-ATTRS{idVendor}=="09fb", ATTRS{idProduct}=="6003", MODE="664", GROUP="plugdev", TAG+="uaccess"
-
-# altera usb-blasterII - uninitialized
-ATTRS{idVendor}=="09fb", ATTRS{idProduct}=="6810", MODE="664", GROUP="plugdev", TAG+="uaccess"
-# altera usb-blasterII - initialized
-ATTRS{idVendor}=="09fb", ATTRS{idProduct}=="6010", MODE="664", GROUP="plugdev", TAG+="uaccess"
-
-# dirtyJTAG
-ATTRS{idVendor}=="1209", ATTRS{idProduct}=="c0ca", MODE="664", GROUP="plugdev", TAG+="uaccess"
-
-# Jlink
-ATTRS{idVendor}=="1366", ATTRS{idProduct}=="0105", MODE="664", GROUP="plugdev", TAG+="uaccess"
-
-# NXP LPC-Link2
-ATTRS{idVendor}=="1fc9", ATTRS{idProduct}=="0090", MODE="664", GROUP="plugdev", TAG+="uaccess"
-
-# NXP ARM mbed
-ATTRS{idVendor}=="0d28", ATTRS{idProduct}=="0204", MODE="664", GROUP="plugdev", TAG+="uaccess"
-
-# icebreaker bitsy
-ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="6146", MODE="664", GROUP="plugdev", TAG+="uaccess"
-
-# orbtrace-mini dfu
-ATTRS{idVendor}=="1209", ATTRS{idProduct}=="3442", MODE="664", GROUP="plugdev", TAG+="uaccess"
-
-LABEL="openfpgaloader_rules_end"
-EOF
-
-exit
-```
-
-Run the following to reload the rules:
-
-```bash
-sudo udevadm control --reload-rules
-sudo udevadm trigger
-```
-
-Add user to plugdev group:
-
-```bash
-sudo usermod -a $USER -G plugdev
-```
-
-<details>
-  <summary>Installing environment using Nix (*alternative*)</summary>
-
-## Nix Environment Setup
-
-An alternative system for installing all of the project dependencies is provided using the Nix package manager.
-Once installed and the dependencies are fetched from the internet, you can enter a shell with all of the software required for building by running the command `nix develop` in the root directory of the project.
-To leave this environment, simply run `exit`.
-
-### Installing
-
-#### Installing Nix
-
-```bash
-# Run the recommended nix multi-user installation
-# https://nixos.org/download.html
-# This is an interactive installer, just follow the prompts...
-sh <(curl -L https://nixos.org/nix/install) --daemon
-
-# Add some global configuration to nix to make use of the flakes and CLI experimental features.
-mkdir -p $HOME/.config/nix
-cat <<EOF > $HOME/.config/nix/nix.conf
-experimental-features = nix-command flakes
-warn-dirty = false
-EOF
-
-# Disable signatures when using nix copy to import from a store
-# This allows us to easily import from a cache on a local USB
-sudo su
-mkdir -p /etc/nix
-cat <<EOF >> /etc/nix/nix.conf
-require-sigs = false
-EOF
-exit
-
-# Reload the nix daemon to commit the config above
-sudo systemctl restart nix-daemon.service
-
-# You may now need to reload your shell, but check that nix is working by running this:
-nix --version
-> nix (Nix) 2.12.0
-```
-
-#### Installing Vivado using Nix
-
-```bash
-# Go to the Xilinx.com website
-# https://www.xilinx.com/support/download.html
-# Download the 2022.2 Unified Installer for Linux
-# The link looks like:
-# <Xilinx Unified Installer 2022.2: Linux Self Extracting Web Installer (BIN - 271.02 MB)>
-# The download link will be similar to:
-# https://www.xilinx.com/member/forms/download/xef.html?filename=Xilinx_Unified_2022.2_1014_8888_Lin64.bin
-# - You will need to register on the website to download this file.
-
-# Once the download is complete...
-cd <location/of/downloaded/file>
-
-# Extract the installer to a local temporary directory
-PREFIX=/tmp/xilinx
-VERSION=2022.2
-INSTALLER="<downloaded/file>"  # This should match the download
-INSTALLER_EXTRACTED="${PREFIX}/extracted"
-mkdir $PREFIX
-chown -R $USER:$USER $PREFIX $INSTALLER
-chmod +x $INSTALLER
-./$INSTALLER --keep --noexec --target $INSTALLER_EXTRACTED
-
-# Now run this installer graphically, to create a new bundled-installer with the device support we need for the Arty A7-35T.
-INSTALLER_BUNDLED="$PREFIX/bundled"
-pushd $INSTALLER_EXTRACTED
-./xsetup
-popd
-```
-
-- Running './xsetup' above should have popped up the graphical installation wizard.
-  1. Page '<LANDING_PAGE>'
-     1. Select 'Next >'
-  2. Page 'Select Install Type'
-     1. Enter email/password for 'User Authentication' (register on Xilinx.com)
-     2. Select the radio-box 'Download Image (Install Separately)'
-     3. Select the download directory as '/tmp/xilinx/bundled' (the value from $INSTALLER_BUNDLED, See above)
-     4. Under 'Download fields to create full image for selected platform(s)', select 'Linux' only.
-     5. Under 'Image Contents', select 'Selected Product Only'
-     6. Select 'Next >'
-  3. Page 'Select Product to Install'
-     1. Select the radio-box 'Vivado' only
-     2. Select 'Next >'
-  4. Page 'Select Edition to Install'
-     1. Select the radio-box 'Vivado ML Standard'
-     2. Select 'Next >'
-  5. Page 'Vivado ML Standard'
-     1. Ensure only the following boxes are selected....
-        1. Design Tools - Vivado Design Suite - {Vivado, Vitis HLS}
-        2. Devices - Production Devices - 7 Series - {Artix7, Kintex7, Spartan7}
-        3. Installation Options
-     2. Select 'Next >'
-  6. Page 'Download Summary'
-     1. Check the download is approx 13GB.
-     1. Select 'Download'
-
-```bash
-# Now we have created a bundled installer for Vivado, we need to add this to the nix store
-
-# The easiest way to get the data into the nix store is by creating an archive...
-pushd $PREFIX
-BUNDLED_ARCHIVE="$PREFIX/vivado_bundled.tar.gz"
-# (You may need to install 'pigz' for this step, e.g. 'sudo apt install pigz')
-tar cf $BUNDLED_ARCHIVE -I pigz --directory=$(dirname $INSTALLER_BUNDLED) ./$(basename $INSTALLER_BUNDLED)
-
-# Now add using 'nix-prefetch-url'
-VIVADO_BUNDLED_HASH=$(nix-prefetch-url --type sha256 file:$BUNDLED_ARCHIVE)
-
-# The value of this hash will be needed for the next step.
-echo $VIVADO_BUNDLED_HASH
-popd
-```
-
-#### Install dependencies and activate our environment
-
-We can use the nix flake.nix recipe to build our environment.
-
-```bash
-git clone git@github.com:lowRISC/ibex-demo-system.git
-cd ibex-demo-system
-
-# [OPTIONAL]
-# Copy dependencies from a pre-prepared USB stick to compensate for bad internet
-# The hash below is the expected hash of the lab dependencies
-usb_path="<path/to/usb>" # e.g. "/media/harry/KINGSTON"
-nix copy \
-  --no-require-sigs \
-  --from file://${usb_path}/nix/store/ \
-  /nix/store/kx1qnhs2b6ikn5s4mj7jpj84rasqwc2h-labenv
-
-pushd dependencies && nix flake update && popd && nix flake update
-nix develop
-
-# Once it completes,you should see the lowRISC logo, followed by...
-# >> ------------------------------------------------- <<
-# >> Welcome the the ibex-demo-system nix environment! <<
-# >> ------------------------------------------------- <<
-
-# You are now in a shell with all the tools required to do the lab.
-
-# To exit this shell environment when you are done, simply run
-exit
-
-# Bonus Nix
-# Use nix-tree to interactively examine all dependencies of the demo.
-nix run nixpkgs#nix-tree -- .#devShells.x86_64-linux.default --derivation
-```
-
-Vivado-specific change (only needed if enabled in flake.nix):
-
-```bash
-# Run this before the `nix flake update` above.
-
-# Update the flake.nix with the hash ($VIVADO_BUNDLED_HASH) of the vivado installer
-# (We need to update just the sha256 hash input of requireFile function.)
-sed -i -- "s|sha256\s=\s\".*\";|sha256 = \"$VIVADO_BUNDLED_HASH\";|g" dependencies/flake.nix
-```
-
-</details>
-
-## Native Python Environment
-
-(NOT NEEDED IN THE CONTAINER ENVIRONMENT)
-
-To install python dependencies use pip, you may wish to do this inside a virtual environment to avoid disturbing you current python setup (note it uses a lowRISC fork of edalize and FuseSoC so if you already use these a virtual environment is recommended):
-
-```bash
-# Setup python venv
-python3 -m venv .venv
-source .venv/bin/activate
-
-# Install python requirements
-pip3 install -r python-requirements.txt
-```
-
-You may need to run the last command twice if you get the following error:
-`ERROR: Failed building wheel for fusesoc`
-
-## Building Software
-
-### C stack
-
-First the software must be built.
-This can be loaded into an FPGA to run on a synthesized Ibex processor, or passed to a Verilator simulation model to be simulated on a computer.
-
-```bash
-mkdir sw/c/build
-pushd sw/c/build
-cmake ..
-make
-popd
-```
-
-### Rust stack
-
-```sh
-pushd sw/rust
-cargo build --bin led
-popd
-```
-
-For more details, please refer to [Ibex Rust stack](sw/rust/README.md).
-
-Note the FPGA build relies on a fixed path to the initial binary (blank.vmem) so
-if you want to create your build directory elsewhere you need to adjust the path
-in `ibex_demo_system.core`
-
-## Building Simulation
-
-The Demo System simulator binary can be built via FuseSoC.
-From the Ibex repository root run:
-
-```sh
-fusesoc --cores-root=. run --target=sim --tool=verilator --setup --build lowrisc:ibex:demo_system
-```
-
-## Running the Simulator
-
-Having built the simulator and software, to simulate using Verilator we can use the following commands.
-`<sw_elf_file>` should be a path to an ELF file  (or alternatively a vmem file) built as described above.
-Use `./sw/c/build/demo/hello_world/demo` to run the `demo` binary.
-
-Run from the repository root run:
-
-```sh
-# For example :
-./build/lowrisc_ibex_demo_system_0/sim-verilator/Vtop_verilator \
-  --meminit=ram,./sw/c/build/demo/hello_world/demo
-
-# You need to substitute the <sw_elf_file> for a binary we have build above.
-./build/lowrisc_ibex_demo_system_0/sim-verilator/Vtop_verilator [-t] --meminit=ram,<sw_elf_file>
-```
-
-Pass `-t` to get an FST trace of execution that can be viewed with
-[GTKWave](http://gtkwave.sourceforge.net/).
+## 1. Where to start
+
+| You want to... | Read |
+|---|---|
+| Go from clean PC to working board, with every pitfall | **[WALKTHROUGH.md](docs/WALKTHROUGH.md)** |
+| Understand the binding chip constraints (why 8 KiB, why XIP) | [ASIC_SPEC.md](docs/ASIC_SPEC.md) |
+| Build/run/flash FreeRTOS firmware | [FREERTOS_PORT.md](docs/FREERTOS_PORT.md) |
+| See every recorded test result | [BRINGUP_TEST_REPORT.md](docs/BRINGUP_TEST_REPORT.md) |
+| Run the hardware re-validation when board/parts arrive | **[HW_VALIDATION_PLAN.md](docs/HW_VALIDATION_PLAN.md)** |
+| Follow the whole story + decision log | [BRINGUP_OVERVIEW.md](docs/BRINGUP_OVERVIEW.md) |
+
+## 2. How to start (quick start)
+
+Requirements: Windows or Linux PC with **Vivado** (free ML Standard,
+Artix-7 support + cable drivers) and Python 3. No FuseSoC needed; the demo
+program needs no RISC-V toolchain (Python mini-assembler); FreeRTOS builds
+with the RISC-V GCC from a Zephyr SDK install (see FREERTOS_PORT.md).
+
+**One-click scripts** (double-click from the repo root). Every script finds
+its tools dynamically through a shared locator (`scripts/find_tools.cmd`):
+saved answers (`.toolpaths`) → environment variables → the PATH → common
+install roots on **every drive** → and if all that fails it **asks you for
+the install directory once and remembers it** (per-PC `.toolpaths` file,
+gitignored). Nothing is hard-coded; no drive letter is assumed:
+
+| Script | One click does | Needs board? |
+|---|---|---|
+| `setup_check.bat` | **Run this first.** Environment doctor: verifies Vivado, Python, RISC-V GCC, git, repo location; changes nothing; prints fixes | no |
+| `build_fpga.bat` | Synthesise the bitstream with the demo program baked in (~15 min) | no |
+| `program_fpga.bat` | Load the bitstream over USB-JTAG (volatile — lost at power-cycle) | yes |
+| `run_regression.bat` | The **entire test suite**: regenerate images, build FreeRTOS, compile, all 5 simulations, bitstream + timing, PASS/FAIL scoreboard (~45–60 min, `build\regression.log`) | no |
+| `flash_freertos.bat` | **FreeRTOS to the board, end to end**: firmware → XIP-boot bitstream → QSPI flash (survives power-cycle). `toy` argument adds the LCD/sensor task | yes |
+| `program_flash.bat` | Just the flash-programming step (any firmware .bin) | yes |
+| `sw\freertos\build.bat` | Just the firmware (`sim`/`toy` variants); honours `RISCV_GCC_HOME` | no |
+| `control_panel.bat` | **The Windows GUI**: buttons for everything above + firmware variants + docs + live log viewer | no |
 
 ```
-Simulation statistics
-=====================
-Executed cycles:  5899491
-Wallclock time:   1.934 s
-Simulation speed: 3.05041e+06 cycles/s (3050.41 kHz)
-
-Performance Counters
-====================
-Cycles:                     457
-NONE:                       0
-Instructions Retired:       296
-LSU Busy:                   108
-Fetch Wait:                 20
-Loads:                      53
-Stores:                     55
-Jumps:                      21
-Conditional Branches:       12
-Taken Conditional Branches: 7
-Compressed Instructions:    164
-Multiply Wait:              0
-Divide Wait:                0
+git clone git@github.com:sohamxda7/minimal_ibex_soc.git
+cd minimal_ibex_soc
+setup_check.bat         # environment doctor - fix anything it flags
+build_fpga.bat          # synthesise -> build/fpga/top_artya7.bit  (~15 min)
+program_fpga.bat        # load onto the board over USB-JTAG (volatile)
 ```
 
-## Building FPGA bitstream
+Open a serial terminal (115200 8N1; COM port from Device Manager). The board
+prints an `IBEX-SOC UP <n>` heartbeat and accepts single-key commands:
 
-FuseSoC handles the FPGA build. Vivado tools must be setup beforehand.
-From the repository root:
+| Keys | Function |
+|---|---|
+| `1` `2` `3` `4` | Green-LED pattern: walking / nibble flip / alternating / binary count |
+| `f` `m` `s` | Pattern speed: 50 / 150 / 400 ms per step |
+| `r` `g` `b` `w` | Force RGB LED colour (brightness breathing continues) |
+| `a` | RGB automatic colour cycling (default) |
 
-```bash
-fusesoc --cores-root=. run --target=synth --setup --build lowrisc:ibex:demo_system
-```
+Scripted equivalent: `python util/uart_command_test.py`. Full-SoC simulation
+without hardware: [WALKTHROUGH.md](docs/WALKTHROUGH.md) §6.
 
-The default board is the Arty A7-35T, but you can also use different synthesis targets for supported boards.
-To do this, change the value used with `--target=` in the above command.
-Current synthesis targets are:
+FreeRTOS from flash (XIP): one click — `flash_freertos.bat` (or
+`flash_freertos.bat toy` with the peripherals wired). Details and the
+manual step-by-step equivalent: [FREERTOS_PORT.md](docs/FREERTOS_PORT.md).
 
-| Board         | Target              |
-| ------------- | ------------------- |
-| Arty A7-35T   | `synth`             |
-| Sonata        | `synth_sonata`      |
-| Arty S7-25T   | `synth_artys7-25`   |
-| Arty S7-50T   | `synth_artys7-50`   |
-| Nexys A7-100T | `synth_nexysa7`     |
-| Blackboard    | `synth_blackboard`  |
-| Boolean       | `synth_boolean`     |
-| CW305-A100    | `synth_cw305`       |
-| CW312T-XC7A35 | `synth_cw312a35`    |
+## 3. Fixes we made (all confirmed by simulation, then hardware where possible)
 
-These targets are specified in [ibex_demo_system.core](./ibex_demo_system.core).
+| # | Issue | Impact | Fix |
+|---|---|---|---|
+| 1 | `SRAMInitFile` parameter wired to nothing (program reached SRAM only through a Verilator-only DPI back-door) | FPGA bitstream contained **no program**; CPU crash-looped in empty SRAM — the reported "glitch" | Parameter plumbed `top_artya7 → ibex_demo_system → wrapper_top → sram_model`; program baked into BRAM at synthesis |
+| 2 | Software timer tick 10 000 cycles (0.5 ms) | RGB ramp/colour cycle ~500× fast — LEDs strobed at kHz | 0.1 s tick (2 000 000 cycles @ 20 MHz) |
+| 3 | `uart` instantiated parameterless (internal default used); PLL generated 50 MHz for a 20 MHz design | Wrong baud — garbled serial console | `ClockFrequency`/`BaudRate` passed down every level; PLL `CLKOUT0_DIVIDE` 24 → 60 |
+| 4 | Verilator-only DPI exports guarded `ifndef SYNTHESIS` | Vivado xsim failed compiling generated C | Guards changed to `ifdef VERILATOR` (`sram_model.sv`, vendored `ibex_if_stage.sv`) |
+| 5 | DV lead's UART-command draft: `timer_enable()` re-armed in the main loop; speed table inverted and ~500× fast; patterns wrote the display nibble | Tick never fired; UART flooded; patterns invisible | Timer armed once, re-armed on speed change only; corrected table; LED nibble only — review in [UART_CONTROL.md](docs/UART_CONTROL.md) |
+| 6 | `spi_flash_xip.sv` (untested): first flash byte into `rdata[31:24]` not `[7:0]`; FSM re-triggered during the ack cycle (stale-data phantom read); writes hung the bus | CPU executed byte-reversed garbage from flash — XIP unusable; latent data corruption | All three fixed; proven by the `tb_xip` execute-from-flash sim |
+| 7 | Team's `i2c_slave_bfm.sv`: read path released SDA on the SCL sampling edge | Phantom STOP + corrupted final bit on I2C reads | Release moved to the following SCL-low phase; unsafe pre-drive removed |
 
-## Programming FPGA
+## 4. What we added
 
-To program the FPGA, you can use either FuseSoC or OpenFPGALoader.
+- **Windows-native, no-FuseSoC build**: one compile list (`dv/xsim/filelist.f`)
+  shared by simulation and synthesis; plain Vivado `.tcl/.bat` flows;
+  hand-written primitive shims.
+- **A dependency-free Python RV32IM assembler** (`sw/asm-demo/assemble.py`) —
+  demo firmware with zero toolchain install.
+- **Full-SoC xsim testbenches**: `tb_soc` (9 self-checks), `tb_lcd`
+  (behavioral ST7735), `tb_i2c` (team slave BFM as sensor), `tb_xip`
+  (CPU executing from a behavioral SPI NOR flash), `tb_freertos`
+  (RTOS boot over XIP).
+- **SPI-flash XIP path, wired and proven**: controller fixed (row 6 above),
+  QSPI pins connected (flash SCK via `STARTUPE2` — it has no package pin),
+  `program_flash.bat` burns bitstream + firmware in one MCS.
+- **FreeRTOS V11.2.0 port** for the 8 KiB + XIP configuration
+  ([FREERTOS_PORT.md](docs/FREERTOS_PORT.md)) with peripheral drivers
+  (I2C, ST7735, BME280, SSD1306) sized for 8 KiB RAM.
+- **I2C pinned out** to Pmod JA1/JA2 as a proper open-drain bus.
+- **Scripted hardware tests** (`util/uart_command_test.py`) and detached
+  regression runners (`scripts/*.ps1`).
+- **Phase-1 board IO qualification project** (`board-io-test/`) with its own
+  test report — the board itself is known-good.
+- **v1.1 production-peripheral stack** ([PRODUCTION_PERIPHERALS.md](docs/PRODUCTION_PERIPHERALS.md)):
+  UART2 + SPI-RX + GPIO-16 silicon additions; external 8 MB PSRAM, ESP32
+  WiFi/internet, OV7670-FIFO camera snapshots, mic ADC + PWM speaker;
+  behavioral models + 4 dedicated testbenches; FreeRTOS drivers for all of it.
+- **A Windows GUI control panel** (`control_panel.bat`, WinForms, zero
+  dependencies) driving setup/build/program/flash/regression with live logs.""),
+(### Open questions for the team
 
-FuseSoC can load the bitstream it previously built by replacing the `--build` argument with `--run`.
-For example:
+## 5. Patches to vendored code (re-apply if `vendor/` is ever re-imported)
 
-```bash
-fusesoc --cores-root=. run --target=synth --run lowrisc:ibex:demo_system
+| File | Patch | Why |
+|---|---|---|
+| `vendor/lowrisc_ibex/shared/rtl/fpga/xilinx/clkgen_xil7series.sv` | `CLKOUT0_DIVIDE` 24 → 60 | 20 MHz system clock (ASIC target) |
+| `vendor/lowrisc_ibex/rtl/ibex_if_stage.sv` | DPI guard `ifndef SYNTHESIS` → `ifdef VERILATOR` | xsim cannot compile Verilator-only DPI |
 
-# If the above does not work, try executing the programming operation manually with:
-make -C ./build/lowrisc_ibex_demo_system_0/synth-vivado/ pgm
-```
-Remember to replace `synth` in the `fusesoc` or `make` invocation with the appropriate target if you are use an alternative board.
+Upstream-sync policy: fetch the `lowrisc` remote, merge taking OURS for
+fork-owned files, re-apply the two patches above if `vendor/` changed, run
+the full regression before pushing. FreeRTOS kernel is vendored unmodified
+(`vendor/freertos_kernel/VENDORED.txt`).
 
-You can alternatively use [OpenFPGALoader](https://github.com/trabucayre/openFPGALoader) to program the FPGA quicker and without Vivado.
-Here are some example commands:
+## 6. Constraints (binding — from the tapeout spec)
 
-```bash
-# Programming the Arty A7-35T
-./openFPGALoader -b arty_a7_35t build/lowrisc_ibex_demo_system_0/synth-vivado/lowrisc_ibex_demo_system_0.bit
+Digest with full reasoning: **[ASIC_SPEC.md](docs/ASIC_SPEC.md)**.
 
-# Programming the Sonata board
-./openFPGALoader -c ft4232 build/lowrisc_ibex_demo_system_0/synth_sonata-vivado/lowrisc_ibex_demo_system_0.bit
+- **SRAM = 8 KiB** (`0x0010_2000..0x0010_3FFF`). The Caravel user area is
+  10.27 mm²; 64 KiB of DFFRAM alone is ~14 mm². Not negotiable by software.
+- **Code > 8 KiB executes in place** from SPI flash at `0x2000_0000`
+  (firmware at flash offset 0x40_0000 → CPU address `0x2040_0000`).
+- **20 MHz system clock** — the ASIC target; do not "fix" it upward.
+- **Boot contract**: entry = SRAM+0x80 = `0x0010_2080`; XIP firmware boots
+  via a 2-instruction trampoline there.
+- **RTOS = FreeRTOS** (fits the RAM budget; named by the spec).
+- No PLIC — interrupts go flat into Ibex's fast IRQ inputs; Ibex is
+  vectored-only (`mtvec[1:0]` hardwired), so trap code needs a vector table.
 
-# Programming the Blackboard board
-./openFPGALoader -c ft4232 build/lowrisc_ibex_demo_system_0/synth_blackboard-vivado/lowrisc_ibex_demo_system_0.bit
+### ⚠ Open questions for the team
 
-# Programming the Boolean board
-./openFPGALoader -c ft4232 build/lowrisc_ibex_demo_system_0/synth_boolean-vivado/lowrisc_ibex_demo_system_0.bit
-```
+1. ~~SRAM base address~~ **RESOLVED (2026-08-10): the team confirmed
+   `0x0010_2000` — this repo's value — is correct**; the spec sheet's
+   printed `0x0010_1000` is stale. The boot contract (entry = SRAM+0x80 =
+   `0x0010_2080`) stands unchanged.
+2. ~~PWM block at `0x4000_0600`~~ **RESOLVED (2026-08-10): keep in BOTH
+   FPGA and ASIC.** Sub-lead confirmed the spec omitted it only because it
+   predates the fork - the block was already present in the original
+   ibex-demo-system. No RTL change; it stays in the silicon netlist.
 
-## Loading an application to the programmed FPGA
+**No open questions remain** - the validated FPGA configuration is the
+tapeout configuration.
 
-The `util/load_demo_system.sh` script can be used to load and run an application.
-You can choose to immediately run it or begin halted, allowing you to attach a debugger.
+## 7. Repository layout
 
-```bash
-# Run demo
-./util/load_demo_system.sh run ./sw/c/build/demo/hello_world/demo
-./util/load_demo_system.sh run ./sw/c/build/demo/lcd_st7735/lcd_st7735
+| Path | Contents |
+|---|---|
+| `rtl/system/` | SoC fabric: `wrapper_top`, `obi2wb`, `wb_interconnect`, peripherals (UART, GPIO, timer, PWM, I2C, SPI, XIP), memories |
+| `rtl/fpga/` | Board top levels (`top_artya7.sv`, incl. STARTUPE2 flash-clock access) |
+| `vendor/` | Vendored: Ibex core, lowRISC primitives, PULP debug module, FreeRTOS kernel |
+| `sw/asm-demo/` | Python mini-assembler + demo programs → `.vmem` images (incl. XIP trampoline) |
+| `sw/freertos/` | FreeRTOS firmware: port glue, linker, drivers, demo app, `build.bat` |
+| `sw/c/` | C software (CMake, RISC-V GCC); `demo/hello_world/main.c` mirrors the asm demo |
+| `sw/rust/` | Embedded Rust HAL and demos (owned by the Rust team) |
+| `dv/xsim/` | Windows-friendly full-SoC simulation: file list, 5 testbenches, shims, device models |
+| `dv/verilator/` | Upstream Verilator simulation flow |
+| `data/` | Pin constraints (`pins_artya7.xdc`) |
+| `build_fpga.*` / `program_fpga.*` / `program_flash.*` | Build · JTAG program · flash bitstream+firmware |
+| `scripts/` | Detached-launch compile/sim/bitstream regression runners |
+| `util/` | Scripted hardware test, OpenOCD configs |
+| `board-io-test/` | Phase-1 board IO qualification (pre-SoC) |
+| `DFFRAM/`, `gds.tar.gz` | ASIC-side artifacts — unused by FPGA/sim/software flows |
 
-# Load demo and start halted awaiting a debugger
-./util/load_demo_system.sh halt ./sw/c/build/demo/hello_world/demo
+## 8. Full documentation index
 
-# Run demo on the Sonata board
-./util/load_demo_system.sh run ./sw/c/build/demo/hello_world/demo ./util/sonata-openocd-cfg.tcl
+**Live documents**
 
-# Run demo on the Blackboard board
-./util/load_demo_system.sh run ./sw/c/build/demo/hello_world/demo ./util/blackboard-openocd-cfg.tcl
+| Document | Read it for |
+|---|---|
+| [WALKTHROUGH.md](docs/WALKTHROUGH.md) | Clean PC → working board; every script; all 19 gotchas |
+| [ASIC_SPEC.md](docs/ASIC_SPEC.md) | The tapeout spec digest — area budget, memory map, XIP contract, Caravel flow, security |
+| [FREERTOS_PORT.md](docs/FREERTOS_PORT.md) | FreeRTOS on 8 KiB + XIP: memory model, vectored interrupts, build/flash/run |
+| [FPGA_BRINGUP.md](docs/FPGA_BRINGUP.md) | Bring-up bugs deep-dive + the no-FuseSoC build/sim flow |
+| [UART_CONTROL.md](docs/UART_CONTROL.md) | UART command interface: design + review of the original draft |
+| [TOY_INTERFACING.md](docs/TOY_INTERFACING.md) | Final acceptance test: LCD + I2C sensors, wiring tables, sim evidence |
+| [BRINGUP_TEST_REPORT.md](docs/BRINGUP_TEST_REPORT.md) | All recorded results: builds, simulations, hardware tests |
+| [BRINGUP_OVERVIEW.md](docs/BRINGUP_OVERVIEW.md) | Project narrative + decision log with reasoning |
+| [PRODUCTION_PERIPHERALS.md](docs/PRODUCTION_PERIPHERALS.md) | **v1.1**: WiFi/camera/mic/speaker/PSRAM architecture, pin budget, BOM, sim evidence |
+| [CHIP_ROADMAP.md](docs/CHIP_ROADMAP.md) | v1 frozen / v2 multimedia MCU / what never goes on-die; the carrier-board plan |
+| [board-io-test/README.md](board-io-test/README.md) | Phase-1 board IO qualification project |
 
-# Run demo on the Boolean board
-./util/load_demo_system.sh run ./sw/c/build/demo/hello_world/demo ./util/boolean-openocd-cfg.tcl
-```
+**History / archive** (kept for the record; superseded by the ASIC pivot)
 
-To view terminal output use screen:
+| Document | What it was |
+|---|---|
+| [UPSTREAM_README.md](docs/UPSTREAM_README.md) | The original lowRISC README, verbatim (also restored at the repo root) |
 
-```bash
-# Look in /dev to see available ttyUSB devices
-screen /dev/ttyUSB1 115200
-```
+(The Zephyr-era evaluation documents were removed in the v1.1 cleanup —
+recoverable from git history; their conclusion lives on in
+[CHIP_ROADMAP.md](docs/CHIP_ROADMAP.md).)
 
-If you see an immediate `[screen is terminating]`, it may mean that you need super user rights.
-In this case, you may try using `sudo`.
+## 9. Continuous integration
 
-To exit from the `screen` command, you should press `ctrl-a` followed by `k`.
-You will need to confirm the exit by pressing `y`.
+- **CMake** — cross-compiles `sw/c` with the lowRISC RISC-V GCC on every
+  push (green).
+- **Rust** — builds the embedded HAL; runs only on `sw/rust/**` changes.
+  Pre-existing nightly failure; the Rust owner should re-pin
+  `rust-toolchain.toml`.
 
-## Debugging an application
+## License
 
-Either load an application and halt (see above) or start a new OpenOCD instance:
-
-```bash
-openocd -f util/arty-a7-openocd-cfg.tcl
-```
-
-Then run GDB against the running binary and connect to `localhost:3333` as a remote target:
-
-```bash
-riscv32-unknown-elf-gdb ./sw/c/build/demo/hello_world/demo
-
-(gdb) target extended-remote localhost:3333
-```
-
-## Board-specific notes
-
-### Realdigital Blackboard
-
-The Blackboard uses a Zynq 7000 series SoC and the serial is routed to the PS rather than the PL.
-While it could be possible to access the serial through the PS using AXI, the current implementation maps serial to the PMODC header.
-
-The mapping follows the [Pmod Interface Type 3 (UART) pinout](https://digilent.com/reference/_media/reference/pmod/pmod-interface-specification-1_3_1.pdf) for the Digilent Pmod USBUART interface ([Digilent 410-212](https://digilent.com/shop/pmod-usbuart-usb-to-uart-interface/)), but any 3.3V USB-UART interface can be used.
+Apache-2.0, following upstream lowRISC (see `LICENSE`).

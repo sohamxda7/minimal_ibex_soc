@@ -102,8 +102,8 @@ Add-Button "Flash to Board (QSPI)" 352 132 160 {
 
 # ---- row 3: docs + logs ---------------------------------------------------------
 Add-Label "Docs and logs" 12 178 $true | Out-Null
-Add-Button "Open Fork Guide"  12 200 160 { Start-Process "$repo\docs\README.md" } `
-  "docs/README.md - where to start, fixes, constraints." | Out-Null
+Add-Button "Open Fork Guide"  12 200 160 { Start-Process "$repo\README.md" } `
+  "README.md - where to start, fixes, constraints." | Out-Null
 Add-Button "Open Walkthrough" 182 200 160 { Start-Process "$repo\docs\WALKTHROUGH.md" } `
   "Clean PC to working board, all gotchas." | Out-Null
 Add-Button "Open Test Report" 352 200 160 { Start-Process "$repo\docs\BRINGUP_TEST_REPORT.md" } `
