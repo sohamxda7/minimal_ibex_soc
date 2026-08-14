@@ -35,6 +35,7 @@ onboard 16 MB QSPI flash.
 
 | You want to... | Read |
 |---|---|
+| **Brief the lead / get the current status in 5 min** | **[docs/STATUS_BRIEF.md](docs/STATUS_BRIEF.md)** |
 | Go from clean PC to working board, with every pitfall | **[WALKTHROUGH.md](docs/WALKTHROUGH.md)** |
 | Understand the binding chip constraints (why 8 KiB, why XIP) | [ASIC_SPEC.md](docs/ASIC_SPEC.md) |
 | Build/run/flash FreeRTOS firmware | [FREERTOS_PORT.md](docs/FREERTOS_PORT.md) |
