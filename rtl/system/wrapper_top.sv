@@ -119,6 +119,8 @@ module wrapper_top #(
 
   output logic             uart_irq_o,
 
+  output logic             uart2_irq_o,  // v1.1: RX-not-empty, level (lead-requested, 2026-08-17)
+
   // -------------------------------------------------------
 
   // GPIO
@@ -1020,7 +1022,10 @@ module wrapper_top #(
   );
 
   // v1.1: UART2 - companion link to the external ESP32 (WiFi/TCP-IP
-  // offload). Polled only; no IRQ wired (fast IRQs stay as documented).
+  // offload). RX IRQ (level, = RX-FIFO-not-empty) goes out on
+  // uart2_irq_o -> Ibex fast IRQ 1 (mcause 17): the ESP32 sends
+  // unsolicited lines (WIFI DISCONNECT, +IPD...) at any time, so RX
+  // must not depend on the CPU happening to poll.
 
   uart #(
 
@@ -1050,7 +1055,7 @@ module wrapper_top #(
 
     .uart_rx_i      (uart2_rx_i),
 
-    .uart_irq_o     (),
+    .uart_irq_o     (uart2_irq_o),
 
     .uart_tx_o      (uart2_tx_o)
 

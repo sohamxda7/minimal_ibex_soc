@@ -154,6 +154,8 @@ module ibex_demo_system #(
 
   logic uart_irq;
 
+  logic uart2_irq;   // v1.1: ESP32 companion UART RX (fast IRQ 1)
+
   logic timer_irq;
 
   // =========================================================
@@ -344,7 +346,7 @@ module ibex_demo_system #(
 
     .irq_external_i (1'b0),
 
-    .irq_fast_i     ({14'b0, uart_irq}),
+    .irq_fast_i     ({13'b0, uart2_irq, uart_irq}),
 
     .irq_nm_i       (1'b0),
 
@@ -445,6 +447,8 @@ module ibex_demo_system #(
     .uart2_tx_o (uart2_tx_o),
 
     .uart_irq_o (uart_irq),
+
+    .uart2_irq_o (uart2_irq),
 
     // GPIO
 

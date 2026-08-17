@@ -76,8 +76,8 @@ freertos_vector_table:
     j freertos_risc_v_interrupt_handler         /* 13:                        */
     j freertos_risc_v_interrupt_handler         /* 14:                        */
     j freertos_risc_v_interrupt_handler         /* 15:                        */
-    j freertos_risc_v_interrupt_handler         /* 16: fast[0] = UART         */
-    j freertos_risc_v_interrupt_handler         /* 17: fast[1]                */
+    j freertos_risc_v_interrupt_handler         /* 16: fast[0] = UART1        */
+    j freertos_risc_v_interrupt_handler         /* 17: fast[1] = UART2 RX     */
     j freertos_risc_v_interrupt_handler         /* 18: fast[2]                */
     j freertos_risc_v_interrupt_handler         /* 19: fast[3]                */
     j freertos_risc_v_interrupt_handler         /* 20: fast[4]                */
