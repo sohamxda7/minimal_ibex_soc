@@ -18,6 +18,7 @@
 #include "uart.h"
 
 #include "drivers/spi_bus.h"
+#include "drivers/esp_at.h"
 
 /* Heap lives in .noinit: not zeroed at boot (see FreeRTOSConfig.h). */
 uint8_t ucHeap[ configTOTAL_HEAP_SIZE ]
@@ -157,7 +158,7 @@ static void prvConsoleTask( void * pvParameters )
 #include "drivers/ssd1306.h"
 #include "drivers/st7735.h"
 
-/* The "toy interfacing" final test (docs/TOY_INTERFACING.md): LCD banner over
+/* The "toy interfacing" final test (docs/PRODUCTION_PERIPHERALS.md sec. 8): LCD banner over
  * SPI, then a BME280 reading every 2 s to UART + OLED. Needs the purchased
  * hardware wired per the doc's tables, so it only runs in TOY_DEMO builds. */
 static void prvToyTask( void * pvParameters )
@@ -272,11 +273,22 @@ void vAssertCalled( unsigned long ulLine )
 }
 
 /* The V11 RISC-V port calls this for any non-timer interrupt (routed through
- * freertos_risc_v_interrupt_handler). Nothing to service yet -- the UART fast
- * IRQ is not enabled in mie -- but leave a breadcrumb if one ever fires. */
+ * freertos_risc_v_interrupt_handler / vector table in startup.S), with full
+ * context saved - FromISR APIs and vTaskSwitchContext are legal here.
+ * Fast IRQ 1 (mcause 17) = UART2 RX, unmasked only by esp_at_init(). */
 void freertos_risc_v_application_interrupt_handler( void )
 {
-    uart_puts( "IRQ?\r\n" );
+    uint32_t cause;
+
+    __asm__ volatile ( "csrr %0, mcause" : "=r" ( cause ) );
+
+    if( ( cause & 0x1Fu ) == 17u )
+    {
+        esp_at_isr();
+        return;
+    }
+
+    uart_puts( "IRQ?\r\n" );             /* breadcrumb: nothing else enabled */
 }
 
 void freertos_risc_v_application_exception_handler( void )
