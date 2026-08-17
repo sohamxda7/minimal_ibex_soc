@@ -1,15 +1,15 @@
 # =============================================================================
 # minimal-ibex-soc Control Panel (Windows-only, WinForms - no dependencies
-# beyond stock PowerShell). One window for the whole flow: environment
-# doctor, bitstream build, board programming, FreeRTOS flash, firmware
-# builds, full regression, docs and live logs.
+# beyond stock PowerShell). THE user interface for everything: environment
+# doctor + tool setup, .xpr generation, bitstream build, board programming,
+# FreeRTOS firmware + QSPI flashing, full regression, docs and live logs.
 #
-# Launch: control_panel.bat (repo root), or:
+# Launch: ibex_soc.bat (the one root script), or:
 #   powershell -NoProfile -ExecutionPolicy Bypass -File gui\ibex_control_panel.ps1
 #
-# Every action runs DETACHED in its own console window (EDA tools hang under
-# piped stdio - docs/WALKTHROUGH.md gotcha 16); the log pane tails the
-# corresponding build\*.log so progress is visible here too.
+# Every button opens its own console window running scripts\flows.ps1 <flow>
+# (EDA tools hang under piped stdio - docs/WALKTHROUGH.md gotcha 16 - so
+# flows always get a real console); the log pane tails build\*.log too.
 # =============================================================================
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
@@ -17,19 +17,12 @@ Add-Type -AssemblyName System.Drawing
 $repo = Split-Path -Parent $PSScriptRoot
 Set-Location $repo
 
-function Launch-Detached([string]$cmd, [string[]]$cmdArgs) {
-    Start-Process -FilePath $cmd -ArgumentList $cmdArgs -WorkingDirectory $repo
-}
-
-function Launch-Bat([string]$bat, [string]$batArg) {
-    # cmd /k keeps the window open so the user sees the result + any pause
-    $inner = "`"$repo\$bat`""
-    if ($batArg) { $inner += " $batArg" }
-    Launch-Detached "cmd.exe" @("/k", $inner)
-}
-
-function Launch-Ps1([string]$ps1) {
-    Launch-Detached "powershell.exe" @("-NoProfile","-ExecutionPolicy","Bypass","-File","$repo\$ps1")
+function Launch-Flow([string]$flow, [string]$flowArg) {
+    # -NoExit keeps the console open so the user sees the result
+    $a = @("-NoProfile","-ExecutionPolicy","Bypass","-NoExit",
+           "-File","$repo\scripts\flows.ps1",$flow)
+    if ($flowArg) { $a += $flowArg }
+    Start-Process -FilePath "powershell.exe" -ArgumentList $a -WorkingDirectory $repo
 }
 
 # ---- window -----------------------------------------------------------------
@@ -70,17 +63,17 @@ Add-Label "$vivStatus    |    $pyStatus    |    Repo: $repo" 12 10 $false | Out-
 
 # ---- row 1: setup / build / program ------------------------------------------
 Add-Label "Setup and build" 12 44 $true | Out-Null
-Add-Button "Environment Check" 12  66 160 { Launch-Bat "setup_check.bat" "" } `
-  "Doctor: Vivado/Python/GCC/git/paths. Asks + saves tool locations if missing." | Out-Null
-Add-Button "Build Bitstream"   182 66 160 { Launch-Bat "build_fpga.bat" "" } `
+Add-Button "Environment Check" 12  66 160 { Launch-Flow "setup" "" } `
+  "Doctor: Vivado/Python/GCC/git/paths/board. Asks + saves tool locations if missing." | Out-Null
+Add-Button "Build Bitstream"   182 66 160 { Launch-Flow "build" "" } `
   "Synthesise with the demo program baked into SRAM (~15 min)." | Out-Null
-Add-Button "Program Board (JTAG)" 352 66 160 { Launch-Bat "program_fpga.bat" "" } `
-  "Volatile: lost at power-cycle. Board must be connected." | Out-Null
-Add-Button "Full Regression"   522 66 160 { Launch-Bat "run_regression.bat" "" } `
-  "Images + firmware + compile + all simulations + bitstream + scoreboard (~1 h)." | Out-Null
+Add-Button "Generate .xpr"     352 66 160 { Launch-Flow "xpr" "" } `
+  "Vivado GUI project for browsing (build\vivado_project). Official build stays batch." | Out-Null
+Add-Button "Full Regression"   522 66 160 { Launch-Flow "regression" "" } `
+  "Images + firmware + compile + all 10 simulations + bitstream + scoreboard (~1 h)." | Out-Null
 
-# ---- row 2: firmware ----------------------------------------------------------
-Add-Label "FreeRTOS firmware" 12 112 $true | Out-Null
+# ---- row 2: firmware / board ---------------------------------------------------
+Add-Label "FreeRTOS firmware and board" 12 112 $true | Out-Null
 $variant = New-Object Windows.Forms.ComboBox
 $variant.Location = New-Object Drawing.Point(12, 134)
 $variant.Size     = New-Object Drawing.Size(160, 30)
@@ -93,17 +86,19 @@ function Get-VariantArg {
     switch ($variant.SelectedIndex) { 1 { "toy" } 2 { "sim" } default { "" } }
 }
 
-Add-Button "Build Firmware" 182 132 160 { Launch-Bat "sw\freertos\build.bat" (Get-VariantArg) } `
+Add-Button "Build Firmware" 182 132 160 { Launch-Flow "firmware" (Get-VariantArg) } `
   "Compile the selected variant with the RISC-V GCC." | Out-Null
 Add-Button "Flash to Board (QSPI)" 352 132 160 {
     $fw = if ($variant.SelectedIndex -eq 1) { "toy" } else { "" }
-    Launch-Bat "flash_freertos.bat" $fw
-} "End to end: firmware + XIP bitstream + QSPI flash. Survives power-cycle." | Out-Null
+    Launch-Flow "flashfw" $fw
+} "THE flow: firmware (prebuilt fallback if no GCC) + XIP bitstream + QSPI flash. Survives power-cycle." | Out-Null
+Add-Button "Program Board (JTAG)" 522 132 160 { Launch-Flow "program" "" } `
+  "Dev-only, volatile: lost at power-cycle. Board must be connected." | Out-Null
 
 # ---- row 3: docs + logs ---------------------------------------------------------
 Add-Label "Docs and logs" 12 178 $true | Out-Null
 Add-Button "Open Fork Guide"  12 200 160 { Start-Process "$repo\README.md" } `
-  "README.md - where to start, fixes, constraints." | Out-Null
+  "README.md - the front page: quick start, constraints, doc index." | Out-Null
 Add-Button "Open Walkthrough" 182 200 160 { Start-Process "$repo\docs\WALKTHROUGH.md" } `
   "Clean PC to working board, all gotchas." | Out-Null
 Add-Button "Open Test Report" 352 200 160 { Start-Process "$repo\docs\BRINGUP_TEST_REPORT.md" } `

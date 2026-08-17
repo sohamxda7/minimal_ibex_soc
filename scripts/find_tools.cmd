@@ -17,7 +17,7 @@ rem        <d>:\FPGA\zephyr-sdk  <d>:\zephyr-sdk*  %USERPROFILE%\zephyr-sdk*
 rem   5. ASK the user for the install directory, validate it, and SAVE the
 rem      answer to .toolpaths so it is never asked again on this PC.
 rem
-rem .toolpaths is per-PC and gitignored. Delete it (or run setup_check.bat)
+rem .toolpaths is per-PC and gitignored. Delete it (or run the setup flow)
 rem if a tool moves. Exit code 1 = the requested tool is missing.
 rem Intentionally NO setlocal: results must land in the caller's environment.
 rem ===========================================================================

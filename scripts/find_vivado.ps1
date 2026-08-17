@@ -6,7 +6,8 @@
 # Same search order as scripts\find_tools.cmd (keep the two in sync):
 #   .toolpaths (saved answers) -> env vars -> PATH -> drive scan.
 # NO interactive prompt here - these runners are often launched detached.
-# If nothing is found, run setup_check.bat once: it asks and saves the path.
+# If nothing is found, run the setup flow (ibex_soc.bat -> Environment Check)
+# once: it asks and saves the path.
 # ===========================================================================
 function Find-VivadoBin {
     $repo = Split-Path -Parent $PSScriptRoot
@@ -48,5 +49,5 @@ function Find-VivadoBin {
     }
     if ($found) { return $found }
 
-    throw "Vivado not found (PATH, .toolpaths, common roots on all drives). Run setup_check.bat once - it will ask for the install dir and save it."
+    throw "Vivado not found (PATH, .toolpaths, common roots on all drives). Run the setup flow (ibex_soc.bat -> Environment Check) once - it will ask for the install dir and save it."
 }

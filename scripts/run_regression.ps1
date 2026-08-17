@@ -5,7 +5,8 @@
 # (everything sequential on purpose - concurrent xelab+vivado has killed
 # builds on 16 GB before).
 #
-# Launch: run_regression.bat (double-click), or from an agent shell:
+# Launch: ibex_soc.bat -> Full Regression (or scripts\flows.ps1 regression),
+# or from an agent shell:
 #   Start-Process powershell -ArgumentList "-NoProfile","-File","scripts\run_regression.ps1"
 # (EDA tools hang under piped stdio - WALKTHROUGH.md gotcha 16.)
 #

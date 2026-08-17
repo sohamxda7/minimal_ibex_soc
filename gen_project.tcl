@@ -2,9 +2,9 @@
 # Generate a Vivado GUI project (.xpr) from the same sources as the batch
 # flow - for teammates who want the FuseSoC-style project view for browsing,
 # schematic/hierarchy inspection or interactive synthesis. The OFFICIAL build
-# remains the non-project batch flow (build_fpga.bat): this project is a
+# remains the non-project batch flow (the Build Bitstream flow): this project is a
 # viewer, not a second build system.
-#   vivado -mode batch -source gen_project.tcl     (or gen_project.bat)
+#   vivado -mode batch -source gen_project.tcl   (or ibex_soc.bat -> Generate .xpr)
 # Output: build/vivado_project/minimal_ibex_soc.xpr
 # =============================================================================
 cd [file dirname [file normalize [info script]]]

@@ -1,7 +1,7 @@
 # Loads build/fpga/top_artya7.bit onto the Arty A7 over USB.
 cd [file dirname [file normalize [info script]]]
 if {![file exists build/fpga/top_artya7.bit]} {
-    puts "ERROR: build/fpga/top_artya7.bit not found. Run build_fpga.bat first."
+    puts "ERROR: build/fpga/top_artya7.bit not found. Run the Build Bitstream flow first."
     exit 1
 }
 open_hw_manager
@@ -16,6 +16,6 @@ puts "=============================================="
 puts "  BOARD PROGRAMMED (volatile, dev-only path)."
 puts "  NOTE: the default bitstream boots FreeRTOS from QSPI flash."
 puts "  If PuTTY shows NOTHING: the flash has no firmware yet - run"
-puts "  flash_freertos.bat ONCE (the supported flow), then retry."
+puts "  the Flash to Board flow ONCE (ibex_soc.bat), then retry."
 puts "  Expect in PuTTY 115200: FreeRTOS banner + tick=N + LED walk."
 puts "=============================================="

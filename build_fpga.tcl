@@ -3,7 +3,7 @@
 #
 #   Run from the REPO ROOT:
 #     vivado -mode batch -source build_fpga.tcl
-#   (or double-click build_fpga.bat)
+#   (or ibex_soc.bat -> Build Bitstream)
 #
 # Produces build/fpga/top_artya7.bit with the demo program already inside
 # the XIP boot trampoline (sw/asm-demo/xip_stub.vmem): every bitstream boots
@@ -57,5 +57,5 @@ write_bitstream -force build/fpga/top_artya7.bit
 
 puts "=============================================="
 puts "  BUILD OK  ->  build/fpga/top_artya7.bit"
-puts "  Program the board with: program_fpga.bat"
+puts "  Program the board: ibex_soc.bat -> Program Board (JTAG)"
 puts "=============================================="
