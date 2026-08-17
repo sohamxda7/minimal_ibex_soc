@@ -40,9 +40,11 @@ if defined RISCV_GCC_HOME (
     echo [OK]   RISC-V GCC:        %RISCV_GCC_HOME%\bin
 ) else (
     echo [WARN] RISC-V GCC not found ^(PATH, zephyr-sdk locations on all drives^).
-    echo        Only needed for FreeRTOS/C firmware ^(the asm demo needs no
-    echo        toolchain^). Install per docs/FREERTOS_PORT.md, or run
-    echo        sw\freertos\build.bat which will ask for the path and save it.
+    echo        NOT a blocker for board testing: flash_freertos.bat falls back
+    echo        to the committed prebuilt firmware ^(sw\freertos\prebuilt^).
+    echo        Only needed to CHANGE firmware - install per
+    echo        docs/FREERTOS_PORT.md, or run sw\freertos\build.bat which will
+    echo        ask for the path and save it.
 )
 
 rem ---- 4. Git -------------------------------------------------------------

@@ -30,7 +30,24 @@ if "%1"=="toy" set FWNAME=freertos_demo_toy
 
 echo === [1/3] Building FreeRTOS firmware (%FWNAME%) ===
 call sw\freertos\build.bat %1
-if errorlevel 1 ( echo FIRMWARE BUILD FAILED & pause & exit /b 1 )
+if errorlevel 1 (
+    if exist "sw\freertos\prebuilt\%FWNAME%.bin" (
+        echo.
+        echo *** USING PREBUILT FIRMWARE ***
+        echo Local build failed - most likely no RISC-V GCC on this machine.
+        echo Falling back to the committed sw\freertos\prebuilt\%FWNAME%.bin
+        echo That is fine for board bring-up / IO tests. If you are CHANGING
+        echo firmware, install the toolchain: docs\FREERTOS_PORT.md section 2.
+        echo.
+        if not exist sw\freertos\build mkdir sw\freertos\build
+        copy /y "sw\freertos\prebuilt\%FWNAME%.bin" "sw\freertos\build\%FWNAME%.bin" >nul
+    ) else (
+        echo FIRMWARE BUILD FAILED - and no prebuilt exists for %FWNAME%.
+        echo The toy variant always needs a local toolchain.
+        pause
+        exit /b 1
+    )
+)
 
 echo === [2/3] Building XIP-boot bitstream (SRAM = trampoline) ===
 if not exist build\fpga mkdir build\fpga
