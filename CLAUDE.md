@@ -55,7 +55,7 @@ FPGA validation must run the silicon configuration or it isn't validation.
    anything not ours, buying/downloading large things, and any scope change.
    Proceed freely on: local edits, sim runs, local commits, docs.
 3. **Document everything, as you go**: every decision with reasoning goes in
-   `docs/` (BRINGUP_OVERVIEW decision log, or the topic doc); every test
+   `docs/` (the topic doc; history in BRINGUP_HISTORY.md); every test
    result with evidence goes in `docs/BRINGUP_TEST_REPORT.md`; every new
    script gets a WALKTHROUGH.md entry; **and update this file's Findings
    Log + Status on every push**.
@@ -68,8 +68,8 @@ FPGA validation must run the silicon configuration or it isn't validation.
    RISC-V GCC on lab PCs; the Python assembler is the no-toolchain path).
 7. **Touch vendored files only when unavoidable**, with loud comments.
 8. When the user pastes team code to review: review honestly, list every
-   bug with reasoning, fix, and document the review (see docs/UART_CONTROL.md
-   as the pattern).
+   bug with reasoning, fix, and document the review (see
+   docs/BRINGUP_HISTORY.md section 5 as the pattern).
 9. **Documentation layout (re-cut 2026-08-12 per Soham)**: the ROOT
    README.md IS the fork guide (start-here, legends, fixes, constraints,
    debugging pointers) - teams read it first. The original lowRISC README
@@ -78,6 +78,12 @@ FPGA validation must run the silicon configuration or it isn't validation.
    (find_tools/find_vivado, run_regression, run_bitstream, compile_sims,
    run_freertos_sim); one-off debug runners were deleted 2026-08-12 -
    recover from git history, do not re-accumulate them.
+   **Docs consolidated 2026-08-17 per Soham ("too much docs")**: docs/ is
+   now 9 files - ASIC_SPEC (incl. roadmap sec. 10), FREERTOS_PORT,
+   PRODUCTION_PERIPHERALS (incl. toy wiring sec. 8), HW_VALIDATION_PLAN,
+   BRINGUP_TEST_REPORT, BRINGUP_HISTORY (merged BRINGUP_OVERVIEW +
+   FPGA_BRINGUP + UART_CONTROL), WALKTHROUGH, STATUS_BRIEF,
+   UPSTREAM_README. Do NOT create new doc files; extend these.
 
 ## 3. Key technical facts (verified)
 
@@ -125,8 +131,12 @@ FPGA validation must run the silicon configuration or it isn't validation.
   pattern). Related: `Out-File` defaults to UTF-16 — always
   `-Encoding ascii` or grep-based watchers see NUL soup.
 - **Build/run commands**: README quick start; FreeRTOS in
-  docs/FREERTOS_PORT.md; sim flow in docs/FPGA_BRINGUP.md; gotchas in
-  docs/WALKTHROUGH.md section 8.
+  docs/FREERTOS_PORT.md; sim flow in docs/BRINGUP_HISTORY.md section 4;
+  gotchas in docs/WALKTHROUGH.md section 8.
+- **Interrupts implemented**: timer on irq_timer_i (mcause 7); UART1 RX
+  fast[0] (mcause 16, not unmasked by firmware); **UART2 RX fast[1]
+  (mcause 17, level = RX-FIFO-not-empty)** - unmasked by esp_at_init(),
+  ISR must drain the FIFO or the trap refires. Proven by tb_uart2_irq.
 - **Tool location is centralized**: every script resolves Vivado/GCC via
   `scripts/find_tools.cmd` (batch) or `scripts/find_vivado.ps1`
   (PowerShell, no prompt - safe for detached runs). Search order:
@@ -139,9 +149,11 @@ FPGA validation must run the silicon configuration or it isn't validation.
   `setup_check.bat` (environment doctor, run first on any new PC),
   `build_fpga.bat`, `program_fpga.bat` (JTAG, volatile),
   `run_regression.bat` (full suite: images + FreeRTOS build + compile +
-  5 sims + bitstream + scoreboard, exit 0 = green),
+  10 sims + bitstream + scoreboard, exit 0 = green),
   `flash_freertos.bat [toy]` (firmware -> XIP bitstream -> QSPI flash,
-  persistent), `program_flash.bat`, `sw\freertos\build.bat`
+  persistent; **falls back to sw/freertos/prebuilt/freertos_demo.bin
+  when no RISC-V GCC is present** - refresh the prebuilt whenever
+  sw/freertos/** changes), `program_flash.bat`, `sw\freertos\build.bat`
   (honours RISCV_GCC_HOME). Keep this inventory current when adding
   scripts, and give every new script a WALKTHROUGH.md table row.
 
@@ -212,8 +224,8 @@ SPI facts confirmed: TX +0 / STATUS +4 (bit0 full, bit1 empty), mode 0,
 MSB first, 5 MHz; FIFO-empty is not shifter-idle (drain ~32 clks before DC
 changes); LCD pins = GPIO_OUT[3:0] = CS/RST/DC/BL. Sim caught a real
 testbench race: this host updates MOSI on rising SCK — sample a delayed
-copy, never the raw wire on the same edge. Docs: docs/TOY_INTERFACING.md
-(incl. hardware wiring table: LCD -> ChipKit A6..A11 + 3V3/GND).
+copy, never the raw wire on the same edge. Docs: PRODUCTION_PERIPHERALS.md
+section 8 (incl. hardware wiring table: LCD -> ChipKit A6..A11 + 3V3/GND).
 
 **2026-08-08 — Tier-2 I2C sim PASS + team BFM bug fixed**: I2C pinned out
 to Pmod JA1/JA2 (open-drain, XDC pull-ups; OpenCores pad-enable is ACTIVE
@@ -258,9 +270,9 @@ Debug lessons -> gotchas 19a/19b: xsim drops edge events through
 bit-select port connections (use intermediate wires), and UART models
 must tolerate the reset-glitch 0xFF frame. Superseded RTOS docs
 (RTOS_RESEARCH, ZEPHYR_DECISION) deleted - git history keeps them;
-conclusion lives in CHIP_ROADMAP.md. New docs: PRODUCTION_PERIPHERALS.md
-(architecture/pins/BOM/ceilings), CHIP_ROADMAP.md (v1/v2/never-on-die +
-carrier board).
+conclusion lives in ASIC_SPEC.md section 10. New docs (later consolidated):
+PRODUCTION_PERIPHERALS.md (architecture/pins/BOM/ceilings), roadmap
+(v1/v2/never-on-die + carrier board, now ASIC_SPEC.md section 10).
 
 **2026-08-10 — ASIC spec lands; SRAM 8 KiB; XIP proven; Zephyr -> FreeRTOS**:
 Team decision: SRAM cannot grow (chip area), use the 16 MB QSPI flash via
@@ -288,6 +300,33 @@ ST7735 (no framebuffer), BME280 (32-bit-only compensation), SSD1306
 variants compile clean. Lesson reinforced: sim-first caught
 silicon-killing bugs again, before tapeout instead of after.
 
+**2026-08-17/18 — lead directive executed: UART2 IRQ + toolchain-less flashing
++ docs cut**: Ravi (lead) confirmed the architecture (UART1 = console,
+UART2 = ESP32) and directed: UART2 RX onto an unused Ibex fast IRQ (it was
+polling-only despite the 128-byte FIFO), a high-priority RX task + unsolicited
+ESP-AT event parser, regression covering simultaneous UART1+UART2 / FIFO
+burst-overflow / IRQ / events / recovery, then a reviewable PR into the ARF
+repo and on-board AT/join/HTTP validation. Executed: (1) RTL - uart2_irq_o
+out of wrapper_top -> irq_fast_i[1] (mcause 17, vector 17); ~zero gates (the
+uart module already generated the IRQ). (2) DV - tb_uart2_irq + bare-metal
+proof program with a real 32-entry vector table (assemble.py grew
+csrw/csrs/csrc/csrr/mret): IRQ delivery with zero polling, 160-byte burst
+into the masked FIFO keeps EXACTLY 128 (32 dropped, count-verified),
+'+IPD' line intact after overflow, console echoes mid-burst. PASS, 2.6 ms
+sim. New gotcha 20: early `return` inside a timed loop in a tb task
+FATAL_ERRORs the xsim kernel - exit via loop condition. (3) FW - esp_at.c
+dual-mode: polled until esp_at_init(), then ISR->256-B ring->'esp-rx' task
+(configMAX_PRIORITIES-1) with line classifier; esp_at_cmd() sleeps on task
+notification; events (WIFI */+IPD/ready/busy/+CWJAP:/SEND FAIL) reach
+esp_at_on_event() even mid-command; main.c dispatches mcause 17 ->
+esp_at_isr(). Builds clean (data+bss 1048 B). (4) Teammate ARF-BBSR-84's
+"unable to dump" (FREERTOS.docx logs) root-caused: programming SUCCEEDED
+(DONE HIGH); flash_freertos died at build - no RISC-V GCC on that PC ->
+prebuilt-firmware fallback committed (sw/freertos/prebuilt/, auto-fallback
+in flash_freertos.bat, setup_check message). (5) Docs 13 -> 9 (rule 9).
+Remaining from Ravi's list: the PR into the ARF repo (needs Soham - direct
+push is branch-protected) and the on-board Phase-3 validation (parts).
+
 ## 5. Open questions for the team (track until answered)
 
 1. ~~SRAM base address~~ **RESOLVED 2026-08-10: team confirmed
@@ -304,9 +343,10 @@ docs/ASIC_SPEC.md section 3.
 ## 6. Current status / next steps
 
 - **Configuration is now ASIC-representative**: 8 KiB SRAM, XIP wired to
-  the onboard QSPI flash, FreeRTOS as the RTOS. Full sim regression green
-  2026-08-10 (SoC 9/9, LCD 5/5, I2C, XIP, FreeRTOS boot; bitstream BUILD OK with
-  all timing constraints met).
+  the onboard QSPI flash, FreeRTOS as the RTOS. Full regression green
+  **2026-08-18: 14/14** (images, FreeRTOS build, compile, 10 sims incl.
+  the new tb_uart2_irq, bitstream BUILD OK with all timing met) - the
+  first run on the wired-UART2-IRQ RTL.
 - **ONE FLOW decision (Soham, 2026-08-10)**: user-facing delivery is
   ONLY the non-volatile QSPI path (`flash_freertos.bat`); the unified
   FreeRTOS firmware absorbed the asm-demo console (patterns/speed/RGB/
@@ -319,16 +359,18 @@ docs/ASIC_SPEC.md section 3.
   pass was the OLD config; every base IO test (LEDs, RGB, buttons,
   switches, UART, Pmod, PuTTY RGB commands) must be RE-RUN on v1.1 -
   currently sim-proven only. The checklist of record is
-  docs/HW_VALIDATION_PLAN.md: Phase 1 = base IO on both vehicles (asm
-  demo bitstream = UART/RGB command suite; FreeRTOS flash = boot/tick/
-  blinky), Phase 2 = batch-1 parts (LCD/BME280/OLED), Phase 3 = batch-2
-  parts (ESP32/PSRAM/camera/mic/speaker). Results get dated tables in
+  docs/HW_VALIDATION_PLAN.md: Phase 1 = base IO + RTOS checks on the ONE
+  FreeRTOS image (`flash_freertos.bat` -> PROG -> PuTTY; works even
+  without a toolchain via the prebuilt), Phase 2 = batch-1 parts
+  (LCD/BME280/OLED), Phase 3 = batch-2 parts (ESP32 incl. IRQ-mode check
+  20b / PSRAM / camera / mic / speaker). Results get dated tables in
   BRINGUP_TEST_REPORT.md; a phase is not done until the report shows it.
-- Board returns -> (a) `program_fpga.bat` for the asm-demo sanity check;
-  (b) FreeRTOS-from-flash run: `vivado -mode batch -source build_fpga.tcl
-  -tclargs sw/asm-demo/xip_stub.vmem`, then `sw\freertos\build.bat`, then
-  `program_flash.bat` (PuTTY 115200: banner + tick lines + walking LEDs).
-  Record results in BRINGUP_TEST_REPORT section 5.
+- **UART2 IRQ path is in RTL as of 2026-08-17** - the PD synthesis
+  netlist mismatch (netlist predates ALL v1.1 additions) is still THE
+  open decision with the lead; whatever is decided, the FPGA must
+  re-validate exactly the netlist being taped out. Ravi's remaining
+  asks: reviewable PR into the ARF repo (Soham must open it - branch
+  protection), and on-board AT/join/HTTP validation (Phase 3, parts).
 - CI: evaluated 2026-08-10 and DEFERRED by Soham ("ignore for now").
   When revisited: Tier A/A+ (firmware + images + sv2v/Yosys check) fits
   free GitHub runners; full xsim/Vivado regression needs a self-hosted

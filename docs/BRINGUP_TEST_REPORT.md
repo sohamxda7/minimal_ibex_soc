@@ -167,7 +167,33 @@ not propagate edge events through bit-select port connections (camera
 testbench), and UART lines emit a glitch 0xFF frame at reset (ESP32 model
 now noise-tolerant like real AT firmware).
 
-## 7. Not covered (future work)
+## 7. Simulation round 4 (2026-08-17/18) — UART2 interrupt path (lead-requested)
+
+Ravi's pre-freeze regression request: simultaneous UART1 console + UART2
+traffic, RX FIFO burst/overflow, interrupt handling, unsolicited ESP-AT
+events, error/recovery. All covered by the new `tb_uart2_irq` (program:
+`sw/asm-demo/uart2_irq_test.py`, a bare-metal image with a real 32-entry
+vector table at mtvec):
+
+| Check | Evidence | Result |
+|---|---|---|
+| IRQ vectoring: UART2 RX → fast IRQ 1 → vector 17 → ISR | 17-byte unsolicited line (`WIFI DISCONNECT`) counted by the ISR with **zero polling** in the main flow → `EVT OK` | **PASS** |
+| FIFO burst/overflow | 160-byte burst into the **masked** 128-deep FIFO; on unmask the ISR drains **exactly 128** (32 dropped, exact-count check) → `OVF OK` | **PASS** |
+| Simultaneous UART1 + UART2 traffic | console char `X` sent MID-burst and echoed; `G` handshake echoed | **PASS** |
+| Error/recovery | fresh `+IPD,4:ping` line arrives intact after the overflow → `RCV OK` | **PASS** |
+| Full-regression rerun on the wired-IRQ RTL | 10 sims + FreeRTOS build + compile + bitstream | **14/14 PASS, timing met** |
+
+Sim cost: 2.6 ms simulated / ~1 min wall — cheap enough to stay in every
+regression run. FreeRTOS-level counterpart (esp_at_init IRQ mode +
+event callback) is compile-proven and lands on hardware as Phase-3 check
+20b (HW_VALIDATION_PLAN.md) — the RTL contract it relies on is what this
+round proves.
+
+Debug finding of the round (WALKTHROUGH gotcha 20): an early `return`
+inside a timed loop in a testbench task kills the xsim kernel with
+FATAL_ERROR; exit via the loop condition instead.
+
+## 8. Not covered (future work)
 
 - XIP + FreeRTOS on the physical board (bitstream + `program_flash.bat`
   ready; needs the board back on the desk)
