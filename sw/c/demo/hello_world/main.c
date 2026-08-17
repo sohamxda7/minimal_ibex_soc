@@ -12,7 +12,7 @@
 //   other : echoed back
 //
 // -------------------------------------------------------------------------
-// FIXES relative to the draft this replaces (see docs/UART_CONTROL.md):
+// FIXES relative to the draft this replaces (see docs/BRINGUP_HISTORY.md sec. 5):
 //  1. timer_enable() was called on EVERY main-loop pass. timer_enable()
 //     zeroes time_elapsed and pushes mtimecmp into the future, so the timer
 //     interrupt (almost) never fired and patterns never advanced. It is now

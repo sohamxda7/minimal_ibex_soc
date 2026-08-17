@@ -1,4 +1,8 @@
-# Production Peripherals (v1.1) — WiFi, Camera, Mic, Speaker, External Memory
+# Peripherals — All External Hardware: Wiring, Drivers, Evidence
+
+*One doc for every external device: the v1.1 production set (WiFi, camera,
+mic, speaker, PSRAM) in §1-§7, and the already-purchased batch-1 "toy"
+set (LCD, BME280, OLED) in §8 (absorbed from the former TOY_INTERFACING.md).*
 
 **Doctrine check (Rule 0):** every feature on this page runs on the fabricated
 chip. The architecture is *external-first*: the silicon gained only three
@@ -49,7 +53,7 @@ CS = gp_o[8]. Desk-vs-warehouse rule: the 8 KiB SRAM is the CPU's desk
 (stacks, RTOS state); the PSRAM is a warehouse reached by bus commands
 (0x02 write / 0x03 read, 24-bit address, auto-increment) — bulk storage,
 **never** CPU-executable/stack memory, which is also why Zephyr remains
-impossible on v1 and lives in [CHIP_ROADMAP.md](CHIP_ROADMAP.md) under v2.
+impossible on v1 and lives in [ASIC_SPEC.md sec. 10](ASIC_SPEC.md) under v2.
 
 Suggested layout (`drivers/psram.h`): camera frames @0x100000, audio clips
 @0x200000, network buffers @0x300000. Effective driver throughput at the
@@ -95,7 +99,7 @@ tb_i2c (never sample and change on the same edge).
 
 ## 6. Bill of materials (documentation only — nothing ordered yet)
 
-Already purchased (arriving via Amazon — [TOY_INTERFACING.md](TOY_INTERFACING.md)):
+Already purchased (arriving via Amazon — §8 below):
 ST7735 LCD, BME280, SSD1306, jumpers, breadboard, logic analyzer, soldering
 kit, DT830 multimeter (~₹4,550).
 
@@ -117,3 +121,46 @@ To add for the production peripherals (~₹1,800):
    simplified by design); SCCB probe (`cam_init`, PID=0x76) is the smoke test.
 3. mtime-paced audio sampling (true 8 kHz) replaces tick pacing.
 4. ESP32 first contact at its 115200 default; keep `esp_at_ping()` as step 1.
+
+## 8. Batch-1 "toy" hardware (purchased, ~₹4,550 — the Phase-2 test set)
+
+ST7735 1.8" SPI LCD (pre-soldered) · BME280 I2C sensor · SSD1306 OLED ·
+jumpers · breadboard · 24 MHz logic analyzer · DT830 multimeter · soldering
+kit (BME280 + OLED need ~10 header joints — ask for guidance before starting).
+
+Firmware: `sw\freertos\build.bat toy` → `flash_freertos.bat toy` (adds the
+toy task: LCD banner, then a BME280 reading on UART + OLED every 2 s).
+
+### ST7735 LCD (SPI) — wiring to the Arty ChipKit analog header
+
+| LCD pin | Signal | FPGA pin | Header label |
+|---|---|---|---|
+| VCC / GND | 3.3 V / GND | — | power header 3V3 / GND |
+| CS | DISP_CTRL[0] | B7 | A6 |
+| RESET | DISP_CTRL[1] | B6 | A7 |
+| A0 / DC | DISP_CTRL[2] | E6 | A8 |
+| SDA / MOSI | SPI_TX | E5 | A9 |
+| SCK | SPI_SCK | A4 | A10 |
+| LED / BL | DISP_CTRL[3] | A3 | A11 |
+
+Contract: SPI host mode 0, MSB first, 5 MHz; FIFO-empty ≠ shifter idle —
+allow ~32 clocks drain before toggling DC. Verify silkscreen before power.
+
+### BME280 + SSD1306 (I2C) — Pmod JA, shared bus
+
+| Module pin | Connect to |
+|---|---|
+| VCC / GND | Pmod JA pin 6 (3.3 V) / pin 5 (GND) via breadboard rails |
+| SCL | Pmod JA pin 1 (G13) |
+| SDA | Pmod JA pin 2 (B11) |
+
+Open-drain with XDC pull-ups + module pull-ups; OpenCores master at 100 kHz.
+
+### Simulation evidence (2026-08-08, both PASS)
+
+- **tb_lcd 5/5**: full 26-byte init + pixel sequence decoded by a
+  behavioural ST7735 model (found the sample-on-driving-edge race — SPI
+  models must sample a delayed copy).
+- **tb_i2c**: full register read through the team's `i2c_slave_bfm` — found
+  and fixed a real BFM bug (read path released SDA on rising SCL = phantom
+  STOP). The same driver sequence reads the BME280 chip-ID on hardware.

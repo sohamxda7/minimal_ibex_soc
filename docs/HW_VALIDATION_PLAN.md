@@ -46,7 +46,7 @@ survives power-cycle) → press PROG → PuTTY 115200:
 
 ## Phase 2 — batch-1 purchased hardware (needs: Phase 1 green + parcels)
 
-Wire per [TOY_INTERFACING.md](TOY_INTERFACING.md) tables
+Wire per [PRODUCTION_PERIPHERALS.md sec. 8](PRODUCTION_PERIPHERALS.md) tables
 (LCD → ChipKit A6–A11; BME280 + SSD1306 → Pmod JA1/JA2 + power).
 Firmware: `sw\freertos\build.bat toy` → `flash_freertos.bat toy`.
 
@@ -70,8 +70,9 @@ speaker chain). Wire per [PRODUCTION_PERIPHERALS.md](PRODUCTION_PERIPHERALS.md)
 | # | Test | Mirrors | Pass criterion | Result |
 |---|---|---|---|---|
 | 19 | PSRAM selftest | tb_psram | `psram_selftest()`=0 write/readback | ☐ |
-| 20 | ESP32 link | tb_wifi | `esp_at_ping()` → OK at 115200 | ☐ |
-| 21 | WiFi join + internet | — | `AT+CWJAP` join; HTTP GET via AT | ☐ |
+| 20 | ESP32 link (polled) | tb_wifi | `esp_at_ping()` → OK at 115200 | ☐ |
+| 20b | ESP32 link (IRQ mode) | tb_uart2_irq | `esp_at_init()` → re-ping OK; a forced `WIFI DISCONNECT` reaches the `esp_at_on_event` callback; console stays clean throughout | ☐ |
+| 21 | WiFi join + internet | — | `AT+CWJAP` join; HTTP GET via AT; UART1 console usable simultaneously | ☐ |
 | 22 | Mic | tb_audio | level meter reacts to sound; clip → PSRAM | ☐ |
 | 23 | Speaker | tb_audio | `audio_beep()` audible; clip playback | ☐ |
 | 24 | Camera | tb_cam | SCCB PID=0x76; frame → PSRAM; upload via ESP32 | ☐ |

@@ -6,7 +6,7 @@
  * counterpart of the assembly proof in sw/asm-demo/lcd_spi_test.py whose
  * 26-byte init/draw sequence was validated in dv/xsim/tb_lcd.sv.
  *
- * Control lines (GPIO_OUT low nibble, wiring per docs/TOY_INTERFACING.md,
+ * Control lines (GPIO_OUT low nibble, wiring per docs/PRODUCTION_PERIPHERALS.md sec. 8,
  * LCD on ChipKit headers A6-A11):
  *   bit0 = CS (active low)   bit1 = RST (active low)
  *   bit2 = DC (0=cmd 1=data) bit3 = BL (backlight, active high)

@@ -22,7 +22,7 @@
 
 ## 2. Full-SoC simulation (xsim), sped-up program image
 
-Command sequence in `docs/FPGA_BRINGUP.md`. Sim time 7 ms, all checks pass:
+Command sequence in `docs/BRINGUP_HISTORY.md` (sec. 4). Sim time 7 ms, all checks pass:
 
 ```
 PASS: UART TX produced 32 bytes            (IBEX-SOC UP banner x2 + echo)
@@ -58,7 +58,7 @@ IBEX-SOC UP 1
 echo test: sent A, got b'AIBEX-SO'
 ```
 
-## 4. UART command interface (added later the same day — see docs/UART_CONTROL.md)
+## 4. UART command interface (added later the same day — see docs/BRINGUP_HISTORY.md sec. 5)
 
 Simulation: **9/9 checks PASS** (pattern switch visible on gp_o, forced-blue
 with red channel measured silent, acks, button override).

@@ -31,7 +31,7 @@ git checkout fix/fpga-bringup
 ```
 
 The branch matters: it contains the fixes that make the FPGA flow work at
-all (see [FPGA_BRINGUP.md](FPGA_BRINGUP.md) for what was broken).
+all (see [BRINGUP_HISTORY.md](BRINGUP_HISTORY.md) for what was broken).
 
 ## 3. Build the bitstream (~15 min)
 
@@ -146,8 +146,8 @@ minutes of wall clock (~6 ms of simulated time).
 8. **Terminal shows commands mixed into heartbeat lines** → that's the echo-ack interleaving; normal (see §5).
 9. **Changed `assemble.py` but board behaves the same** → you must re-run `python assemble.py` *and* rebuild the bitstream; the `.vmem` is read at synthesis time.
 10. **Waveforms look "frozen" / PWM looks "too fast" in a simulator** → time-scale illusion; human-visible effects live in ms–s while sims show µs. Use the `--sim` image (short delays) as the testbench does.
-11. **xsim fails compiling generated C with DPI errors** → some `ifndef SYNTHESIS` DPI export snuck back in; guard Verilator-only DPI with `ifdef VERILATOR` (this bit us twice — see FPGA_BRINGUP.md).
-12. **`timer_enable()` in a loop freezes ticks** (C software) → it re-arms mtimecmp and zeroes the elapsed counter; arm once, re-arm only on speed change (see UART_CONTROL.md).
+11. **xsim fails compiling generated C with DPI errors** → some `ifndef SYNTHESIS` DPI export snuck back in; guard Verilator-only DPI with `ifdef VERILATOR` (this bit us twice — see BRINGUP_HISTORY.md).
+12. **`timer_enable()` in a loop freezes ticks** (C software) → it re-arms mtimecmp and zeroes the elapsed counter; arm once, re-arm only on speed change (see BRINGUP_HISTORY.md sec. 5).
 13. **Editing LED patterns in C**: only `gp_o[7:4]` are LEDs on Arty; `gp_o[3:0]` go to the DISP/LCD lines.
 14. **Simulating after `git clean` / fresh clone** → recompile everything with the full `xvlog -f` command first; `xelab` alone can't find modules if `xsim.dir` was deleted.
 15. **A7-35T vs A7-100T** → one-line part change in `build_fpga.tcl` (see §3).
@@ -162,10 +162,9 @@ minutes of wall clock (~6 ms of simulated time).
     0xFF frame). Any UART-listening model/tool must tolerate line noise -
     the ESP32 model filters non-printable bytes exactly like real AT firmware.
 19. **XIP code runs ~500x slower than SRAM code** (no ICache, 128 sysclks per fetch at XipClkDiv=1) → keep tick rates coarse (20 Hz), avoid busy-wait loops in flash-resident code, and don't "fix" the slowness by raising the SPI clock past the flash's 50 MHz cmd-0x03 rating.
+20. **xsim kernel FATAL_ERROR ("exceptional condition") inside a testbench task** → an early `return` from inside a timed `for` loop (a loop containing `#delay`) kills the simulator kernel outright. Exit loops via the loop condition (`&& !done` flag) instead of `return`. Cost us the first tb_uart2_irq run.
 
 ## 9. Where to read more
 
-- [FPGA_BRINGUP.md](FPGA_BRINGUP.md) — the four root-cause bugs + technical detail
-- [UART_CONTROL.md](UART_CONTROL.md) — command interface design + draft review
 - [BRINGUP_TEST_REPORT.md](BRINGUP_TEST_REPORT.md) — all recorded evidence
-- [BRINGUP_OVERVIEW.md](BRINGUP_OVERVIEW.md) — the whole journey + decision log
+- [BRINGUP_HISTORY.md](BRINGUP_HISTORY.md) — bring-up history: bugs, decisions, UART command design

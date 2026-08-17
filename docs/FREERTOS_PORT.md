@@ -8,7 +8,7 @@ one that runs on the silicon. That is FreeRTOS. FreeRTOS is a scheduler
 plus queues/semaphores — no device-tree, no driver model — and runs in ~3–4 KiB
 of RAM. (A Zephyr port existed for the pre-spec 128 KiB dev configuration;
 removed with the 8 KiB constraint - retrievable from git history. Zephyr's
-future, if any, is a v2-chip item: [CHIP_ROADMAP.md](CHIP_ROADMAP.md).)
+future, if any, is a v2-chip item: [ASIC_SPEC.md sec. 10](ASIC_SPEC.md).)
 
 **Kernel:** FreeRTOS-Kernel **V11.2.0** (MIT), vendored subset at
 `vendor/freertos_kernel/` (core + `include/` + `portable/GCC/RISC-V` +
@@ -70,6 +70,31 @@ The tick comes from the SoC's CLINT-style timer: `configMTIME_BASE_ADDRESS
 0x4000_0200`, `configMTIMECMP_BASE_ADDRESS 0x4000_0208` — exactly the layout
 the official port expects, zero port-layer changes needed.
 
+### UART2 RX interrupt (fast IRQ 1 — lead-directed, 2026-08-17)
+
+UART2 (the ESP32 link) raises Ibex **fast IRQ 1** (mcause 17, vector entry
+17) whenever its 128-byte RX FIFO is non-empty (level). The application
+interrupt handler in `main.c` reads `mcause` and dispatches cause 17 to
+`esp_at_isr()`, which drains the hardware FIFO into a 256-byte software
+ring and wakes the driver's RX task (`portYIELD_FROM_ISR` — legal here
+because the port saves full context before calling the handler).
+
+The IRQ is masked until **`esp_at_init()`** is called (sets `mie.17`,
+spawns the `esp-rx` task at `configMAX_PRIORITIES-1` and the command
+mutex — ~650 B of heap). Until then `esp_at_cmd()` works in the original
+polled mode, so the default Phase-1 image spends nothing. After init:
+
+- `esp_at_cmd()` sleeps on a task notification instead of polling; OK /
+  ERROR / SEND OK / FAIL terminate it.
+- **Unsolicited ESP-AT events** (`WIFI DISCONNECT`, `+IPD...`, `ready`,
+  `busy`, `+CWJAP:`, `SEND FAIL`) are recognised even mid-command and
+  delivered to the `esp_at_on_event()` callback from the RX task.
+- `esp_at_rx_dropped()` counts software-ring overflows (diagnostic).
+
+RTL contract proven by `dv/xsim/tb_uart2_irq.sv`: vectoring, ISR-only
+delivery, 128-byte FIFO burst/overflow (exactly 128 kept of a 160-byte
+burst), recovery after overflow, UART1 console alive throughout.
+
 **Tick rate:** 20 Hz on hardware. With ICache disabled (ASIC spec) every trap
 instruction is an XIP fetch; at `XipClkDiv=1` the tick path costs ~1 ms, so
 20 Hz keeps overhead ~2%. The sim build (`-DSIM_BUILD`) uses 200 Hz and
@@ -118,19 +143,19 @@ supported delivery is `flash_freertos.bat` (non-volatile QSPI). Tasks:
 - `toy` task (TOY_DEMO builds, prio 1): the toy-interfacing final test —
   ST7735 LCD banner over SPI, then a BME280 reading every 2 s to UART and the
   SSD1306 OLED. Needs hardware wired per
-  [TOY_INTERFACING.md](TOY_INTERFACING.md).
+  [PRODUCTION_PERIPHERALS.md sec. 8](PRODUCTION_PERIPHERALS.md).
 
 ## 5. Peripheral drivers (`sw/freertos/drivers/`)
 
 | Driver | Bus | RAM cost | Notes |
 |---|---|---|---|
 | `i2c.c` | — | 0 | OpenCores master @0x4000_0400, 100 kHz, bounded waits, probe/reg/burst ops |
-| `st7735.c` | SPI host | 0 | No framebuffer (40 KB doesn't exist here); streams pixels to RAMWR. Control lines on GPIO[3:0] per TOY_INTERFACING wiring |
+| `st7735.c` | SPI host | 0 | No framebuffer (40 KB doesn't exist here); streams pixels to RAMWR. Control lines on GPIO[3:0] per PRODUCTION_PERIPHERALS.md sec. 8 wiring |
 | `bme280.c` | I2C 0x76 | 33 B calib | Forced-mode one-shot; 32-bit-only Bosch compensation (no 64-bit math on RV32IMC) |
 | `ssd1306.c` | I2C 0x3C | 0 | Zero-framebuffer text rendering from flash-resident 5×7 font; ~21×8 chars |
 | `spi_bus.c` | — | ~80 B mutex | v1.1: shared-bus arbitration + atomic GPIO RMW + RX-paced byte primitives |
 | `psram.c` | SPI CS=gp_o[8] | 0 | v1.1: 8 MB external memory - write/read/selftest (docs/PRODUCTION_PERIPHERALS.md) |
-| `esp_at.c` | UART2 | 0 | v1.1: WiFi/internet via ESP32 AT commands; bulk upload streams from PSRAM |
+| `esp_at.c` | UART2 | ~450 B static + ~650 B heap after `esp_at_init()` | v1.1: WiFi/internet via ESP32 AT commands; polled until `esp_at_init()`, then IRQ-driven with RX task + unsolicited-event parser (§2); bulk upload streams from PSRAM |
 | `audio.c` | SPI + PWM ch3 | 0 | v1.1: mic sample/record + speaker play/beep, clips in PSRAM |
 | `camera.c` | GPIO + I2C | 32 B bounce | v1.1: OV7670-FIFO snapshot capture into PSRAM |
 

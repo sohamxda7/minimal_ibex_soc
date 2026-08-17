@@ -3,7 +3,7 @@
 > **Context:** this repo is Phase 1 of the ARF Design board bring-up — it
 > qualified every IO of the Arty A7-100T *before* the custom Ibex RISC-V SoC
 > was debugged and brought up on the same board (Phase 2, see the
-> `minimal-ibex-soc` repo, `docs/BRINGUP_OVERVIEW.md`). Because these tests
+> `minimal-ibex-soc` repo, `docs/BRINGUP_HISTORY.md`). Because these tests
 > passed, later SoC misbehaviour could be attributed to logic with
 > confidence, not to board damage.
 

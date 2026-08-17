@@ -41,7 +41,7 @@ onboard 16 MB QSPI flash.
 | Build/run/flash FreeRTOS firmware | [FREERTOS_PORT.md](docs/FREERTOS_PORT.md) |
 | See every recorded test result | [BRINGUP_TEST_REPORT.md](docs/BRINGUP_TEST_REPORT.md) |
 | Run the hardware re-validation when board/parts arrive | **[HW_VALIDATION_PLAN.md](docs/HW_VALIDATION_PLAN.md)** |
-| Follow the whole story + decision log | [BRINGUP_OVERVIEW.md](docs/BRINGUP_OVERVIEW.md) |
+| Follow the whole story + decision log | [BRINGUP_HISTORY.md](docs/BRINGUP_HISTORY.md) |
 
 ## 2. How to start (quick start)
 
@@ -62,8 +62,8 @@ gitignored). Nothing is hard-coded; no drive letter is assumed:
 | `setup_check.bat` | **Run this first.** Environment doctor: verifies Vivado, Python, RISC-V GCC, git, repo location; changes nothing; prints fixes | no |
 | `build_fpga.bat` | Synthesise the bitstream with the demo program baked in (~15 min) | no |
 | `program_fpga.bat` | Load the bitstream over USB-JTAG (volatile — lost at power-cycle) | yes |
-| `run_regression.bat` | The **entire test suite**: regenerate images, build FreeRTOS, compile, all 5 simulations, bitstream + timing, PASS/FAIL scoreboard (~45–60 min, `build\regression.log`) | no |
-| `flash_freertos.bat` | **FreeRTOS to the board, end to end**: firmware → XIP-boot bitstream → QSPI flash (survives power-cycle). `toy` argument adds the LCD/sensor task | yes |
+| `run_regression.bat` | The **entire test suite**: regenerate images, build FreeRTOS, compile, all 10 simulations, bitstream + timing, PASS/FAIL scoreboard (~45–60 min, `build\regression.log`) | no |
+| `flash_freertos.bat` | **FreeRTOS to the board, end to end**: firmware → XIP-boot bitstream → QSPI flash (survives power-cycle). `toy` argument adds the LCD/sensor task. **No RISC-V toolchain? It falls back to the committed prebuilt firmware automatically** | yes |
 | `program_flash.bat` | Just the flash-programming step (any firmware .bin) | yes |
 | `sw\freertos\build.bat` | Just the firmware (`sim`/`toy` variants); honours `RISCV_GCC_HOME` | no |
 | `control_panel.bat` | **The Windows GUI**: buttons for everything above + firmware variants + docs + live log viewer | no |
@@ -72,12 +72,12 @@ gitignored). Nothing is hard-coded; no drive letter is assumed:
 git clone git@github.com:sohamxda7/minimal_ibex_soc.git
 cd minimal_ibex_soc
 setup_check.bat         # environment doctor - fix anything it flags
-build_fpga.bat          # synthesise -> build/fpga/top_artya7.bit  (~15 min)
-program_fpga.bat        # load onto the board over USB-JTAG (volatile)
+flash_freertos.bat      # firmware + bitstream -> QSPI flash (the ONE flow)
 ```
 
-Open a serial terminal (115200 8N1; COM port from Device Manager). The board
-prints an `IBEX-SOC UP <n>` heartbeat and accepts single-key commands:
+Press PROG (or power-cycle) and open a serial terminal (115200 8N1; COM port
+from Device Manager). The board prints `FreeRTOS on Ibex (XIP, 8KiB SRAM)`,
+a `tick=N` heartbeat, and accepts single-key commands:
 
 | Keys | Function |
 |---|---|
@@ -86,12 +86,11 @@ prints an `IBEX-SOC UP <n>` heartbeat and accepts single-key commands:
 | `r` `g` `b` `w` | Force RGB LED colour (brightness breathing continues) |
 | `a` | RGB automatic colour cycling (default) |
 
-Scripted equivalent: `python util/uart_command_test.py`. Full-SoC simulation
-without hardware: [WALKTHROUGH.md](docs/WALKTHROUGH.md) §6.
-
-FreeRTOS from flash (XIP): one click — `flash_freertos.bat` (or
-`flash_freertos.bat toy` with the peripherals wired). Details and the
-manual step-by-step equivalent: [FREERTOS_PORT.md](docs/FREERTOS_PORT.md).
+Anything else typed is echoed back; holding any board button makes the LEDs
+mirror the switches. Scripted equivalent: `python util/uart_command_test.py`.
+Full-SoC simulation without hardware: [WALKTHROUGH.md](docs/WALKTHROUGH.md) §6.
+(`build_fpga.bat` + `program_fpga.bat` remain as dev-only steps — volatile,
+and the flash must already hold firmware for the board to boot anything.)
 
 ## 3. Fixes we made (all confirmed by simulation, then hardware where possible)
 
@@ -101,7 +100,7 @@ manual step-by-step equivalent: [FREERTOS_PORT.md](docs/FREERTOS_PORT.md).
 | 2 | Software timer tick 10 000 cycles (0.5 ms) | RGB ramp/colour cycle ~500× fast — LEDs strobed at kHz | 0.1 s tick (2 000 000 cycles @ 20 MHz) |
 | 3 | `uart` instantiated parameterless (internal default used); PLL generated 50 MHz for a 20 MHz design | Wrong baud — garbled serial console | `ClockFrequency`/`BaudRate` passed down every level; PLL `CLKOUT0_DIVIDE` 24 → 60 |
 | 4 | Verilator-only DPI exports guarded `ifndef SYNTHESIS` | Vivado xsim failed compiling generated C | Guards changed to `ifdef VERILATOR` (`sram_model.sv`, vendored `ibex_if_stage.sv`) |
-| 5 | DV lead's UART-command draft: `timer_enable()` re-armed in the main loop; speed table inverted and ~500× fast; patterns wrote the display nibble | Tick never fired; UART flooded; patterns invisible | Timer armed once, re-armed on speed change only; corrected table; LED nibble only — review in [UART_CONTROL.md](docs/UART_CONTROL.md) |
+| 5 | DV lead's UART-command draft: `timer_enable()` re-armed in the main loop; speed table inverted and ~500× fast; patterns wrote the display nibble | Tick never fired; UART flooded; patterns invisible | Timer armed once, re-armed on speed change only; corrected table; LED nibble only — review in [BRINGUP_HISTORY.md](docs/BRINGUP_HISTORY.md) §5 |
 | 6 | `spi_flash_xip.sv` (untested): first flash byte into `rdata[31:24]` not `[7:0]`; FSM re-triggered during the ack cycle (stale-data phantom read); writes hung the bus | CPU executed byte-reversed garbage from flash — XIP unusable; latent data corruption | All three fixed; proven by the `tb_xip` execute-from-flash sim |
 | 7 | Team's `i2c_slave_bfm.sv`: read path released SDA on the SCL sampling edge | Phantom STOP + corrupted final bit on I2C reads | Release moved to the following SCL-low phase; unsafe pre-drive removed |
 
@@ -112,10 +111,11 @@ manual step-by-step equivalent: [FREERTOS_PORT.md](docs/FREERTOS_PORT.md).
   hand-written primitive shims.
 - **A dependency-free Python RV32IM assembler** (`sw/asm-demo/assemble.py`) —
   demo firmware with zero toolchain install.
-- **Full-SoC xsim testbenches**: `tb_soc` (9 self-checks), `tb_lcd`
+- **Full-SoC xsim testbenches** (10): `tb_soc` (9 self-checks), `tb_lcd`
   (behavioral ST7735), `tb_i2c` (team slave BFM as sensor), `tb_xip`
   (CPU executing from a behavioral SPI NOR flash), `tb_freertos`
-  (RTOS boot over XIP).
+  (RTOS boot over XIP), `tb_psram`/`tb_wifi`/`tb_audio`/`tb_cam`
+  (v1.1 peripherals), `tb_uart2_irq` (interrupt/overflow/recovery).
 - **SPI-flash XIP path, wired and proven**: controller fixed (row 6 above),
   QSPI pins connected (flash SCK via `STARTUPE2` — it has no package pin),
   `program_flash.bat` burns bitstream + firmware in one MCS.
@@ -132,8 +132,13 @@ manual step-by-step equivalent: [FREERTOS_PORT.md](docs/FREERTOS_PORT.md).
   WiFi/internet, OV7670-FIFO camera snapshots, mic ADC + PWM speaker;
   behavioral models + 4 dedicated testbenches; FreeRTOS drivers for all of it.
 - **A Windows GUI control panel** (`control_panel.bat`, WinForms, zero
-  dependencies) driving setup/build/program/flash/regression with live logs.""),
-(### Open questions for the team
+  dependencies) driving setup/build/program/flash/regression with live logs.
+- **UART2 RX interrupt path** (lead-directed, 2026-08-17): UART2 RX →
+  Ibex fast IRQ 1, IRQ-driven ESP-AT client (high-priority RX task +
+  unsolicited-event parser), proven by `tb_uart2_irq` (event / 128-byte
+  FIFO burst-overflow / recovery, console alive throughout).
+- **Prebuilt firmware fallback** (`sw/freertos/prebuilt/`):
+  `flash_freertos.bat` works on machines with **no RISC-V toolchain**.
 
 ## 5. Patches to vendored code (re-apply if `vendor/` is ever re-imported)
 
@@ -187,7 +192,7 @@ tapeout configuration.
 | `sw/freertos/` | FreeRTOS firmware: port glue, linker, drivers, demo app, `build.bat` |
 | `sw/c/` | C software (CMake, RISC-V GCC); `demo/hello_world/main.c` mirrors the asm demo |
 | `sw/rust/` | Embedded Rust HAL and demos (owned by the Rust team) |
-| `dv/xsim/` | Windows-friendly full-SoC simulation: file list, 5 testbenches, shims, device models |
+| `dv/xsim/` | Windows-friendly full-SoC simulation: file list, 10 testbenches, shims, device models |
 | `dv/verilator/` | Upstream Verilator simulation flow |
 | `data/` | Pin constraints (`pins_artya7.xdc`) |
 | `build_fpga.*` / `program_fpga.*` / `program_flash.*` | Build · JTAG program · flash bitstream+firmware |
@@ -202,27 +207,21 @@ tapeout configuration.
 
 | Document | Read it for |
 |---|---|
-| [WALKTHROUGH.md](docs/WALKTHROUGH.md) | Clean PC → working board; every script; all 19 gotchas |
-| [ASIC_SPEC.md](docs/ASIC_SPEC.md) | The tapeout spec digest — area budget, memory map, XIP contract, Caravel flow, security |
+| [STATUS_BRIEF.md](docs/STATUS_BRIEF.md) | Current status + decisions needed — the 5-minute lead brief |
+| [WALKTHROUGH.md](docs/WALKTHROUGH.md) | Clean PC → working board; every script; all the gotchas |
+| [ASIC_SPEC.md](docs/ASIC_SPEC.md) | The tapeout spec digest — area budget, memory map, interrupts, XIP contract, Caravel flow, **roadmap (§10)** |
 | [FREERTOS_PORT.md](docs/FREERTOS_PORT.md) | FreeRTOS on 8 KiB + XIP: memory model, vectored interrupts, build/flash/run |
-| [FPGA_BRINGUP.md](docs/FPGA_BRINGUP.md) | Bring-up bugs deep-dive + the no-FuseSoC build/sim flow |
-| [UART_CONTROL.md](docs/UART_CONTROL.md) | UART command interface: design + review of the original draft |
-| [TOY_INTERFACING.md](docs/TOY_INTERFACING.md) | Final acceptance test: LCD + I2C sensors, wiring tables, sim evidence |
+| [PRODUCTION_PERIPHERALS.md](docs/PRODUCTION_PERIPHERALS.md) | **Every external device**: v1.1 WiFi/camera/mic/speaker/PSRAM + batch-1 LCD/sensor wiring (§8), pin budget, BOM, sim evidence |
+| [HW_VALIDATION_PLAN.md](docs/HW_VALIDATION_PLAN.md) | The 3-phase hardware re-validation checklist |
 | [BRINGUP_TEST_REPORT.md](docs/BRINGUP_TEST_REPORT.md) | All recorded results: builds, simulations, hardware tests |
-| [BRINGUP_OVERVIEW.md](docs/BRINGUP_OVERVIEW.md) | Project narrative + decision log with reasoning |
-| [PRODUCTION_PERIPHERALS.md](docs/PRODUCTION_PERIPHERALS.md) | **v1.1**: WiFi/camera/mic/speaker/PSRAM architecture, pin budget, BOM, sim evidence |
-| [CHIP_ROADMAP.md](docs/CHIP_ROADMAP.md) | v1 frozen / v2 multimedia MCU / what never goes on-die; the carrier-board plan |
+| [BRINGUP_HISTORY.md](docs/BRINGUP_HISTORY.md) | History: bring-up bugs, build-flow decisions, UART-command design review, ASIC alignment |
 | [board-io-test/README.md](board-io-test/README.md) | Phase-1 board IO qualification project |
+| [UPSTREAM_README.md](docs/UPSTREAM_README.md) | The original lowRISC README, verbatim |
 
-**History / archive** (kept for the record; superseded by the ASIC pivot)
-
-| Document | What it was |
-|---|---|
-| [UPSTREAM_README.md](docs/UPSTREAM_README.md) | The original lowRISC README, verbatim (also restored at the repo root) |
-
-(The Zephyr-era evaluation documents were removed in the v1.1 cleanup —
-recoverable from git history; their conclusion lives on in
-[CHIP_ROADMAP.md](docs/CHIP_ROADMAP.md).)
+*(Docs were consolidated 2026-08-17: FPGA_BRINGUP / UART_CONTROL /
+BRINGUP_OVERVIEW merged into BRINGUP_HISTORY; TOY_INTERFACING into
+PRODUCTION_PERIPHERALS §8; CHIP_ROADMAP into ASIC_SPEC §10. Zephyr-era
+evaluations were removed earlier — all recoverable from git history.)*
 
 ## 9. Continuous integration
 

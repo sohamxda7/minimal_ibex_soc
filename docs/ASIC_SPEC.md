@@ -84,11 +84,21 @@ Planned floorplan: DFFRAM ~1.8 mm² + logic (~44 kGE) ~4.0 mm² + power/routing
 | PWM block | absent from guide | `0x4000_0600` (12 ch, RGB demo) | **RESOLVED 2026-08-10: keep in BOTH FPGA and ASIC** (sub-lead: the guide omitted it only because it predates the fork; it was present in the original ibex-demo-system). Gate cost ~1-2 kGE on top of the ~44 kGE budget - inside the ~29% floorplan margin. |
 | SPI control regs | `0x4000_0300` | absent (XIP has no CSRs) | Fine for now — XIP controller is fixed-function. |
 
-### Interrupt plan (spec)
+### Interrupt plan
 
-Flat wiring to Ibex fast IRQs: UART RX=fast[0], UART TX=fast[1], Timer=fast[2],
-GPIO=fast[3], I2C done=fast[4], I2C arb-lost=fast[5], SPI host done=fast[6].
-8 of 15 fast inputs remain free.
+The guide's printed plan (UART RX=fast[0], UART TX=fast[1], Timer=fast[2],
+GPIO=fast[3], I2C done=fast[4], I2C arb-lost=fast[5], SPI host done=fast[6])
+predates the v1.1 UART2. **Implemented today** (2026-08-17, lead-directed):
+
+| Source | Wiring |
+|---|---|
+| Timer | Ibex `irq_timer_i` (mcause 7, CLINT-style — not a fast IRQ) |
+| UART1 RX-not-empty | fast[0] (mcause 16) |
+| **UART2 RX-not-empty** | **fast[1] (mcause 17)** — level; the ESP32 sends unsolicited lines, so RX must not depend on polling. Proven by `tb_uart2_irq` |
+
+13 of 15 fast inputs remain free; the guide's remaining assignments (GPIO,
+I2C, SPI-done) stay available if ever needed. UART TX interrupts are not
+implemented (TX is FIFO'd + polled; nothing blocks on it).
 
 ## 4. SPI Flash XIP (Streams 1 & 3) — the key enabler
 
@@ -109,7 +119,7 @@ BSS → jump to main in SRAM *or* directly into the XIP window.
 
 This repo already implements the controller (`rtl/system/spi_flash_xip.sv`,
 decoded at `0x2000_0000` in `wb_interconnect.sv`); simulation proof and board
-wiring are tracked in [FPGA_BRINGUP.md](FPGA_BRINGUP.md).
+wiring are tracked in [BRINGUP_HISTORY.md](BRINGUP_HISTORY.md).
 
 ## 5. FPGA validation (Stream 5) — our stream
 
@@ -201,7 +211,53 @@ lifecycle, alert handler, entropy) was deliberately removed — ~271 kGE saved.
 3. **RTOS = FreeRTOS** — named by the spec itself, and the only mainstream RTOS
    comfortable in 8 KiB RAM. (The earlier Zephyr port was built against the
    128 KiB dev configuration and was removed when the 8 KiB constraint landed —
-   decision docs removed in the v1.1 cleanup, recoverable from git history; the conclusion lives in [CHIP_ROADMAP.md](CHIP_ROADMAP.md).)
+   decision docs removed in the v1.1 cleanup, recoverable from git history; the conclusion lives in §10 below.)
 4. **20 MHz stays the system clock** — same number the ASIC targets.
 5. Everything we validate on the FPGA must be in the **same configuration the
    chip will have** (8 KiB SRAM, XIP boot, flat IRQs), or it isn't validation.
+
+## 10. Roadmap — v1 frozen, v2 candidates, never-on-die
+
+*(absorbed from the former CHIP_ROADMAP.md, 2026-08-10)*
+
+"Everything on our own silicon" is a **roadmap**, not one tapeout — every
+silicon company ships it across generations with companion chips for what
+nobody puts on-die at this tier (Apple's A-series carries Broadcom radio
+silicon next to it).
+
+### v1 — NOW (this repository, frozen)
+
+GF180MCU/Caravel, ~44 kGE + 8 KiB DFFRAM, 20 MHz, FreeRTOS over XIP. With
+the v1.1 additions + external parts it delivers: sensors, display, real-time
+control, internet via ESP32, camera snapshots, audio in/out, cloud-AI voice
+loop. **Freeze discipline: nothing else enters v1** — feature creep before
+tapeout freeze is how first chips die.
+
+### v2 — the multimedia MCU (next shuttle, ~6-12 months after v1 returns)
+
+| Upgrade | Enables | Feasibility |
+|---|---|---|
+| OpenRAM 6T SRAM, 32-64 KB | Zephyr, bigger apps, audio DSP | GF180 support exists; needs macro validation |
+| HyperRAM/PSRAM parallel ctrl (~4 kGE, ~12 pins) | MBs at ~100 MB/s | digital-only; proven on open shuttles |
+| I2S in/out (~3 kGE) | proper digital audio | straightforward RTL |
+| Camera parallel port + line FIFO | faster capture than the AL422 crutch | pin-budget driven |
+| Ibex ICache (~+5 kGE + RAM macros) | XIP speed ~10× | config flag + area |
+| 40-50 MHz | 2-2.5× compute | prior art on GF180 |
+
+v2 planning starts by **measuring v1 silicon** (real XIP timing, power, IO).
+
+### Never on-die at this tier (industry-normal)
+
+- **WiFi radio**: RF analog; no radio IP in the open GF180 PDK; a radio team
+  is years of work. Production answer: ESP32-class companion (same as v1).
+- **AI inference**: NPU + DRAM bandwidth + modern node = $$$M. Answer: cloud
+  (v1 already does this) or a Pi-class companion when latency demands it.
+
+### Life after tapeout: the carrier board
+
+When the ~300 QFN-64 packages return, the chip needs a **carrier PCB**: chip,
+QSPI flash, PSRAM, ESP32, mic/amp/speaker, camera connector, I2C sensors,
+power, reset, USB-UART bridge. The Arty A7 is the rehearsal — every validated
+FPGA interface becomes a copper trace, which is why the FPGA pin map mirrors
+the chip pin plan (37/38 pads, PRODUCTION_PERIPHERALS.md §1). Deliverable:
+`hw/carrier-board/` KiCad project; owner TBD (PD's board bench).

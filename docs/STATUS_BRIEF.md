@@ -4,7 +4,7 @@ One-page state of the Ibex SoC programme: what is done, what was chosen and
 why, what needs your sign-off today, and what happens next.
 Deep detail lives in [ASIC_SPEC.md](ASIC_SPEC.md),
 [PRODUCTION_PERIPHERALS.md](PRODUCTION_PERIPHERALS.md),
-[CHIP_ROADMAP.md](CHIP_ROADMAP.md), [HW_VALIDATION_PLAN.md](HW_VALIDATION_PLAN.md).
+[HW_VALIDATION_PLAN.md](HW_VALIDATION_PLAN.md).
 
 ---
 

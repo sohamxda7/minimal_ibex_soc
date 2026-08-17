@@ -41,7 +41,7 @@ set_property -dict { PACKAGE_PIN B9    IOSTANDARD LVCMOS33 } [get_ports { BTN[2]
 set_property -dict { PACKAGE_PIN B8    IOSTANDARD LVCMOS33 } [get_ports { BTN[3] }]; #IO_L12P_T1_MRCC_16 Sch=btn[3]
 
 ## Pmod Header JA
-## JA pins 1/2 carry the I2C bus (BME280 / SSD1306 — docs/TOY_INTERFACING.md).
+## JA pins 1/2 carry the I2C bus (BME280 / SSD1306 — docs/PRODUCTION_PERIPHERALS.md sec. 8).
 ## Open-drain with internal pull-ups; the sensor modules add their own too.
 set_property -dict { PACKAGE_PIN G13   IOSTANDARD LVCMOS33 PULLUP true } [get_ports { I2C_SCL }]; #IO_0_15 Sch=ja[1]
 set_property -dict { PACKAGE_PIN B11   IOSTANDARD LVCMOS33 PULLUP true } [get_ports { I2C_SDA }]; #IO_L4P_T0_15 Sch=ja[2]

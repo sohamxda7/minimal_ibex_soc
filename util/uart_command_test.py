@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Scripted hardware test for the UART command interface (docs/UART_CONTROL.md).
+Scripted hardware test for the UART command interface (docs/BRINGUP_HISTORY.md sec. 5).
 
 Usage:  python util/uart_command_test.py [COMx]
 Needs:  pip install pyserial. Board programmed with the demo, no terminal
