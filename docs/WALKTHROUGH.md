@@ -12,8 +12,8 @@ Every utility script is documented in §7, every known gotcha in §8.
 
 | Need | Notes |
 |---|---|
-| Windows PC, ~40 GB free disk | Linux works too (adapt the `.bat` steps to the same Tcl scripts) |
-| **Vivado ML Standard** (free) | Installer: https://www.xilinx.com/support/download.html — needs a free AMD account. Select product **Vivado**, edition **Standard**, devices: **Artix-7 only** (saves ~50 GB), and **keep "Install Cable Drivers" ticked** (without it the board is invisible). Default install path (`C:\Xilinx` or `C:\AMD`) — the `.bat` scripts auto-detect both, including the new `C:\AMD\<version>\Vivado` layout |
+| Windows PC, ~40 GB free disk | Windows-first tooling; Linux users drive the same Tcl scripts by hand |
+| **Vivado ML Standard** (free) | Installer: https://www.xilinx.com/support/download.html — needs a free AMD account. Select product **Vivado**, edition **Standard**, devices: **Artix-7 only** (saves ~50 GB), and **keep "Install Cable Drivers" ticked** (without it the board is invisible). Default install path (`C:\Xilinx` or `C:\AMD`) — the tooling auto-detects both, including the new `C:\AMD\<version>\Vivado` layout |
 | Python 3.x | Any recent version; stock library only. Optional `pip install pyserial` for the scripted serial tools |
 | Arty A7 board + **micro-USB data cable** | Some charging cables have no data lines — if no COM port appears, try another cable first |
 | Git | To clone the repo |
@@ -33,41 +33,36 @@ git checkout fix/fpga-bringup
 The branch matters: it contains the fixes that make the FPGA flow work at
 all (see [BRINGUP_HISTORY.md](BRINGUP_HISTORY.md) for what was broken).
 
-## 3. Build the bitstream (~15 min)
+## 3. Put FreeRTOS on the board — the ONE flow (~20 min)
 
-Double-click **`build_fpga.bat`** (or run
-`vivado -mode batch -source build_fpga.tcl` from the repo root).
+Double-click **`ibex_soc.bat`** (the single entry point — a GUI with one
+button per flow) and click **Flash to Board (QSPI)**. It runs three steps in
+a console window:
 
-Success looks like:
+1. builds the FreeRTOS firmware (**no RISC-V toolchain? it automatically
+   falls back to the committed prebuilt** — fine for board testing),
+2. builds the XIP-boot bitstream (~15 min),
+3. programs bitstream + firmware into the QSPI flash — survives power-cycle.
 
-```
-BUILD OK  ->  build/fpga/top_artya7.bit
-```
+Then **press PROG** on the board (or power-cycle). CLI equivalent:
+`powershell -File scripts\flows.ps1 flashfw`.
 
-Verify the program really went in — `build\fpga\build.log` must contain BOTH:
-
-```
-$readmem data file 'rtl/system/boot.mem' is read successfully
-$readmem data file 'sw/asm-demo/sram_init.vmem' is read successfully
-```
-
-and `build\fpga\timing_summary.rpt` must say
+Verifying the bitstream step — `build\fpga\build.log` must contain BOTH
+`$readmem` "read successfully" lines (boot.mem + the SRAM image), and
+`build\fpga\timing_summary.rpt` must say
 *"All user specified timing constraints are met."*
 
-> Board variant: the script targets the **Arty A7-100T**
-> (`xc7a100tcsg324-1`). For an A7-35T change one line in `build_fpga.tcl`:
+> Board variant: the flow targets the **Arty A7-100T** (`xc7a100tcsg324-1`).
+> For an A7-35T change one line in `build_fpga.tcl`:
 > `set part xc7a35ticsg324-1L`.
 
-## 4. Program the board (~30 s)
+## 4. Dev-only: JTAG programming (~30 s)
 
-1. Plug the board in (red power LED on).
-2. Double-click **`program_fpga.bat`** → wait for `BOARD PROGRAMMED`.
-3. The green LEDs start the walking pattern immediately; the RGB LEDs
-   breathe through red → green → blue.
-
-> Programming is **volatile**: power-cycling the board restores whatever is
-> in its QSPI flash (usually the Digilent factory demo). Just re-run
-> `program_fpga.bat`. This is normal and convenient during development.
+`ibex_soc.bat` → **Program Board (JTAG)** loads the bitstream over USB
+without touching the flash — quick during development but **volatile**
+(power-cycle restores the flash content), and the default bitstream boots
+FreeRTOS *from flash*, so the flash must have been programmed once by the
+Flash to Board flow or PuTTY stays silent.
 
 ## 5. Talk to it over UART
 
@@ -76,15 +71,15 @@ and `build\fpga\timing_summary.rpt` must say
    yours may differ.
 2. PuTTY: Connection type *Serial*, Serial line *COMx*, Speed **115200**,
    Open.
-3. You should see `IBEX-SOC UP <n>` every few seconds. Now type single
-   characters (no Enter):
+3. You should see `FreeRTOS on Ibex (XIP, 8KiB SRAM)` then `tick=N` lines
+   every second. Now type single characters (no Enter):
 
    `1`-`4` LED pattern · `f/m/s` speed · `r/g/b/w` force RGB colour ·
    `a` RGB auto · anything else echoes.
 
 > **Reading the terminal:** your typed keys are echoed back by the FPGA as
-> the acknowledgement, so they appear interleaved with the heartbeat lines
-> (`srgIBEX-SOC UP 4` = you pressed s, r, g just before a heartbeat).
+> the acknowledgement, so they appear interleaved with the `tick=N` lines
+> (`srgtick=42` = you pressed s, r, g just before a tick report).
 > That interleaving is expected, not corruption.
 
 4. Optional scripted check (close PuTTY first — **only one program can own
@@ -115,8 +110,11 @@ minutes of wall clock (~6 ms of simulated time).
 
 | Script | What it does | How to run | Notes / gotchas |
 |---|---|---|---|
-| `build_fpga.bat` → `build_fpga.tcl` | Full synth→place→route→bitstream with the demo program baked into SRAM | double-click / `vivado -mode batch -source build_fpga.tcl` | Must run from the repo root (the Tcl `cd`s there itself). Auto-detects Vivado under `C:\Xilinx\Vivado\*`, `C:\AMD\Vivado\*`, `C:\AMD\*\Vivado`; edit `VIVADO=` if yours is elsewhere. Change `set part` for other boards |
-| `program_fpga.bat` → `program_fpga.tcl` | Loads `build/fpga/top_artya7.bit` over USB-JTAG | double-click | Board must be plugged in; fails cleanly if the bitstream hasn't been built |
+| **`ibex_soc.bat`** | THE entry point: opens the GUI (every flow is a button + live log pane) | double-click | The only .bat in the repo root by design |
+| **`scripts/flows.ps1`** | All flows in one dispatcher: `setup` `xpr` `build` `program` `firmware [sim\|toy]` `flashfw [toy]` `flashonly [bin]` `regression` | `powershell -File scripts\flows.ps1 <flow>` (each GUI button opens exactly this in a console) | Locates tools itself (same `.toolpaths` order as find_tools.cmd) |
+| `build_fpga.tcl` (flow `build`) | Full synth→place→route→bitstream, SRAM image baked in (default: the XIP trampoline) | GUI **Build Bitstream** | Must run from the repo root (the Tcl `cd`s there itself). Change `set part` for other boards |
+| `program_fpga.tcl` (flow `program`) | Loads `build/fpga/top_artya7.bit` over USB-JTAG | GUI **Program Board (JTAG)** | Dev-only, volatile; board must be plugged in |
+| `gen_project.tcl` (flow `xpr`) | Generates a Vivado GUI project (`build/vivado_project/*.xpr`) for browsing | GUI **Generate .xpr** | Browsing only — the official build stays the batch flow |
 | `sw/asm-demo/assemble.py` | RV32IM mini-assembler **and** the demo program in one file; regenerates `sram_init.vmem` | `python assemble.py` (hardware) / `--sim` (simulation image) | Rebuild the bitstream after regenerating. The two `.vmem` files are committed so this step is only needed when *changing* the program. Program entry must stay at SRAM+0x80 (the boot ROM jumps there) |
 | `util/uart_command_test.py` | Scripted hardware test of every UART command with PASS/FAIL output | `python util\uart_command_test.py [COMx]` | Needs `pip install pyserial`; auto-detects the FTDI port; **close PuTTY first** or you get "Access is denied" |
 | `dv/xsim/filelist.f` | The single compile-order list used by BOTH xsim and synthesis | consumed by the commands in §6 and by `build_fpga.tcl` | Add new RTL files here (packages before users). Keeping one list is what guarantees sim==hardware |
@@ -125,24 +123,24 @@ minutes of wall clock (~6 ms of simulated time).
 | `dv/xsim/sim_stubs.sv` | Behavioural stub for the Xilinx `BSCANE2` JTAG macro | **simulation only** | Never add to a synthesis file list — Vivado supplies the real primitive |
 | `program_fpga`/`build_fpga` logs | `build\fpga\build.log`, `program.log`, timing + utilisation reports | — | First place to look when something fails |
 | `util/load_demo_system.sh`, `util/*openocd*` | Upstream lowRISC helpers (Linux, OpenOCD/JTAG debug) | see upstream README below the divider | Untested in this Windows flow |
-| `program_flash.bat` -> `program_flash.tcl` | Combines bitstream + **XIP firmware** into one MCS and programs the onboard QSPI flash | `program_flash.bat [firmware.bin]` | Needed whenever XIP firmware changes; JTAG `program_fpga.bat` is faster for bitstream-only. Press PROG after |
-| `sw/freertos/build.bat` | Builds FreeRTOS firmware (variants: default / `sim` / `toy`) with the Zephyr-SDK GCC | `swreertosuild.bat toy` | Outputs `.bin` (for flash) + `_flash.vmem` (for sim). RAM budget printed at the end - keep data+bss+heap inside 8 KiB |
+| `program_flash.tcl` (flow `flashonly`) | Combines bitstream + **XIP firmware** into one MCS and programs the onboard QSPI flash | `flows.ps1 flashonly [firmware.bin]` | Needed whenever XIP firmware changes; JTAG programming is faster for bitstream-only. Press PROG after |
+| `sw/freertos/build.bat` | Internal firmware compiler (variants: default / `sim` / `toy`), called by the `firmware`/`flashfw` flows and the regression | `flows.ps1 firmware [sim|toy]` | Outputs `.bin` (for flash) + `_flash.vmem` (for sim). RAM budget printed at the end - keep data+bss+heap inside 8 KiB |
 | `sw/asm-demo/xip_test.py` | Generates the XIP boot trampoline (`xip_stub.vmem`) + the XIP proof program | `python xip_test.py` | The trampoline is the SRAM image for ANY XIP firmware build |
 | `scripts/*.ps1` | Detached-launch compile/sim/bitstream runners (write ASCII logs under `build/`) | `Start-Process powershell -File scripts\compile_sims.ps1` | See gotcha 16 - EDA tools hang if launched with piped stdio |
-| `scripts/find_tools.cmd` / `scripts/find_vivado.ps1` | Shared tool locators: `.toolpaths` -> env -> PATH -> all-drive scan -> ask-and-save (cmd) / no-prompt (PS, for detached runs) | called by every other script | Keep the two search orders in sync. `.toolpaths` is per-PC and gitignored |
-| `setup_check.bat` | Environment doctor: Vivado/Python/GCC/git/repo-path checks with fix hints; read-only | double-click, first thing on a new PC | The [WARN] on RISC-V GCC is fine unless you build FreeRTOS/C firmware |
-| `run_regression.bat` -> `scripts/run_regression.ps1` | The whole test suite in one click: images, FreeRTOS build, compile, 5 sims, bitstream, timing, scoreboard | double-click (~45-60 min) | Sequential on purpose - concurrent xelab+vivado has killed 16 GB machines. Log: `build\regression.log`, exit code 0 = all green |
-| `flash_freertos.bat` | Firmware -> XIP-boot bitstream -> QSPI flash, end to end; `toy` arg adds the LCD/sensor task | double-click with board attached | Persists across power-cycles (unlike JTAG). Press PROG after; expect the FreeRTOS banner at 115200 |
+| `scripts/find_tools.cmd` / `scripts/find_vivado.ps1` | Tool locators for the remaining cmd/detached-PS callers: `.toolpaths` -> env -> PATH -> all-drive scan | called by sw/freertos/build.bat and the runner scripts | flows.ps1 carries the same search order - keep all three in sync. `.toolpaths` is per-PC and gitignored |
+| flow `setup` | Environment doctor: Vivado/Python/GCC/git/repo-path/board checks; asks + saves missing tool paths | GUI **Environment Check**, first thing on a new PC | The [WARN] on RISC-V GCC is fine - flashing falls back to the prebuilt firmware |
+| `scripts/run_regression.ps1` (flow `regression`) | The whole test suite in one click: images, FreeRTOS build, compile, 10 sims, bitstream, timing, scoreboard | GUI **Full Regression** (~45-60 min) | Sequential on purpose - concurrent xelab+vivado has killed 16 GB machines. Log: `build\regression.log`, exit code 0 = all green |
+| flow `flashfw` | Firmware (prebuilt fallback if no GCC) -> XIP-boot bitstream -> QSPI flash, end to end; `toy` arg adds the LCD/sensor task | GUI **Flash to Board (QSPI)** with board attached | Persists across power-cycles (unlike JTAG). Press PROG after; expect the FreeRTOS banner at 115200 |
 
 ## 8. Gotchas — the complete list
 
 1. **Path with spaces / OneDrive** → Vivado fails in odd ways. Use `C:\FPGA\...`.
 2. **Wrong branch** → `develop` doesn't build for FPGA. Use `fix/fpga-bringup`.
-3. **"Vivado not found"** from a `.bat` → the shared locator (`scripts/find_tools.cmd`) searches saved `.toolpaths` → env vars (`XILINX_VIVADO`) → PATH → `\Xilinx`/`\AMD` roots on every drive, then **asks you for the install dir and saves the answer** to `.toolpaths` (per-PC, gitignored). If a tool moves, delete `.toolpaths` or just re-run `setup_check.bat`. Never edit paths inside scripts.
+3. **"Vivado not found"** from a flow → the locators (`scripts/flows.ps1`, `scripts/find_tools.cmd`) search saved `.toolpaths` → env vars (`XILINX_VIVADO`) → PATH → `\Xilinx`/`\AMD` roots on every drive, then **ask you for the install dir and save the answer** to `.toolpaths` (per-PC, gitignored). If a tool moves, delete `.toolpaths` or re-run **Environment Check**. Never edit paths inside scripts.
 4. **No COM port in Device Manager** → charge-only USB cable (try another), or cable drivers weren't installed with Vivado (rerun `install_digilent.exe` from `Vivado\<ver>\data\xicom\cable_drivers\...`).
 5. **COM number differs per PC** → always check Device Manager; never hard-code a teammate's port number.
 6. **"Access is denied" opening the COM port** → PuTTY (or another monitor) still has it open. One owner at a time.
-7. **Board reverts to factory demo after power-cycle** → expected; JTAG programming is volatile; re-run `program_fpga.bat`.
+7. **Board reverts to other content after power-cycle** → expected with JTAG programming (volatile); the Flash to Board flow persists.
 8. **Terminal shows commands mixed into heartbeat lines** → that's the echo-ack interleaving; normal (see §5).
 9. **Changed `assemble.py` but board behaves the same** → you must re-run `python assemble.py` *and* rebuild the bitstream; the `.vmem` is read at synthesis time.
 10. **Waveforms look "frozen" / PWM looks "too fast" in a simulator** → time-scale illusion; human-visible effects live in ms–s while sims show µs. Use the `--sim` image (short delays) as the testbench does.
@@ -153,7 +151,7 @@ minutes of wall clock (~6 ms of simulated time).
 15. **A7-35T vs A7-100T** → one-line part change in `build_fpga.tcl` (see §3).
 16. **xvlog/xelab/xsim hang forever (100% CPU, empty log)** when launched with piped/captured stdio from automation (agent shells, some CI wrappers) → launch DETACHED: `Start-Process powershell -File scripts\<runner>.ps1`, write progress to an ASCII log, watch the log. The `scripts/` runners are the pattern.
 17. **`Out-File` writes UTF-16 by default** → grep/`Select-String` watchers see NUL-riddled text and never match; always pass `-Encoding ascii` in log-writing scripts.
-18. **Programs bigger than 8 KiB don't fit SRAM anymore** (ASIC spec) → that's what XIP is for: link against `sw/freertos/link_xip.ld`, put the firmware at flash offset 0x40_0000 (`program_flash.bat`), boot via the trampoline image.
+18. **Programs bigger than 8 KiB don't fit SRAM anymore** (ASIC spec) → that's what XIP is for: link against `sw/freertos/link_xip.ld`, put the firmware at flash offset 0x40_0000 (flow `flashonly`), boot via the trampoline image.
 19a. **xsim does not reliably propagate edge events through BIT-SELECT port
     connections** (`.rclk(gp_o[12])`): the value changes but `@(posedge ...)`
     inside the model never fires. Route through an explicit intermediate wire

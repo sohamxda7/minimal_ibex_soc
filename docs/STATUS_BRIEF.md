@@ -21,7 +21,7 @@ all timing constraints met.
 | Firmware | **One** FreeRTOS image: console + LED/RGB/switch control + all drivers |
 | **UART2 RX interrupt** (Ravi's items 3+4, 2026-08-17) | **Done & sim-proven**: fast IRQ 1 wired; IRQ-driven ESP-AT client with high-priority RX task + unsolicited-event parser; polled mode kept for bring-up |
 | Lead's regression ask (item 5, sim part) | **Done**: `tb_uart2_irq` covers simultaneous UART1+UART2 traffic, 128-byte FIFO burst/overflow (exactly 128 kept of 160), IRQ vectoring, unsolicited events, post-overflow recovery |
-| Toolchain-less lab PCs | **Unblocked**: `flash_freertos.bat` falls back to a committed prebuilt firmware — fixes ARF-BBSR-84's "unable to dump" (programming had succeeded; the firmware build was failing for lack of RISC-V GCC) |
+| Toolchain-less lab PCs | **Unblocked**: the Flash to Board flow falls back to a committed prebuilt firmware — fixes ARF-BBSR-84's "unable to dump" (programming had succeeded; the firmware build was failing for lack of RISC-V GCC) |
 | Bugs found & fixed pre-silicon | 7 (incl. 3 in the untested XIP controller, 1 in the team I2C BFM) |
 | Hardware validation | **Owed** — last board test was the old config; plan ready, waiting on board + parts |
 | Docs | Consolidated 13 → 9 files; root README is the front door |
@@ -84,7 +84,7 @@ The voice-AI use case works as record → PSRAM → ESP32 → cloud AI → play.
 
 | Phase | Trigger | Content |
 |---|---|---|
-| **Phase 1** | Board back on desk | Re-validate all base IO on the current build: LEDs, RGB, patterns, speed, switches, buttons, UART both ways, Pmods, plus FreeRTOS boot from flash and power-cycle persistence. One flow: `flash_freertos.bat` → PuTTY. ~1 session |
+| **Phase 1** | Board back on desk | Re-validate all base IO on the current build: LEDs, RGB, patterns, speed, switches, buttons, UART both ways, Pmods, plus FreeRTOS boot from flash and power-cycle persistence. One flow: `ibex_soc.bat` → Flash to Board → PuTTY. ~1 session |
 | **Phase 2** | Batch-1 parts (in transit) | LCD, BME280, OLED bring-up with logic-analyzer captures |
 | **Phase 3** | Batch-2 parts (~₹1,800, awaiting approval) | PSRAM, ESP32/WiFi, mic, speaker, camera, then the full voice-AI loop |
 | **Tapeout** | After decisions below | Reconcile RTL ↔ PD netlist, re-run regression on the frozen config, hand over to synthesis |

@@ -128,8 +128,8 @@ ST7735 1.8" SPI LCD (pre-soldered) · BME280 I2C sensor · SSD1306 OLED ·
 jumpers · breadboard · 24 MHz logic analyzer · DT830 multimeter · soldering
 kit (BME280 + OLED need ~10 header joints — ask for guidance before starting).
 
-Firmware: `sw\freertos\build.bat toy` → `flash_freertos.bat toy` (adds the
-toy task: LCD banner, then a BME280 reading on UART + OLED every 2 s).
+Firmware: `ibex_soc.bat` → variant *toy (LCD+sensors)* → **Flash to Board**
+(adds the toy task: LCD banner, then a BME280 reading on UART + OLED every 2 s).
 
 ### ST7735 LCD (SPI) — wiring to the Arty ChipKit analog header
 

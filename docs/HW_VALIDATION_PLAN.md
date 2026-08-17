@@ -10,18 +10,20 @@ strictly in order; each phase's results get a dated table in the test report.
 
 **ONE FLOW (Soham, 2026-08-10):** the asm demo is retired as a user
 vehicle (it remains DV-internal: tb_soc + the XIP trampoline). The ONLY
-supported delivery is the non-volatile QSPI flow - `flash_freertos.bat` -
+supported delivery is the non-volatile QSPI flow - `ibex_soc.bat` →
+**Flash to Board (QSPI)** -
 and the unified FreeRTOS firmware now carries the full former asm-demo
 command console (1-4 patterns, f/m/s speed, r/g/b/w/a RGB, echo,
 switch-mirror-while-button-held) plus banner/tick/blinky. All Phase-1
-tests below run on that ONE image; `program_fpga.bat` is a dev-only tool.
+tests below run on that ONE image; JTAG programming is a dev-only tool.
 
 ---
 
 ## Phase 1 — base IO re-validation (needs: the board only)
 
-**Phase 1 vehicle** — `flash_freertos.bat` (bitstream + firmware into QSPI,
-survives power-cycle) → press PROG → PuTTY 115200:
+**Phase 1 vehicle** — `ibex_soc.bat` → **Flash to Board** (bitstream +
+firmware into QSPI, survives power-cycle; no toolchain needed - prebuilt
+fallback) → press PROG → PuTTY 115200:
 
 | # | Test | Pass criterion | 2026-08-07 (old cfg) | v1.1 result |
 |---|---|---|---|---|
@@ -48,7 +50,7 @@ survives power-cycle) → press PROG → PuTTY 115200:
 
 Wire per [PRODUCTION_PERIPHERALS.md sec. 8](PRODUCTION_PERIPHERALS.md) tables
 (LCD → ChipKit A6–A11; BME280 + SSD1306 → Pmod JA1/JA2 + power).
-Firmware: `sw\freertos\build.bat toy` → `flash_freertos.bat toy`.
+Firmware: `ibex_soc.bat` → variant *toy* → **Flash to Board**.
 
 | # | Test | Pass criterion | Result |
 |---|---|---|---|

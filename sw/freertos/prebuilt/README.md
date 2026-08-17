@@ -6,10 +6,11 @@ lab machines **without the RISC-V GCC toolchain** can still run the full
 Phase-1 hardware validation:
 
 ```
-flash_freertos.bat
+ibex_soc.bat  ->  Flash to Board (QSPI)
 ```
 
-automatically falls back to this file when the local firmware build fails
+(CLI: `powershell -File scripts\flows.ps1 flashfw`) automatically falls
+back to this file when the local firmware build fails
 (no toolchain). You will see a loud `USING PREBUILT FIRMWARE` warning —
 that is fine for board bring-up and IO testing.
 

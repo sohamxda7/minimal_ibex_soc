@@ -59,6 +59,17 @@ broke xsim → real purpose is `ifdef VERILATOR`.
 | `rtl/system/sram_model.sv`, `vendor/.../ibex_if_stage.sv` | DPI guard → `ifdef VERILATOR` |
 | `sw/c/demo/hello_world/main.c` | timer tick 10000 → 2000000 (0.1 s @ 20 MHz) |
 
+**Standing patches to vendored code — re-apply if `vendor/` is ever
+re-imported** (upstream-sync policy: fetch `lowrisc`, merge taking OURS for
+fork-owned files, re-apply these, run the full regression before pushing):
+
+| File | Patch | Why |
+|---|---|---|
+| `vendor/lowrisc_ibex/shared/rtl/fpga/xilinx/clkgen_xil7series.sv` | `CLKOUT0_DIVIDE` 24 → 60 | 20 MHz system clock (ASIC target) |
+| `vendor/lowrisc_ibex/rtl/ibex_if_stage.sv` | DPI guard `ifndef SYNTHESIS` → `ifdef VERILATOR` | xsim cannot compile Verilator-only DPI |
+
+(FreeRTOS kernel is vendored unmodified — `vendor/freertos_kernel/VENDORED.txt`.)
+
 ## 4. The no-FuseSoC, no-toolchain build path
 
 Why the team found building "hard": FuseSoC needs a venv + lowRISC forks +
@@ -126,5 +137,5 @@ endgame — GF180MCU via Caravel, SRAM hard-capped at 8 KiB by die area:
   GPIO `0x4000_0100`; Timer `0x4000_0200`; I2C `0x4000_0400`; SPI host
   `0x4000_0500`; PWM `0x4000_0600`; UART2 `0x4000_0700`.
 - Serial: 115200 8N1; COM number is per-PC (Device Manager).
-- `program_fpga.bat` is volatile + dev-only; the supported flow is
-  `flash_freertos.bat` (survives power-cycle).
+- JTAG programming is volatile + dev-only; the supported flow is
+  `ibex_soc.bat` → Flash to Board (survives power-cycle).

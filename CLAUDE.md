@@ -84,6 +84,16 @@ FPGA validation must run the silicon configuration or it isn't validation.
    BRINGUP_TEST_REPORT, BRINGUP_HISTORY (merged BRINGUP_OVERVIEW +
    FPGA_BRINGUP + UART_CONTROL), WALKTHROUGH, STATUS_BRIEF,
    UPSTREAM_README. Do NOT create new doc files; extend these.
+   **ONE-SCRIPT rule (Soham, 2026-08-18)**: the repo root has exactly ONE
+   user script - `ibex_soc.bat` (opens the GUI). All flow logic lives in
+   `scripts/flows.ps1` (setup/xpr/build/program/firmware/flashfw/
+   flashonly/regression); each GUI button opens a console running one
+   flow. Do NOT re-add per-flow .bat entry points. Internal plumbing
+   that stays: sw/freertos/build.bat (firmware compiler, called by
+   flows + regression), scripts/find_tools.cmd (its locator), the
+   *.tcl implementation scripts, and the keeper scripts/*.ps1. The
+   README stays SHORT - a front page, not a manual (detail lives in
+   docs/); keep it that way.
 
 ## 3. Key technical facts (verified)
 
@@ -108,8 +118,8 @@ FPGA validation must run the silicon configuration or it isn't validation.
 - **QSPI flash pins**: CS=L13, DQ0(MOSI)=K17, DQ1(MISO)=K18; **SCK has no
   package pin** — it's the CCLK config pin, driven via STARTUPE2.USRCCLKO
   (top_artya7.sv). XipClkDiv param: FPGA top uses 1 (10 MHz; flash rated
-  50 MHz), ASIC-spec default 4. `program_flash.bat` = bitstream+firmware
-  MCS into flash.
+  50 MHz), ASIC-spec default 4. Flow `flashonly` (program_flash.tcl) =
+  bitstream+firmware MCS into flash.
 - **Ibex is vectored-only** (mtvec[1:0]=01 hardwired, 256-byte aligned):
   RTOS trap entry needs a 32-entry vector table (sw/freertos/startup.S);
   entry 7 = machine timer, base+0 = exceptions/ecall.
@@ -143,19 +153,27 @@ FPGA validation must run the silicon configuration or it isn't validation.
   `.toolpaths` (per-PC saved answers, gitignored) -> env vars -> PATH ->
   common roots on ALL drives -> interactive ask-and-save (cmd only).
   NEVER hard-code an install path in a script again; extend the locators.
-- **GUI**: `control_panel.bat` -> gui/ibex_control_panel.ps1 (WinForms,
-  Windows-only per team direction; no Linux user utilities).
-- **One-click scripts (repo root, all tool-locating via the above)**:
-  `setup_check.bat` (environment doctor, run first on any new PC),
-  `build_fpga.bat`, `program_fpga.bat` (JTAG, volatile),
-  `run_regression.bat` (full suite: images + FreeRTOS build + compile +
-  10 sims + bitstream + scoreboard, exit 0 = green),
-  `flash_freertos.bat [toy]` (firmware -> XIP bitstream -> QSPI flash,
-  persistent; **falls back to sw/freertos/prebuilt/freertos_demo.bin
-  when no RISC-V GCC is present** - refresh the prebuilt whenever
-  sw/freertos/** changes), `program_flash.bat`, `sw\freertos\build.bat`
-  (honours RISCV_GCC_HOME). Keep this inventory current when adding
-  scripts, and give every new script a WALKTHROUGH.md table row.
+- **THE user entry point**: `ibex_soc.bat` -> gui/ibex_control_panel.ps1
+  (WinForms, Windows-only per team direction; no Linux user utilities).
+  Every button opens a console running `scripts\flows.ps1 <flow>`:
+  - `setup` - environment doctor; locates AND saves tool paths
+    (.toolpaths); run first on any new PC
+  - `xpr` - generate the Vivado GUI project (gen_project.tcl,
+    build/vivado_project/*.xpr) for browsing (team request)
+  - `build` / `program` - bitstream (build_fpga.tcl) / JTAG load
+    (program_fpga.tcl, volatile dev-only)
+  - `firmware [sim|toy]` - compile FreeRTOS (sw/freertos/build.bat)
+  - `flashfw [toy]` - THE flow: firmware -> XIP bitstream -> QSPI
+    flash, persistent; **falls back to sw/freertos/prebuilt/*.bin when
+    no RISC-V GCC is present** - refresh the prebuilt whenever
+    sw/freertos/** changes
+  - `flashonly [bin]` - reflash only (program_flash.tcl)
+  - `regression` - full suite (run_regression.ps1): images + FreeRTOS
+    build + compile + 10 sims + bitstream + scoreboard, exit 0 = green
+  flows.ps1 streams tool output via Write-Host (NOT the pipeline - the
+  callers consume the numeric return; piping to Out-Null would eat the
+  console output, this bit once). Keep this inventory + the WALKTHROUGH
+  section-7 table current when touching flows.
 
 ## 4. Findings Log (chronological, condensed)
 
@@ -327,6 +345,24 @@ in flash_freertos.bat, setup_check message). (5) Docs 13 -> 9 (rule 9).
 Remaining from Ravi's list: the PR into the ARF repo (needs Soham - direct
 push is branch-protected) and the on-board Phase-3 validation (parts).
 
+**2026-08-18 — ONE-SCRIPT consolidation + lean README (Soham directive)**:
+"only one AIO bat script with gui... readme simple, docs simple". Executed:
+8 root .bat entry points (setup_check, build_fpga, program_fpga,
+program_flash, flash_freertos, run_regression, gen_project, control_panel)
+DELETED and replaced by `ibex_soc.bat` -> the WinForms GUI, whose buttons
+each open a console running `scripts\flows.ps1 <flow>` (setup/xpr/build/
+program/firmware/flashfw/flashonly/regression). flows.ps1 carries a full
+PowerShell port of the tool locator (same .toolpaths contract) and the
+prebuilt-firmware fallback. Verified: `setup` flow all-OK, `firmware` flow
+BUILD OK. Bug caught: helper functions that return an exit code must
+Write-Host the tool output - callers piping to Out-Null were eating the
+console stream. Root README rewritten as a short front page (~120 lines:
+quick start = one script, console table, constraints, status, doc index,
+layout); the fixes/added/patches detail lives in docs/BRINGUP_HISTORY.md
+and git history. WALKTHROUGH sections 3-5 re-cut to lead with the ONE flow
+(also fixed a latent \\f/\\b control-char corruption in its script table).
+All doc/tcl/script references to the deleted .bats updated.
+
 ## 5. Open questions for the team (track until answered)
 
 1. ~~SRAM base address~~ **RESOLVED 2026-08-10: team confirmed
@@ -348,7 +384,7 @@ docs/ASIC_SPEC.md section 3.
   the new tb_uart2_irq, bitstream BUILD OK with all timing met) - the
   first run on the wired-UART2-IRQ RTL.
 - **ONE FLOW decision (Soham, 2026-08-10)**: user-facing delivery is
-  ONLY the non-volatile QSPI path (`flash_freertos.bat`); the unified
+  ONLY the non-volatile QSPI path (flow `flashfw`); the unified
   FreeRTOS firmware absorbed the asm-demo console (patterns/speed/RGB/
   echo/switch-mirror as tasks in main.c). The asm demo + program_fpga
   (JTAG) remain DV/dev-internal only - do not present them as user
@@ -360,8 +396,8 @@ docs/ASIC_SPEC.md section 3.
   switches, UART, Pmod, PuTTY RGB commands) must be RE-RUN on v1.1 -
   currently sim-proven only. The checklist of record is
   docs/HW_VALIDATION_PLAN.md: Phase 1 = base IO + RTOS checks on the ONE
-  FreeRTOS image (`flash_freertos.bat` -> PROG -> PuTTY; works even
-  without a toolchain via the prebuilt), Phase 2 = batch-1 parts
+  FreeRTOS image (ibex_soc.bat -> Flash to Board -> PROG -> PuTTY; works
+  even without a toolchain via the prebuilt), Phase 2 = batch-1 parts
   (LCD/BME280/OLED), Phase 3 = batch-2 parts (ESP32 incl. IRQ-mode check
   20b / PSRAM / camera / mic / speaker). Results get dated tables in
   BRINGUP_TEST_REPORT.md; a phase is not done until the report shows it.

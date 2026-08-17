@@ -195,7 +195,7 @@ FATAL_ERROR; exit via the loop condition instead.
 
 ## 8. Not covered (future work)
 
-- XIP + FreeRTOS on the physical board (bitstream + `program_flash.bat`
+- XIP + FreeRTOS on the physical board (the Flash to Board flow is
   ready; needs the board back on the desk)
 - I2C devices + LCD on real pins (parts on order)
 - JTAG debug via OpenOCD (dm_top synthesises with the BSCANE2 tap; not exercised)

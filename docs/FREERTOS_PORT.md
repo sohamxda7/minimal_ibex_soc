@@ -130,7 +130,8 @@ session — will use `write_cfgmem` to append the firmware to the bitstream MCS.
 ## 4. Demo application (`sw/freertos/main.c`) — THE one firmware
 
 Unified 2026-08-10: the asm-demo command interface moved in here; the only
-supported delivery is `flash_freertos.bat` (non-volatile QSPI). Tasks:
+supported delivery is the **Flash to Board** flow in `ibex_soc.bat`
+(non-volatile QSPI). Tasks:
 
 - `blink` (prio 1): LED patterns 1-4 on `gp_o[7:4]`; while any button is
   held, mirrors the switches.
