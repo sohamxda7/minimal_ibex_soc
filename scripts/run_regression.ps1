@@ -1,6 +1,6 @@
 # =============================================================================
 # FULL regression, one entry point: regenerate program images, compile all
-# RTL + testbenches, run all 9 simulations, build the bitstream, verify
+# RTL + testbenches, run all 10 simulations, build the bitstream, verify
 # timing, print a PASS/FAIL scoreboard. ~45-60 min on a 16 GB machine
 # (everything sequential on purpose - concurrent xelab+vivado has killed
 # builds on 16 GB before).
@@ -33,6 +33,7 @@ python sw\asm-demo\lcd_spi_test.py --sim *>> $log
 python sw\asm-demo\i2c_test.py        *>> $log
 python sw\asm-demo\xip_test.py        *>> $log
 python sw\asm-demo\periph_tests.py    *>> $log
+python sw\asm-demo\uart2_irq_test.py  *>> $log
 $results["images"] = ($LASTEXITCODE -eq 0)
 
 # ---- 2. FreeRTOS firmware (sim variant feeds tb_freertos) ------------------
@@ -47,6 +48,7 @@ Log "--- XVLOG ---"
     dv/xsim/tb_soc.sv dv/xsim/tb_lcd.sv dv/xsim/tb_i2c.sv `
     dv/xsim/tb_xip.sv dv/xsim/tb_freertos.sv `
     dv/xsim/tb_psram.sv dv/xsim/tb_wifi.sv dv/xsim/tb_audio.sv dv/xsim/tb_cam.sv `
+    dv/xsim/tb_uart2_irq.sv `
     dv/xsim/spi_nor_flash_model.sv dv/xsim/periph_models.sv dv/xsim/sim_stubs.sv `
     rtl/system/i2c_slave_bfm.sv `
     -i vendor/lowrisc_ip/ip/prim/rtl -i rtl/system `
@@ -63,6 +65,7 @@ $tests = @(
   @{tb="tb_freertos"; snap="freertos_sim"; pass="PASS: FreeRTOS"},
   @{tb="tb_psram";    snap="psram_sim";    pass="PASS: PSRAM"},
   @{tb="tb_wifi";     snap="wifi_sim";     pass="PASS: AT"},
+  @{tb="tb_uart2_irq"; snap="uart2irq_sim"; pass="PASS: UART2 IRQ"},
   @{tb="tb_audio";    snap="audio_sim";    pass="PASS: 4 increasing"},
   @{tb="tb_cam";      snap="cam_sim";      pass="PASS: 16-byte"}
 )

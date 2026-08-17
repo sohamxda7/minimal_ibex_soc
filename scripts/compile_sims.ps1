@@ -11,7 +11,7 @@ $log = "$repo\build\compile_sims.log"
 
 & "$viv\xvlog.bat" -sv -f dv/xsim/filelist.f `
     dv/xsim/tb_soc.sv dv/xsim/tb_lcd.sv dv/xsim/tb_i2c.sv `
-    dv/xsim/tb_xip.sv dv/xsim/tb_freertos.sv `
+    dv/xsim/tb_xip.sv dv/xsim/tb_freertos.sv dv/xsim/tb_uart2_irq.sv `
     dv/xsim/spi_nor_flash_model.sv dv/xsim/sim_stubs.sv `
     rtl/system/i2c_slave_bfm.sv `
     -i vendor/lowrisc_ip/ip/prim/rtl -i rtl/system `

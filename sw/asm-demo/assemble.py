@@ -150,6 +150,18 @@ def assemble(program, base_addr):
             w = enc_j(imm_or_label(args[1], rel=True), r(args[0]))
         elif op == "jalr":                                   # jalr rd, rs1, imm
             w = enc_i(int(args[2], 0), r(args[1]), 0b000, r(args[0]), 0b1100111)
+        # CSR ops (Zicsr), used by the uart2_irq test: csr number as an
+        # immediate (mtvec=0x305, mie=0x304, mstatus=0x300, mcause=0x342).
+        # enc_i asserts imm<=2047 so pack the csr number into bits 31:20 by hand.
+        elif op in ("csrw", "csrs", "csrc"):                 # csrw csr, rs
+            f3 = {"csrw": 0b001, "csrs": 0b010, "csrc": 0b011}[op]
+            w = ((int(args[0], 0) & 0xFFF) << 20) | (r(args[1]) << 15) | \
+                (f3 << 12) | (0 << 7) | 0b1110011
+        elif op == "csrr":                                   # csrr rd, csr
+            w = ((int(args[1], 0) & 0xFFF) << 20) | (0 << 15) | \
+                (0b010 << 12) | (r(args[0]) << 7) | 0b1110011
+        elif op == "mret":
+            w = 0x30200073
         else:
             raise ValueError(f"unknown opcode: {line}")
         words.append(w)
