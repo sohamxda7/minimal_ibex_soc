@@ -15,6 +15,8 @@ rem        <d>:\Xilinx\Vivado\<ver>  <d>:\AMD\Vivado\<ver>
 rem        <d>:\AMD\<ver>\Vivado     <d>:\Xilinx\<ver>\Vivado
 rem        <d>:\AMDDesignTools\<ver>\Vivado (2025.x+ default root)
 rem        <d>:\FPGA\zephyr-sdk  <d>:\zephyr-sdk*  <d>:\lowrisc-toolchain*
+rem        <d>:\xpack-riscv-none-elf-gcc* (also under \FPGA and the profile;
+rem        this is what the GUI's Install Missing Tools button installs)
 rem        %USERPROFILE%\zephyr-sdk*  %USERPROFILE%\lowrisc-toolchain*
 rem   4b. GCC only: inside WSL (/opt/lowrisc-toolchain*, /opt/riscv*,
 rem        /tools/riscv, ~/lowrisc-toolchain*) - the lowRISC toolchain tar.xz
@@ -105,9 +107,12 @@ for %%d in (C D E F G) do (
   for /d %%v in ("%%d:\zephyr-sdk*")             do call :gcc_probe_root "%%v\gnu\riscv64-zephyr-elf"
   for /d %%v in ("%%d:\lowrisc-toolchain*")      do call :gcc_probe_root "%%v"
   for /d %%v in ("%%d:\FPGA\lowrisc-toolchain*") do call :gcc_probe_root "%%v"
+  for /d %%v in ("%%d:\xpack-riscv-none-elf-gcc*")      do call :gcc_probe_root "%%v"
+  for /d %%v in ("%%d:\FPGA\xpack-riscv-none-elf-gcc*") do call :gcc_probe_root "%%v"
 )
 for /d %%v in ("%USERPROFILE%\zephyr-sdk*")        do call :gcc_probe_root "%%v\gnu\riscv64-zephyr-elf"
 for /d %%v in ("%USERPROFILE%\lowrisc-toolchain*") do call :gcc_probe_root "%%v"
+for /d %%v in ("%USERPROFILE%\xpack-riscv-none-elf-gcc*") do call :gcc_probe_root "%%v"
 if defined RISCV_GCC_HOME exit /b 0
 
 rem 4b. inside WSL - the lowRISC toolchain tar.xz ships Linux binaries only

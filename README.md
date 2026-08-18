@@ -36,16 +36,20 @@ ibex_soc.bat
 ```
 
 1. **Environment Check** — verifies Vivado/Python/GCC/git, asks for and
-   remembers missing tool paths (`.toolpaths`, per-PC). No RISC-V GCC is
-   fine: flashing falls back to the committed prebuilt firmware.
-2. **Flash to Board (QSPI)** — firmware → XIP bitstream → QSPI flash.
+   remembers missing tool paths (`.toolpaths`, per-PC).
+2. **Install Missing Tools** — auto-installs whatever the check flagged:
+   Python (winget) and a native Windows RISC-V GCC (official xPack build,
+   downloaded to `C:\FPGA\`, no WSL, no admin). Only Vivado stays a manual
+   install. (Skippable: flashing falls back to the committed prebuilt
+   firmware even with no GCC at all.)
+3. **Flash to Board (QSPI)** — firmware → XIP bitstream → QSPI flash.
    Press PROG on the board; survives power-cycle.
-3. Open PuTTY at **115200 8N1** (COM port from Device Manager).
+4. Open PuTTY at **115200 8N1** (COM port from Device Manager).
 
 Every button is also a command: `powershell -File scripts\flows.ps1 <flow>`
-with `setup | xpr | build | program | firmware [sim|toy] | flashfw [toy] |
-flashonly [bin] | regression`. (Requires Windows; clone outside OneDrive,
-path without spaces — Vivado breaks on both.)
+with `setup | deps | xpr | build | program | firmware [sim|toy] |
+flashfw [toy] | flashonly [bin] | regression`. (Requires Windows; clone
+outside OneDrive, path without spaces — Vivado breaks on both.)
 
 ### The serial console
 

@@ -179,6 +179,14 @@ FPGA validation must run the silicon configuration or it isn't validation.
   Every button opens a console running `scripts\flows.ps1 <flow>`:
   - `setup` - environment doctor; locates AND saves tool paths
     (.toolpaths); run first on any new PC
+  - `deps [force]` - GUI "Install Missing Tools" (beginner path, Soham
+    2026-08-18): auto-installs Python via winget and the **xPack
+    riscv-none-elf-gcc** (native Windows zip from the official
+    xpack-dev-tools GitHub releases, version PINNED in flows.ps1 -
+    currently 15.2.0-1, ~470 MB download -> C:\FPGA\, no WSL/admin),
+    saves .toolpaths; Vivado is manual-only (30+ GB, AMD account) so it
+    just prints guidance. `force` reinstalls GCC even if one is found.
+    The GUI also shows a green "New PC? 1-2-3" hint line.
   - `xpr` - generate the Vivado GUI project (gen_project.tcl,
     build/vivado_project/*.xpr) for browsing (team request)
   - `build` / `program` - bitstream (build_fpga.tcl) / JTAG load
@@ -401,6 +409,23 @@ prebuilt byte-identical (b15234fc...), march-probe fallback exercised,
 PSParser 0 errors. Docs: FREERTOS_PORT Toolchain section rewritten
 (lowRISC install incl. WSL commands), WALKTHROUGH gotchas 21+22 +
 locator/table text, this file.
+
+**2026-08-18 (evening) — GUI dependency installer (Soham: "they don't
+know what is WSL/opt... install easily in Windows, through GUI")**: new
+`deps` flow + GUI button "Install Missing Tools" (row 1, step 2 of the
+green New-PC hint line). Installs Python (winget) and the xPack
+riscv-none-elf-gcc - chosen because it is the only major RISC-V bare-metal
+GCC shipped as a NATIVE Windows zip (no WSL, no admin, official
+xpack-dev-tools releases; our locators already knew the riscv-none-elf-
+prefix). Version pinned (15.2.0-1, asset name verified via GitHub API);
+extract to C:\FPGA\ and save .toolpaths. lowRISC/WSL remains the advanced
+option in FREERTOS_PORT (reference toolchain), xPack is the recommended
+beginner path. xpack-riscv-none-elf-gcc* added to the scan roots of both
+GCC locators. Tested for real on this PC: forced install downloaded +
+extracted + saved, then a full firmware build with the xPack GCC.
+Gotchas: $home is a READ-ONLY PS automatic variable (use $gccHome);
+IWR needs TLS1.2 opt-in on PS 5.1; $ProgressPreference silent makes IWR
+~10x faster.
 
 ## 5. Open questions for the team (track until answered)
 

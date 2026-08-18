@@ -6,6 +6,10 @@
 # Flows can also be run from a terminal directly with the same command.
 #
 #   setup                 environment doctor + locate/save tool paths
+#   deps [force]          INSTALL missing tools: Python (winget) + a native
+#                         Windows RISC-V GCC (xPack riscv-none-elf-gcc,
+#                         auto-download to C:\FPGA, no WSL, no admin).
+#                         'force' reinstalls GCC even if one was found.
 #   xpr                   generate the Vivado GUI project (.xpr) for browsing
 #   build                 synthesise the bitstream (build_fpga.tcl)
 #   program               program the board over USB-JTAG (volatile, dev-only)
@@ -151,7 +155,8 @@ function Find-Gcc([bool]$ask) {
         foreach ($drive in (Get-PSDrive -PSProvider FileSystem | Where-Object { $null -ne $_.Free })) {
             $r = $drive.Root
             $roots += "${r}FPGA\zephyr-sdk"
-            foreach ($pat in @("${r}zephyr-sdk*", "${r}lowrisc-toolchain*", "${r}FPGA\lowrisc-toolchain*")) {
+            foreach ($pat in @("${r}zephyr-sdk*", "${r}lowrisc-toolchain*", "${r}FPGA\lowrisc-toolchain*",
+                               "${r}xpack-riscv-none-elf-gcc*", "${r}FPGA\xpack-riscv-none-elf-gcc*")) {
                 $roots += (Get-ChildItem $pat -Directory -ErrorAction SilentlyContinue | ForEach-Object FullName)
             }
         }
@@ -243,8 +248,9 @@ switch ($Flow.ToLower()) {
             Write-Host "[WARN] RISC-V GCC not found (native or inside WSL). NOT a blocker for"
             Write-Host "       board testing - the flash flow falls back to the committed"
             Write-Host "       prebuilt firmware (sw\freertos\prebuilt). Needed only to CHANGE"
-            Write-Host "       firmware: install per docs/FREERTOS_PORT.md section 2"
-            Write-Host "       (lowRISC toolchain in WSL, or the Zephyr SDK natively)."
+            Write-Host "       firmware. EASY FIX: click 'Install Missing Tools' in the GUI"
+            Write-Host "       (or run: powershell -File scripts\flows.ps1 deps) - it downloads"
+            Write-Host "       a native Windows GCC automatically. Docs: FREERTOS_PORT.md sec. 2."
         }
 
         $git = Get-Command git -ErrorAction SilentlyContinue
@@ -268,6 +274,97 @@ switch ($Flow.ToLower()) {
         Write-Host ""
         if ($fail) { Write-Host "RESULT: FIX THE [FAIL] ITEMS ABOVE, then re-run Environment Check." }
         else { Write-Host "RESULT: environment ready. Next: Flash to Board, or Full Regression." }
+        Write-Host "============================================================"
+    }
+
+    "deps" {
+        # One-click installer for what a fresh PC is missing. GCC comes from
+        # the official xPack releases: a native Windows zip, no WSL, no
+        # admin rights, prefix riscv-none-elf- (already known to every
+        # locator). 'force' (the optional arg) reinstalls GCC regardless.
+        Write-Host "============================================================"
+        Write-Host " minimal-ibex-soc dependency installer"
+        Write-Host "============================================================"
+
+        # ---- Python (runs the image/vmem generators) ------------------------
+        if (Get-Command python -ErrorAction SilentlyContinue) {
+            Write-Host "[OK]   Python already installed: $(& python --version 2>&1)"
+        } elseif (Get-Command winget -ErrorAction SilentlyContinue) {
+            Write-Host "[....] Installing Python via winget (no admin needed)..."
+            winget install -e --id Python.Python.3.12 --accept-package-agreements --accept-source-agreements | ForEach-Object { Write-Host $_ }
+            Write-Host "[NOTE] PATH updates land in NEW consoles - reopen this flow if"
+            Write-Host "       python is still not found afterwards."
+        } else {
+            Write-Host "[FAIL] Python missing and winget unavailable on this Windows -"
+            Write-Host "       install Python 3.x from python.org (tick 'Add to PATH')."
+        }
+
+        # ---- RISC-V GCC (compiles the FreeRTOS firmware) --------------------
+        $g = Find-Gcc $false
+        if ($g -and ($Arg -ne "force")) {
+            Write-Host "[OK]   RISC-V GCC already present: $g ($($script:GccPrefix)gcc)"
+        } else {
+            $ver     = "15.2.0-1"
+            $zipName = "xpack-riscv-none-elf-gcc-$ver-win32-x64.zip"
+            $url     = "https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases/download/v$ver/$zipName"
+            $instDir = "C:\FPGA"
+            $gccHome = "$instDir\xpack-riscv-none-elf-gcc-$ver"
+            Write-Host ""
+            Write-Host "About to install the xPack RISC-V GCC (native Windows - no WSL):"
+            Write-Host "  what:  $zipName  (~470 MB download, ~1.7 GB on disk)"
+            Write-Host "  from:  github.com/xpack-dev-tools  (official xPack releases)"
+            Write-Host "  to:    $gccHome"
+            $ans = Ask-Path "Press Enter to install, or type n to skip"
+            if ($ans -match '^[nN]') {
+                Write-Host "Skipped GCC install."
+            } else {
+                $ok = Test-Path "$gccHome\bin\riscv-none-elf-gcc.exe"
+                if ($ok) {
+                    Write-Host "[OK]   Already extracted at $gccHome - reusing."
+                } else {
+                    if (((Get-PSDrive C).Free / 1GB) -lt 3) {
+                        Write-Host "[FAIL] Less than 3 GB free on C: - free some space first."
+                        exit 1
+                    }
+                    New-Item -ItemType Directory -Force $instDir | Out-Null
+                    $zip = "$instDir\$zipName"
+                    [Net.ServicePointManager]::SecurityProtocol = `
+                        [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+                    $oldPP = $ProgressPreference; $ProgressPreference = "SilentlyContinue"
+                    Write-Host "[....] Downloading (a few minutes; the window is NOT stuck)..."
+                    Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+                    Write-Host "[....] Extracting to $instDir (another couple of minutes)..."
+                    Expand-Archive -Path $zip -DestinationPath $instDir -Force
+                    $ProgressPreference = $oldPP
+                    Remove-Item $zip -Force
+                    $ok = Test-Path "$gccHome\bin\riscv-none-elf-gcc.exe"
+                }
+                if ($ok) {
+                    $saved = Get-SavedPaths
+                    $saved["RISCV_GCC_HOME"] = $gccHome
+                    $saved["RISCV_PREFIX"]   = "riscv-none-elf-"
+                    Save-Paths $saved
+                    $script:GccPrefix = "riscv-none-elf-"
+                    Write-Host "[OK]   RISC-V GCC installed: $(& "$gccHome\bin\riscv-none-elf-gcc.exe" --version | Select-Object -First 1)"
+                    Write-Host "       Saved to .toolpaths - every flow finds it from now on."
+                } else {
+                    Write-Host "[FAIL] Extraction did not produce $gccHome\bin\riscv-none-elf-gcc.exe"
+                    Write-Host "       (download interrupted?). Re-run this flow to retry."
+                    exit 1
+                }
+            }
+        }
+
+        # ---- Vivado (too big + licensed to auto-install) --------------------
+        $v = Find-Vivado $false
+        if ($v) { Write-Host "[OK]   Vivado already installed: $v" }
+        else {
+            Write-Host "[INFO] Vivado cannot be auto-installed (30+ GB, needs an AMD"
+            Write-Host "       account). Install Vivado ML Standard once by hand -"
+            Write-Host "       docs/WALKTHROUGH.md section 2 - then re-run Environment Check."
+        }
+        Write-Host ""
+        Write-Host "Done. Run Environment Check - it should now be all green."
         Write-Host "============================================================"
     }
 
@@ -340,7 +437,7 @@ switch ($Flow.ToLower()) {
     }
 
     default {
-        Write-Host "Unknown flow '$Flow'. Valid: setup xpr build program firmware flashfw flashonly regression"
+        Write-Host "Unknown flow '$Flow'. Valid: setup deps xpr build program firmware flashfw flashonly regression"
         exit 1
     }
 }

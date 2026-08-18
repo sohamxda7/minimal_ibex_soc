@@ -17,12 +17,19 @@ future, if any, is a v2-chip item: [ASIC_SPEC.md sec. 10](ASIC_SPEC.md).)
 **Toolchain:** any bare-metal RISC-V GCC. The build scripts auto-detect the
 install (bin prefixes tried in order: `riscv32-unknown-elf-`,
 `riscv64-zephyr-elf-`, `riscv64-unknown-elf-`, `riscv-none-elf-`) and pick
-the right `-march` spelling per compiler. Two supported installs:
+the right `-march` spelling per compiler. Supported installs, easiest first:
 
-- **lowRISC toolchain** (the ARF/Ibex standard) — download
+- **One click (recommended): `ibex_soc.bat` → Install Missing Tools.**
+  Downloads the official **xPack riscv-none-elf-gcc** (native Windows,
+  ~470 MB, no WSL, no admin rights) to `C:\FPGA\`, verifies it, and saves
+  it to `.toolpaths`. Terminal equivalent:
+  `powershell -File scripts\flows.ps1 deps` (add `force` to reinstall).
+  Version pinned in flows.ps1 (currently 15.2.0-1).
+- **lowRISC toolchain** (the Ibex-upstream reference; advanced) — download
   [`lowrisc-toolchain-rv32imcb-20220524-1.tar.xz`](https://github.com/lowRISC/lowrisc-toolchains/releases/download/20220524-1/lowrisc-toolchain-rv32imcb-20220524-1.tar.xz)
   (Clang 13 + GCC 10.2, prefix `riscv32-unknown-elf-`). The tarball contains
-  **Linux binaries only**, so on Windows it lives inside **WSL**:
+  **Linux binaries only**, so on Windows it needs **WSL** (skip this if you
+  don't know WSL — use the one-click install above instead):
   `sudo mkdir -p /opt && xzcat lowrisc-toolchain-*.tar.xz | sudo tar -x -C /opt -f -`
   The locators find it automatically in WSL (`/opt/lowrisc-toolchain*`,
   `/tools/riscv`, `~/lowrisc-toolchain*`) and `build.bat` then compiles
