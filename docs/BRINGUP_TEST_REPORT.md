@@ -295,7 +295,7 @@ console** — the board self-recovers.
 | 5 | RGB all-4 re-check | **PASS** (Soham, PuTTY, same day) |
 | 8 | `uart_command_test.py` scripted sweep | **PASS 8/8** |
 | 13 | boot-from-flash persistence | **PASS** (5 JTAG-triggered reconfig cycles) |
-| 14 | LCD firmware path (`toy: lcd up` = full SPI init + draw completed) | **firmware PROVEN; visual confirm pending** ☐ |
+| 14 | LCD firmware path (`toy: lcd up` = full SPI init + draw completed) | **PASS** — panel visually confirmed by Soham (ARF logo + live status render); **Phase 2a COMPLETE** |
 
 **ASIC flag from bug #9:** on silicon, SRAM powers up random and there is
 no bitstream initialisation — the boot ROM as-is (jump to SRAM+0x80)
@@ -303,9 +303,19 @@ cannot complete a *first* boot. The ROM must either write the trampoline
 itself or jump directly to the XIP window. Raised as a lead decision in
 STATUS_BRIEF.
 
-## 10. Not covered (future work)
+## 10. Team-repo commit audit (2026-08-18, requested by Soham)
 
-- LCD re-test with the mode-0 fix (this bench, next flash)
+Three commits on `ArfDesign-DB/minimal-ibex-soc` reviewed for adoption:
+
+| Commit | Content | Verdict for our tree |
+|---|---|---|
+| `740d59c9` (Ravalika) | 50→20 MHz defaults, hardcoded `C:/Users/Raji` path removed, Verilator sim ctrl, `sram_model`→`dffram` swap | **Not adopted** — the MHz/path fixes landed here first (2026-08-07); Verilator/hello_world are outside our xsim flow. **Two review flags sent back**: (a) the DFFRAM instantiation sits under `` `ifdef verilator `` with an empty `else` — as committed, *synthesis gets no SRAM instance at all*; (b) confirm the DFFRAM macro's `WE` is per-byte — Ibex issues `sb`/`sh` to SRAM, a single-bit WE breaks byte stores |
+| `498798b` (Ravalika) | `boot.mem` copyto in the FuseSoC `.core` | **Not adopted** — we run the no-FuseSoC flow; correct fix for their build |
+| `8ed494d` (Khalid) | comments out the dead SPI_CTRL stub (0x4000_0300) | **Adopted, as full removal** — decode/ports/stub logic deleted from `wb_interconnect.sv` + `wrapper_top.sv` (ours also left `spictrl_rvalid` undriven, a latent X-source). Shrinks the RTL↔PD-netlist delta. **Verified: full regression 14/14 ALL GREEN, reflashed, on-board boot + scripted sweep 8/8 PASS on the stub-free build** |
+
+## 11. Not covered (future work)
+
+- Pmod touch-test (no-instruments continuity check — needs hands)
 - I2C devices (BME280/SSD1306) — need ~10 header joints soldered
 - JTAG debug via OpenOCD (dm_top synthesises with the BSCANE2 tap; not exercised)
 

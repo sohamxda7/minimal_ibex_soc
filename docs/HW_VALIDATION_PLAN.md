@@ -65,7 +65,7 @@ nothing else wired. Tests 15-17 wait for the ~10 OLED/BME280 header joints.
 
 | # | Test | Pass criterion | Result |
 |---|---|---|---|
-| 14 | ST7735 LCD | system-status screen: ARF logo (deep blue) + banner render, uptime/tick advance and the alive-spinner rotates every second, PuTTY keys (`1-4`, `r/g/b/w/a`, `t`) change the pat/rgb/key fields within 1 s | Firmware side PROVEN 2026-08-18 (`toy: lcd up` over serial after the SPI mode-0 + warm-reset fixes; full init + draw completed) → **visual confirm on the panel** ☐ |
+| 14 | ST7735 LCD | system-status screen: ARF logo (deep blue) + banner render, uptime/tick advance and the alive-spinner rotates every second, PuTTY keys (`1-4`, `r/g/b/w/a`, `t`) change the pat/rgb/key fields within 1 s | **PASS 2026-08-18** — firmware path proven over serial (`toy: lcd up`), panel visually confirmed by Soham after the SPI mode-0 + warm-reset fixes ("tft is also coming fine") |
 | 15 | I2C bus scan | OLED (0x3C) and BME280 (0x76) both ACK | ☐ |
 | 16 | BME280 | plausible T/P/H on UART every 2 s | ☐ |
 | 17 | SSD1306 | title + live temperature line rendered | ☐ |

@@ -178,26 +178,6 @@ module wb_interconnect #(
  
   // =========================================================
 
-  // SPI CONTROL Interface
-
-  // =========================================================
- 
-  output logic             spictrl_req_o,
-
-  output logic             spictrl_we_o,
-
-  output logic [AW-1:0]    spictrl_addr_o,
-
-  output logic [DW-1:0]    spictrl_wdata_o,
-
-  output logic [DW/8-1:0]  spictrl_be_o,
- 
-  input  logic             spictrl_rvalid_i,
-
-  input  logic [DW-1:0]    spictrl_rdata_i,
- 
-  // =========================================================
-
   // I2C Interface
 
   // =========================================================
@@ -278,7 +258,8 @@ module wb_interconnect #(
 
     DEV_TIMER   = 4'd5,
 
-    DEV_SPICTRL = 4'd6,
+    // DEV 6 was the SPI-control stub at 0x4000_0300: dead decode returning
+    // zeros, removed 2026-08-18 to match the PD tree (team commit 8ed494d).
 
     DEV_I2C     = 4'd7,
 
@@ -325,10 +306,6 @@ module wb_interconnect #(
 
   localparam logic [31:0] TIMER_MASK   = 32'hFFFF_FF00;
  
-  localparam logic [31:0] SPICTRL_BASE = 32'h4000_0300;
-
-  localparam logic [31:0] SPICTRL_MASK = 32'hFFFF_FF00;
- 
   localparam logic [31:0] I2C_BASE     = 32'h4000_0400;
 
   localparam logic [31:0] I2C_MASK     = 32'hFFFF_FF00;
@@ -360,8 +337,6 @@ module wb_interconnect #(
   logic gpio_sel;
 
   logic timer_sel;
-
-  logic spictrl_sel;
 
   logic i2c_sel;
 
@@ -408,11 +383,7 @@ module wb_interconnect #(
     timer_sel =
 
       ((wb_adr_i & TIMER_MASK) == TIMER_BASE);
- 
-    spictrl_sel =
 
-      ((wb_adr_i & SPICTRL_MASK) == SPICTRL_BASE);
- 
     i2c_sel =
 
       ((wb_adr_i & I2C_MASK) == I2C_BASE);
@@ -477,8 +448,6 @@ module wb_interconnect #(
 
       else if (timer_sel)   device_sel_resp <= DEV_TIMER;
 
-      else if (spictrl_sel) device_sel_resp <= DEV_SPICTRL;
-
       else if (i2c_sel)     device_sel_resp <= DEV_I2C;
 
       else if (spihost_sel) device_sel_resp <= DEV_SPIHOST;
@@ -504,8 +473,6 @@ module wb_interconnect #(
   	gpio_sel |
 
   	timer_sel |
-
-  	spictrl_sel |
 
   	i2c_sel |
 
@@ -592,16 +559,6 @@ module wb_interconnect #(
     timer_wdata_o   = '0;
 
     timer_be_o      = '0;
-
-    spictrl_req_o   = '0;
-
-    spictrl_we_o    = '0;
-
-    spictrl_addr_o  = '0;
-
-    spictrl_wdata_o = '0;
-
-    spictrl_be_o    = '0;
 
     i2c_req_o       = '0;
 
@@ -743,20 +700,6 @@ module wb_interconnect #(
 
     end
  
-    if (spictrl_sel) begin
-
-      spictrl_req_o   = wb_cyc_i & wb_stb_i;
-
-      spictrl_we_o    = wb_we_i;
-
-      spictrl_addr_o  = wb_adr_i;
-
-      spictrl_wdata_o = wb_dat_i;
-
-      spictrl_be_o    = wb_sel_i;
-
-    end
- 
     if (i2c_sel) begin
 
       i2c_req_o   = wb_cyc_i & wb_stb_i;
@@ -880,13 +823,6 @@ module wb_interconnect #(
 
         end
  
-        DEV_SPICTRL: begin
-
-          wb_ack_o = spictrl_rvalid_i;
-
-          wb_dat_o = spictrl_rdata_i;
-
-        end
  
         DEV_I2C: begin
 

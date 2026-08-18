@@ -38,13 +38,13 @@
 
 //   0x4000_0200 – 0x4000_02FF  Timer
 
-//   0x4000_0300 – 0x4000_03FF  SPI control (stub)
-
 //   0x4000_0400 – 0x4000_04FF  I2C master
 
 //   0x4000_0500 – 0x4000_05FF  SPI host
 
-//   0x4000_0600 – 0x4000_06FF  SPI host
+//   0x4000_0600 – 0x4000_06FF  PWM
+
+//   0x4000_0700 – 0x4000_07FF  UART2 (ESP32 companion)
 
 module ibex_demo_system #(
 

@@ -615,6 +615,20 @@ cannot complete FIRST boot; ROM must write the trampoline or jump
 straight to XIP. Serial disconnect = board reboot (gotcha 27) - normal
 and now harmless.
 
+**2026-08-18 (round 4) — Phase 2a PASSED + team-commit audit + SPICTRL
+removed**: Soham confirmed the TFT renders ("tft is also coming fine") -
+Phase 2a test 14 PASS, Phase 1 + 2a both closed same day. Audited three
+ArfDesign-DB commits on request: 740d59c9 (their 20 MHz/path fixes = our
+day-one fixes, Verilator flow = not ours; REVIEW FLAGS raised: DFFRAM
+under `ifdef verilator` with empty else = synthesis gets NO SRAM as
+committed, and DFFRAM WE must be per-byte for sb/sh), 498798b (FuseSoC
+.core boot.mem - their flow only), 8ed494d (SPI_CTRL stub comment-out -
+ADOPTED as a full delete: decode + ports + stub logic gone from
+wb_interconnect/wrapper_top/map comment; ours even had spictrl_rvalid
+UNDRIVEN, a latent X-source; shrinks the PD-netlist delta). Also fixed
+the stale ibex_demo_system.sv map comment (0x600 is PWM, 0x700 UART2).
+Full regression re-run after the RTL delete; board reflashed.
+
 ## 5. Open questions for the team (track until answered)
 
 1. ~~SRAM base address~~ **RESOLVED 2026-08-10: team confirmed
@@ -646,13 +660,11 @@ docs/ASIC_SPEC.md section 3.
 - **Hardware validation: Phase 1 core PASSED 2026-08-18** on
   ARF-BBSR-84's board - v1.1 FreeRTOS booted from QSPI flash (XIP),
   console/patterns/switch-mirror all good (BRINGUP_TEST_REPORT section
-  8, HW_VALIDATION_PLAN boxes ticked). **Phase 1 effectively COMPLETE
-  2026-08-18** (autonomous bench run: sweep 8/8, RGB 4-LED PASS,
-  banner/echo/XIP/heartbeat/persistence re-evidenced; only the
-  no-instruments Pmod touch-test remains, needs hands). Phase 2a =
-  LCD only, NO soldering: firmware path PROVEN on hardware ("toy: lcd
-  up" after the SPI mode-0 + warm-reset fixes), visual confirm of the
-  drawn screen pending; Phase 2 =
+  8, HW_VALIDATION_PLAN boxes ticked). **Phase 1 COMPLETE + Phase 2a
+  (LCD) PASSED 2026-08-18** (autonomous bench run: sweep 8/8, RGB 4-LED
+  PASS, banner/echo/XIP/heartbeat/persistence re-evidenced; TFT visually
+  confirmed by Soham; only the no-instruments Pmod touch-test remains,
+  needs hands). Phase 2 =
   the soldered batch-1 parts (BME280/OLED), Phase 3 = batch-2 parts (ESP32 incl.
   IRQ-mode check 20b / PSRAM / camera / mic / speaker). Results get
   dated tables in BRINGUP_TEST_REPORT.md; a phase is not done until the

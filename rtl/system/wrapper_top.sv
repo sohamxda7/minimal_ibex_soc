@@ -613,20 +613,6 @@ module wrapper_top #(
 
   logic             timer_err;
 
-  logic             spictrl_req;
-
-  logic             spictrl_we;
-
-  logic [AW-1:0]    spictrl_addr;
-
-  logic [DW-1:0]    spictrl_wdata;
-
-  logic [DW/8-1:0]  spictrl_be;
-
-  logic             spictrl_rvalid;
-
-  logic [DW-1:0]    spictrl_rdata;
-
   logic             i2c_req;
 
   logic             i2c_we;
@@ -798,20 +784,6 @@ module wrapper_top #(
     .timer_rvalid_i (timer_rvalid),
 
     .timer_rdata_i  (timer_rdata),
-
-    .spictrl_req_o    (spictrl_req),
-
-    .spictrl_we_o     (spictrl_we),
-
-    .spictrl_addr_o   (spictrl_addr),
-
-    .spictrl_wdata_o  (spictrl_wdata),
-
-    .spictrl_be_o     (spictrl_be),
-
-    .spictrl_rvalid_i (spictrl_rvalid),
-
-    .spictrl_rdata_i  (spictrl_rdata),
 
     .i2c_req_o    (i2c_req),
 
@@ -1307,33 +1279,6 @@ spi_flash_xip #(
 
 );
  
-  /*
-
-  always_ff @(posedge clk_i or negedge rst_ni) begin
-
-    if (!rst_ni) begin
-
-      xip_rvalid     <= 1'b0;
-
-      spictrl_rvalid <= 1'b0;
-
-    end else begin
-
-      xip_rvalid     <= xip_req;
-
-      spictrl_rvalid <= spictrl_req;
-
-    end
-
-  end
-
-  assign xip_rdata     = '0;
-
-  assign spictrl_rdata = '0;
-
-*/
- 
- 
   // ===========================================================
 
   // Unused-signal sinks (silence lint warnings)
@@ -1346,14 +1291,10 @@ spi_flash_xip #(
 
   logic unused_xip_sideband;
 
-  logic unused_spictrl_sideband;
-
   assign unused_bootrom_sideband = ^{bootrom_we, bootrom_wdata, bootrom_be};
 
   assign unused_timer_err        = timer_err;
 
   assign unused_xip_sideband     = ^{xip_we, xip_addr, xip_wdata, xip_be};
-
-  assign unused_spictrl_sideband = ^{spictrl_we, spictrl_addr, spictrl_wdata, spictrl_be};
 
 endmodule

@@ -91,10 +91,12 @@ No LCD wired? The screen task idles harmlessly.
 ## Status
 
 **14/14 regression green** (10 full-SoC simulations + images + firmware +
-compile + bitstream with timing met), and **the v1.1 configuration now
-runs on the physical board** — FreeRTOS (V11.3.0) booting from QSPI
-flash, console verified (Phase 1 core passed 2026-08-18). Remaining
-phases need the ordered parts — plan in
+compile + bitstream with timing met), and **Phase 1 + Phase 2a passed on
+the physical board (2026-08-18)** — FreeRTOS (V11.3.0) booting from QSPI
+flash, scripted console sweep 8/8, all four RGB LEDs, and the ST7735
+rendering the live ARF status screen. First hardware contact found and
+fixed two silicon-relevant RTL/firmware bugs (SPI mode-0 hold time;
+warm-reset trampoline clobber) — plan in
 [docs/HW_VALIDATION_PLAN.md](docs/HW_VALIDATION_PLAN.md), current state
 in [docs/STATUS_BRIEF.md](docs/STATUS_BRIEF.md).
 
