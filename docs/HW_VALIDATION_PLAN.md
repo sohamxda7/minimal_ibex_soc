@@ -64,7 +64,7 @@ nothing else wired. Tests 15-17 wait for the ~10 OLED/BME280 header joints.
 
 | # | Test | Pass criterion | Result |
 |---|---|---|---|
-| 14 | ST7735 LCD | system-status screen: banner text renders, uptime/tick advance every second, PuTTY keys (`1-4`, `r/g/b/w/a`, `t`) change the pat/rgb/key fields within 1 s | ☐ |
+| 14 | ST7735 LCD | system-status screen: ARF logo + banner render, uptime/tick advance and the alive-spinner rotates every second, PuTTY keys (`1-4`, `r/g/b/w/a`, `t`) change the pat/rgb/key fields within 1 s | ☐ |
 | 15 | I2C bus scan | OLED (0x3C) and BME280 (0x76) both ACK | ☐ |
 | 16 | BME280 | plausible T/P/H on UART every 2 s | ☐ |
 | 17 | SSD1306 | title + live temperature line rendered | ☐ |

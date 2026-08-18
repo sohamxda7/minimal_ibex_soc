@@ -135,19 +135,41 @@ on UART + OLED every cycle once those are wired).
 ### Phase 2a — LCD only, NO soldering needed (start here)
 
 The ST7735 ships with its header pre-soldered, so it is the one batch-1
-part testable the day it arrives: 8 female-to-male jumper wires, female end
-onto the LCD pins, male end into the Arty sockets per the table below.
+part testable the day it arrives. **Everything you need:** the LCD + 8
+jumper wires (female end onto the LCD's pins, male end into the Arty's
+sockets). Nothing else to buy — "ChipKit header" and "power header" in the
+table below are just names for socket rows **already printed on the Arty
+board**: the analog row is labelled A0–A11 on the silkscreen, and the power
+row (a few sockets along the same edge) is labelled 3V3 / GND / 5V0 / VIN.
+
+**Test order for the session:**
+
+1. **Phase 1 re-check first, nothing wired** — the full PuTTY console the
+   board already passed (the old asm-demo controls, which now live inside
+   the FreeRTOS image): `1-4` patterns, `f/m/s` speed, `r/g/b/w/a` RGB on
+   all four LEDs, `t` heartbeat, button-hold switch-mirror. This also
+   closes the Phase-1 RGB re-check (only LED0 lit last time; fixed).
+2. **Power off, wire the LCD** per the table below, double-checking your
+   module's silkscreen (pin order varies between ST7735 boards).
+3. **Phase 2a**: flash the *toy* firmware variant and watch the screen.
+
+**What the LCD shows:** a big orange **ARF** logo, the
+`minimal-ibex-soc` title bar, the core/kernel/memory banner, then a live
+status block refreshed every second — uptime (with a rotating `|/-\`
+"alive" spinner), tick count, LED pattern + speed, last key pressed, RGB
+mode, heartbeat state, OLED/BME presence, and the temperature once a
+BME280 joins. Keys typed in PuTTY update the screen within a second: that
+round trip (UART RX → task state → SPI text render) is itself the test.
+
+*Why it stays smooth:* code executes in place from flash (~500× slower
+than SRAM, gotcha 19), so the firmware keeps a shadow copy of the live
+block and redraws **only the characters that changed** each second — a
+handful of cells, tens of milliseconds. Only the one-time boot draw takes
+a moment.
+
 The toy firmware is missing-part tolerant — every I2C wait is bounded, so
 the un-wired OLED/BME280 just show as `--` on screen and
 `oled=... bme=... (0=ok)` non-zero on UART; nothing hangs.
-
-**What the LCD shows** (the PuTTY console's system info, on glass): an
-orange `minimal-ibex-soc` title bar, core/kernel/memory banner, then a live
-status block refreshed every second — uptime, tick count, LED pattern +
-speed, last key pressed, RGB mode, heartbeat state, OLED/BME presence, and
-the temperature once a BME280 joins. Keys typed in PuTTY update the screen
-within a second: that round trip (UART RX → task state → SPI text render)
-is itself the test.
 
 ### ST7735 LCD (SPI) — wiring to the Arty ChipKit analog header
 

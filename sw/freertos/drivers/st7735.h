@@ -20,5 +20,7 @@ void st7735_fill_screen( uint16_t rgb565 );
 void st7735_text( uint8_t col, uint8_t row, const char * s );   /* white on black */
 void st7735_text_ex( uint8_t col, uint8_t row, const char * s,
                      uint16_t fg, uint16_t bg );
+void st7735_text_scale( uint8_t x, uint8_t y, const char * s, uint8_t scale,
+                        uint16_t fg, uint16_t bg );   /* x/y in pixels */
 
 #endif

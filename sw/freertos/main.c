@@ -202,6 +202,30 @@ static void prvU32Field( char * dst, uint32_t v, int width )
     }
 }
 
+/* Live status block: rows 8..13 of the LCD. XIP code is ~500x slower than
+ * SRAM code (WALKTHROUGH gotcha 19), so a full-line redraw every second
+ * would visibly crawl: keep a shadow copy and rewrite ONLY the characters
+ * that changed (a normal second touches ~6 cells, tens of ms). */
+#define LCD_LIVE_ROW0    8
+#define LCD_LIVE_ROWS    6
+static char s_lcdShadow[ LCD_LIVE_ROWS ][ ST7735_TEXT_COLS ];
+
+static void prvLcdLiveLine( uint8_t row, const char * line )
+{
+    char * shadow = s_lcdShadow[ row - LCD_LIVE_ROW0 ];
+    char cell[ 2 ] = { 0, 0 };
+
+    for( int i = 0; i < ST7735_TEXT_COLS; i++ )
+    {
+        if( line[ i ] != shadow[ i ] )
+        {
+            cell[ 0 ] = line[ i ];
+            st7735_text( ( uint8_t ) i, row, cell );
+            shadow[ i ] = line[ i ];
+        }
+    }
+}
+
 /* The "toy interfacing" test (docs/PRODUCTION_PERIPHERALS.md sec. 8), now a
  * live system-status screen on the ST7735 - the same info the PuTTY console
  * shows, refreshed every second. Phase 2a needs ONLY the pre-soldered LCD
@@ -212,6 +236,7 @@ static void prvToyTask( void * pvParameters )
     static bme280_t xSensor;          /* static: keep task stack small */
     bme280_reading_t xReading;
     int rcSensor, rcOled;
+    uint8_t ucSpin = 0;
     char line[ ST7735_TEXT_COLS + 1 ];
 
     ( void ) pvParameters;
@@ -219,17 +244,20 @@ static void prvToyTask( void * pvParameters )
     st7735_init();
     st7735_fill_screen( ST7735_RGB( 0, 0, 0 ) );
 
-    /* static part of the screen (banner, mirrors prvPrintBanner) */
-    st7735_text_ex( 0, 0, "  minimal-ibex-soc   ",
+    /* static part of the screen: big ARF logo + banner (mirrors
+     * prvPrintBanner). Drawn once - the one-time cost does not matter. */
+    st7735_text_scale( 37, 0, "ARF", 3,
+                       ST7735_RGB( 0xFF, 0x80, 0x00 ), ST7735_RGB( 0, 0, 0 ) );
+    st7735_text_ex( 0, 3, "  minimal-ibex-soc   ",
                     ST7735_RGB( 0, 0, 0 ), ST7735_RGB( 0xFF, 0x80, 0x00 ) );
-    st7735_text( 0, 2, "FreeRTOS " tskKERNEL_VERSION_NUMBER );
-    st7735_text( 0, 3, "Ibex RV32IMC @ 20MHz" );
-    st7735_text( 0, 4, "XIP + 8KiB SRAM" );
-    st7735_fill_rect( 0, 44, 128, 1, ST7735_RGB( 0xFF, 0x80, 0x00 ) );
+    st7735_text( 0, 4, "FreeRTOS " tskKERNEL_VERSION_NUMBER );
+    st7735_text( 0, 5, "Ibex RV32IMC @ 20MHz" );
+    st7735_text( 0, 6, "XIP + 8KiB SRAM" );
+    st7735_fill_rect( 0, 58, 128, 1, ST7735_RGB( 0xFF, 0x80, 0x00 ) );
     st7735_text( 0, 15, "keys: 1-4 pattern" );
     st7735_text( 0, 16, "f/m/s speed  t beat" );
     st7735_text( 0, 17, "r/g/b/w/a rgb colour" );
-    st7735_fill_rect( 0, 116, 128, 1, ST7735_RGB( 0xFF, 0x80, 0x00 ) );
+    st7735_fill_rect( 0, 114, 128, 1, ST7735_RGB( 0xFF, 0x80, 0x00 ) );
 
     i2c_init();
     rcOled   = ssd1306_init( SSD1306_ADDR );
@@ -257,12 +285,14 @@ static void prvToyTask( void * pvParameters )
         ( void ) __builtin_memcpy( line, "up", 2 );
         prvU32Field( &line[ 3 ], ( uint32_t ) ( xNow / configTICK_RATE_HZ ), 7 );
         line[ 10 ] = 's';
-        st7735_text( 0, 6, line );
+        line[ 20 ] = "|/-\\"[ ucSpin & 3u ];    /* alive spinner */
+        ucSpin++;
+        prvLcdLiveLine( 8, line );
 
         for( int i = 0; i < ST7735_TEXT_COLS; i++ ) line[ i ] = ' ';
         ( void ) __builtin_memcpy( line, "tick", 4 );
         prvU32Field( &line[ 5 ], ( uint32_t ) xNow, 10 );
-        st7735_text( 0, 7, line );
+        prvLcdLiveLine( 9, line );
 
         for( int i = 0; i < ST7735_TEXT_COLS; i++ ) line[ i ] = ' ';
         ( void ) __builtin_memcpy( line, "pat:  spd:  key:", 16 );
@@ -270,7 +300,7 @@ static void prvToyTask( void * pvParameters )
         line[ 10 ] = ( g_step == STEP_FAST ) ? 'f'
                    : ( g_step == STEP_SLOW ) ? 's' : 'm';
         line[ 16 ] = g_key;
-        st7735_text( 0, 8, line );
+        prvLcdLiveLine( 10, line );
 
         for( int i = 0; i < ST7735_TEXT_COLS; i++ ) line[ i ] = ' ';
         ( void ) __builtin_memcpy( line, "rgb:      beat:", 15 );
@@ -281,13 +311,13 @@ static void prvToyTask( void * pvParameters )
             ( void ) __builtin_memcpy( &line[ 4 ], mode, 4 );
             ( void ) __builtin_memcpy( &line[ 15 ], g_beat ? "on " : "off", 3 );
         }
-        st7735_text( 0, 9, line );
+        prvLcdLiveLine( 11, line );
 
         for( int i = 0; i < ST7735_TEXT_COLS; i++ ) line[ i ] = ' ';
         ( void ) __builtin_memcpy( line, "oled:    bme:", 13 );
         ( void ) __builtin_memcpy( &line[ 5 ], ( rcOled == I2C_OK ) ? "ok" : "--", 2 );
         ( void ) __builtin_memcpy( &line[ 13 ], ( rcSensor == I2C_OK ) ? "ok" : "--", 2 );
-        st7735_text( 0, 10, line );
+        prvLcdLiveLine( 12, line );
 
         if( ( rcSensor == I2C_OK ) && ( bme280_read( &xSensor, &xReading ) == I2C_OK ) )
         {
@@ -303,7 +333,7 @@ static void prvToyTask( void * pvParameters )
             ( void ) __builtin_memcpy( line, "T=", 2 );
             prvU32Field( &line[ 2 ], ( uint32_t ) xReading.temp_centi_c, 5 );
             ( void ) __builtin_memcpy( &line[ 7 ], "cC", 2 );
-            st7735_text( 0, 11, line );
+            prvLcdLiveLine( 13, line );
 
             if( rcOled == I2C_OK )
             {

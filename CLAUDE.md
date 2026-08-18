@@ -505,6 +505,19 @@ gpio_out_update(). tb_freertos re-run PASS (banner=1 ticks=2); all three
 variants rebuilt; prebuilt refreshed (7584 B); RAM budget unchanged
 (~1.1 KB static). Test 14 criterion updated (status screen, not the old
 orange rectangle); new Phase 2a row in HW_VALIDATION_PLAN + STATUS_BRIEF.
+Follow-up same day (Soham: "write ARF or something informative... if its
+not too much sluggish"): st7735_text_scale (any integer scale, pixel
+coords; text_ex is now the scale-1 wrapper) draws a big orange ARF logo
+(3x) at the top; live "up" line gained a rotating |/-\ alive-spinner.
+Sluggishness handled head-on: XIP code is ~500x slower than SRAM (gotcha
+19), so a full redraw every second would crawl -> prvLcdLiveLine keeps a
+126 B shadow of the live rows and rewrites ONLY changed cells (~6
+cells/s, tens of ms). Also documented for beginners: the "power header"
+is a socket row printed on the Arty itself (3V3/GND silkscreen), nothing
+to buy - Phase 2a shopping list is the LCD + 8 F-M jumpers; recommended
+session order (Phase 1 console re-check unwired -> power off -> wire ->
+Phase 2a) now in PRODUCTION_PERIPHERALS sec. 8. Standard/sim binaries
+byte-identical after the change (toy-only code); tb_freertos re-run PASS.
 
 ## 5. Open questions for the team (track until answered)
 

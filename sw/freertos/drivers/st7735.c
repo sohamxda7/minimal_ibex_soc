@@ -236,17 +236,19 @@ static const uint8_t prv_font5x7[ 95 ][ 5 ] = {
     { 0x08, 0x04, 0x08, 0x10, 0x08 }, /* ~   */
 };
 
-/* One 6x8 cell per character (5 font columns + 1 blank, 8 pixel rows),
- * streamed row-major straight into RAMWR like every other primitive. */
-void st7735_text_ex( uint8_t col, uint8_t row, const char * s,
-                     uint16_t fg, uint16_t bg )
+/* One (6*scale)x(8*scale) cell per character (5 font columns + 1 blank,
+ * 8 pixel rows, each font pixel a scale x scale block), streamed row-major
+ * straight into RAMWR like every other primitive. x/y are pixels. */
+void st7735_text_scale( uint8_t x, uint8_t y, const char * s, uint8_t scale,
+                        uint16_t fg, uint16_t bg )
 {
-    while( ( *s != '\0' ) && ( col < ST7735_TEXT_COLS ) )
+    uint8_t w = ( uint8_t ) ( 6u * scale );
+    uint8_t h = ( uint8_t ) ( 8u * scale );
+
+    while( ( *s != '\0' ) && ( ( uint32_t ) x + w <= ST7735_WIDTH ) )
     {
         uint8_t c = ( uint8_t ) *s++;
         const uint8_t * glyph;
-        uint8_t x = ( uint8_t ) ( col * 6u );
-        uint8_t y = ( uint8_t ) ( row * 8u );
 
         if( ( c < 32u ) || ( c > 126u ) )
         {
@@ -254,16 +256,20 @@ void st7735_text_ex( uint8_t col, uint8_t row, const char * s,
         }
         glyph = prv_font5x7[ c - 32u ];
 
-        st7735_set_window( x, y, ( uint8_t ) ( x + 5u ), ( uint8_t ) ( y + 7u ) );
+        st7735_set_window( x, y, ( uint8_t ) ( x + w - 1u ),
+                           ( uint8_t ) ( y + h - 1u ) );
 
-        for( uint8_t py = 0; py < 8u; py++ )
+        for( uint8_t py = 0; py < h; py++ )
         {
-            for( uint8_t px = 0; px < 6u; px++ )
+            uint8_t gy = ( uint8_t ) ( py / scale );
+
+            for( uint8_t px = 0; px < w; px++ )
             {
+                uint8_t  gx  = ( uint8_t ) ( px / scale );
                 uint16_t rgb = bg;
 
-                if( ( px < 5u ) && ( py < 7u ) &&
-                    ( ( glyph[ px ] >> py ) & 1u ) )
+                if( ( gx < 5u ) && ( gy < 7u ) &&
+                    ( ( glyph[ gx ] >> gy ) & 1u ) )
                 {
                     rgb = fg;
                 }
@@ -273,7 +279,17 @@ void st7735_text_ex( uint8_t col, uint8_t row, const char * s,
         }
 
         prv_spi_drain();
-        col++;
+        x = ( uint8_t ) ( x + w );
+    }
+}
+
+void st7735_text_ex( uint8_t col, uint8_t row, const char * s,
+                     uint16_t fg, uint16_t bg )
+{
+    if( ( col < ST7735_TEXT_COLS ) && ( row < ST7735_TEXT_ROWS ) )
+    {
+        st7735_text_scale( ( uint8_t ) ( col * 6u ), ( uint8_t ) ( row * 8u ),
+                           s, 1, fg, bg );
     }
 }
 
