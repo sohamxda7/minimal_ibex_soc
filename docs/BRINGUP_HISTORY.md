@@ -75,7 +75,7 @@ software and tracks upstream releases):
 
 | Component | Pin | Delta vs upstream (2026-08-18) |
 |---|---|---|
-| `vendor/lowrisc_ibex` | `594ea976` (2025-04-03) | 154 commits behind master — flagged in STATUS_BRIEF for the lead |
+| `vendor/lowrisc_ibex` | `594ea976` (2025-04-03) | 154 commits behind master — audited 2026-08-18: DV/formal/CI + unused features (Zcb/Zcmp, CHERIoT, hardening), no functional fix for our config; stay pinned through tapeout (STATUS_BRIEF watch-item) |
 | `vendor/lowrisc_ip` (OpenTitan prims) | `d268f271` | pinned with Ibex |
 | `vendor/pulp_riscv_dbg` | `138d74bc` | stable upstream |
 | `vendor/freertos_kernel` | **V11.3.0** | current (synced from V11.2.0 on 2026-08-18; kernel unmodified — `VENDORED.txt` has the sync procedure) |

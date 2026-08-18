@@ -25,7 +25,7 @@ all timing constraints met.
 | Bugs found & fixed pre-silicon | 7 (incl. 3 in the untested XIP controller, 1 in the team I2C BFM) |
 | Hardware validation | **Phase 1 core PASSED 2026-08-18**: v1.1 FreeRTOS booted from QSPI flash on the board (XIP), console + patterns verified (BRINGUP_TEST_REPORT sec. 8). Phases 2/3 wait on parts |
 | Docs | Consolidated 13 → 9 files; root README is the front door |
-| Open decisions | **2** (below) + one watch-item: vendored Ibex is pinned at `594ea976` (2025-04) and upstream has moved 154 commits — we deliberately do NOT sync RTL pre-tapeout (the FPGA must validate the exact tapeout netlist); flagging so you can decide if any upstream fix warrants a one-off sync before freeze. FreeRTOS kernel synced to latest V11.3.0 (software, sim-verified) |
+| Open decisions | **2** (below) + one watch-item: vendored Ibex is pinned at `594ea976` (2025-04) and upstream has moved 154 commits — we deliberately do NOT sync RTL pre-tapeout (the FPGA must validate the exact tapeout netlist); the 154 commits were AUDITED 2026-08-18: ~60% DV/formal/CI/docs, ~30% features we do not enable (Zcb/Zcmp, CHERIoT, SecureIbex/PMP/ICache hardening, U-mode counters), and no functional fix in the logic we tape out (closest: a minstret counter fix - unused by our firmware). Recommendation: stay pinned through tapeout; evaluate Zcmp (code density) for chip v2. FreeRTOS kernel synced to latest V11.3.0 (software, sim-verified) |
 
 **Guiding rule adopted:** the ASIC is the product; the FPGA is only its
 pre-silicon validation vehicle. Nothing is built that cannot run on the
