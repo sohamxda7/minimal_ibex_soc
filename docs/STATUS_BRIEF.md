@@ -22,7 +22,7 @@ all timing constraints met.
 | **UART2 RX interrupt** (Ravi's items 3+4, 2026-08-17) | **Done & sim-proven**: fast IRQ 1 wired; IRQ-driven ESP-AT client with high-priority RX task + unsolicited-event parser; polled mode kept for bring-up |
 | Lead's regression ask (item 5, sim part) | **Done**: `tb_uart2_irq` covers simultaneous UART1+UART2 traffic, 128-byte FIFO burst/overflow (exactly 128 kept of 160), IRQ vectoring, unsolicited events, post-overflow recovery |
 | Toolchain-less lab PCs | **Unblocked twice over**: the GUI now auto-installs a native Windows RISC-V GCC (Install Missing Tools / offered inside Flash to Board - build-first policy), and a committed prebuilt remains as an explicit-choice fallback — fixes ARF-BBSR-84's "unable to dump" (programming had succeeded; the firmware build was failing for lack of RISC-V GCC) |
-| Bugs found & fixed pre-silicon | 7 (incl. 3 in the untested XIP controller, 1 in the team I2C BFM) |
+| Bugs found & fixed pre-silicon | **8** — newest (2026-08-18): a real **SPI mode-0 hold-time bug** in `spi_host.sv` (TX launched on the sampling edge; first physical ST7735 stayed white; sim had masked it because the models matched the RTL's race). Fixed + full regression re-run. **This block is in the tapeout netlist — the fix must reach PD** (§6) |
 | Hardware validation | **Phase 1 core PASSED 2026-08-18**: v1.1 FreeRTOS booted from QSPI flash on the board (XIP), console + patterns verified (BRINGUP_TEST_REPORT sec. 8). **Phase 2a ready to run, no soldering**: the pre-soldered ST7735 LCD renders a live system-status screen with the ARF logo (in EVERY flashed image since 2026-08-18 — a variant dropdown caused one dark-LCD bench session and was removed). Soldered I2C parts + Phase 3 wait on bench time/parts |
 | Docs | Consolidated 13 → 9 files; root README is the front door |
 | Open decisions | **2** (below) + one watch-item: vendored Ibex is pinned at `594ea976` (2025-04) and upstream has moved 154 commits — we deliberately do NOT sync RTL pre-tapeout (the FPGA must validate the exact tapeout netlist); the 154 commits were AUDITED 2026-08-18: ~60% DV/formal/CI/docs, ~30% features we do not enable (Zcb/Zcmp, CHERIoT, SecureIbex/PMP/ICache hardening, U-mode counters), and no functional fix in the logic we tape out (closest: a minstret counter fix - unused by our firmware). Recommendation: stay pinned through tapeout; evaluate Zcmp (code density) for chip v2. FreeRTOS kernel synced to latest V11.3.0 (software, sim-verified) |
@@ -96,6 +96,11 @@ The voice-AI use case works as record → PSRAM → ESP32 → cloud AI → play.
    netlist does **not** include the v1.1 additions, while the FPGA validates
    RTL that does. Either answer is workable; the mismatch is not — whatever
    is decided, the FPGA must re-validate exactly the netlist being taped out.
+   **The RTL↔netlist delta grew on 2026-08-18:** the SPI-host mode-0
+   hold-time fix (first bug ever found by physical hardware, white-LCD
+   symptom) landed in `spi_host.sv`. Any netlist without it ships a silicon
+   SPI host that cannot talk to real mode-0 peripherals (LCD, PSRAM, mic
+   ADC) — this one is not optional.
    Files affected if included: `spi_top.sv`, `wb_interconnect.sv`,
    `wrapper_top.sv`, `ibex_demo_system.sv` (UART2 reuses the existing UART
    module — no new blocks; GPIO change is parameter-only; the 2026-08-17

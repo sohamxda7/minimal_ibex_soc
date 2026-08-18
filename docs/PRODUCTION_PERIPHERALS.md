@@ -174,6 +174,12 @@ The toy firmware is missing-part tolerant — every I2C wait is bounded, so
 the un-wired OLED/BME280 just show as `--` on screen and
 `oled=... bme=... (0=ok)` non-zero on UART; nothing hangs.
 
+*If the screen misbehaves*: completely dark → WALKTHROUGH gotcha 25
+(usually old firmware); backlight lit white but nothing drawn → gotcha 26
+(this was a real SPI-timing RTL bug, fixed 2026-08-18 — `git pull` and
+reflash if your bitstream predates it: the fix is in the FPGA logic, so
+**rebuilding the bitstream, not just the firmware, is required**).
+
 ### ST7735 LCD (SPI) — wiring to the Arty ChipKit analog header
 
 | LCD pin | Signal | FPGA pin | Header label |

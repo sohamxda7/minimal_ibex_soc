@@ -226,10 +226,43 @@ RTOS checks on the ONE FreeRTOS image. Remaining Phase-1 oddments (RGB
 re-check with the fixed firmware, scripted `uart_command_test.py` run)
 ride along with the next flash.
 
-## 9. Not covered (future work)
+## 9. Hardware round 3 (2026-08-18, Soham's bench) — Phase 2a first LCD contact
 
-- Re-flash with the 4-RGB/banner firmware (one Flash to Board click)
-- I2C devices + LCD on real pins (parts on order)
+ST7735 wired per the sec.-8 tables (jumpers only, no soldering), Soham's
+board on the dev PC. Two failures, both root-caused and fixed same day:
+
+| Check | Result |
+|---|---|
+| Phase-1 console re-check on this board (patterns, RGB, speed, echo, mirror) | PASS |
+| LCD attempt 1 | **DARK** — GUI variant dropdown had flashed the LCD-less "standard" image. Structural fix: ONE hardware image (LCD task always included), dropdown + JTAG button removed from the GUI (gotcha 25) |
+| LCD attempt 2 (correct image) | **Backlight white, nothing drawn** — backlight proved firmware + GPIO path good; panel never initialised. **Root cause: real RTL bug in `spi_host.sv`** (below) |
+
+**The SPI mode-0 hold-time bug** (question credit: ARF DV teammate —
+"verify spi_host/spi_top mode of operation"): with CPOL=0/CPHA=0 the RTL
+launched each TX bit on the **rising** SCK edge — the very edge a mode-0
+slave samples — giving the panel zero hold time; every byte arrived
+garbled and the controller never left reset-default (white). Simulation
+never saw it because the SPI models sampled a **delayed copy** of MOSI,
+matching the RTL's race instead of the physical part (workaround was
+commented in tb_lcd.sv). Fix: TX now launches on the **falling** edge —
+half an SCK period of setup and hold, textbook mode 0. RX sampling
+(rising edge) unchanged, so the PSRAM/ADC read path is unaffected.
+**ASIC-relevant: `spi_top` ships in the tapeout netlist — this fix must be
+in whatever netlist PD synthesises** (STATUS_BRIEF decision list).
+Gotcha 26 records the modelling lesson: models must mimic the datasheet
+part, never the RTL's quirks.
+
+Evidence: full regression re-run after the fix — **14/14 ALL GREEN**
+(images, FreeRTOS build, compile, all 10 sims incl. tb_lcd 5/5 and
+tb_psram on the fixed edge, bitstream with timing met). The fixed
+bitstream + one-image firmware were then flash-programmed to the bench
+board from the dev PC (`Erase/Program/Verify successful`,
+build/fpga/program_flash.log). LCD re-test = press PROG and look. ☐
+
+## 10. Not covered (future work)
+
+- LCD re-test with the mode-0 fix (this bench, next flash)
+- I2C devices (BME280/SSD1306) — need ~10 header joints soldered
 - JTAG debug via OpenOCD (dm_top synthesises with the BSCANE2 tap; not exercised)
 
 ## Verdict

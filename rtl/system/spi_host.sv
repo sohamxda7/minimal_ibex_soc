@@ -136,6 +136,14 @@ module spi_host #(
       end
     // If CPHA is LOW, incoming data will be sampled on the rising edge while outgoing
     // data will get shifted out on the falling edge.
+    //
+    // BUG FIX 2026-08-18 (first real SPI peripheral on hardware - white
+    // ST7735): the TX shift used to sit in the sck_pos branch, so MOSI
+    // changed ON the sampling edge - zero hold time for a mode-0 slave.
+    // The tb models masked it by sampling a delayed MOSI copy (the race is
+    // documented in tb_lcd.sv). Launching on sck_neg gives the slave half
+    // an SCK period of setup AND hold, which is what mode 0 promises.
+    // RX sampling (rising edge) and the state bookkeeping are unchanged.
     end else begin : gen_no_cpha
       always_ff @(posedge clk_i or negedge rst_ni) begin
         if (!rst_ni) begin
@@ -143,13 +151,14 @@ module spi_host #(
           bit_counter_q   <= '0;
           recieved_byte_q <= '0;
           state_q         <= IDLE;
-        // Set current byte half a cycle before transmitting it.
         end else if (sck_pos) begin
-          current_byte_q <= current_byte_d;
           if (state_q == SEND) begin
             recieved_byte_d <= {recieved_byte_q[6:0], spi_rx_i};
           end
+        // Launch the next TX bit on the falling edge (also loads the byte
+        // half a cycle before the pad clock starts: START->SEND commits here).
         end else if (sck_neg) begin
+          current_byte_q  <= current_byte_d;
           bit_counter_q   <= bit_counter_d;
           recieved_byte_q <= recieved_byte_d;
           state_q         <= state_d;

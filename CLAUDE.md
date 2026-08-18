@@ -544,6 +544,30 @@ toy" (README, FREERTOS_PORT incl. stale task list, PRODUCTION_PERIPHERALS,
 HW_VALIDATION_PLAN, WALKTHROUGH flow table, STATUS_BRIEF, prebuilt
 README).
 
+**2026-08-18 (bench, round 2) — REAL RTL BUG: SPI mode-0 hold time; first
+bug found by physical hardware**: after the one-image fix the LCD backlit
+WHITE but never drew (backlight = gp_o[3], so its lighting proved firmware
++ GPIO wiring good; white = ST7735 controller never initialised). Teammate
+asked to verify spi_host/spi_top mode of operation - correct instinct.
+Root cause in vendor-fork rtl/system/spi_host.sv gen_no_cpha (CPOL=0/
+CPHA=0): the TX shift (current_byte_q <= current_byte_d) sat in the
+sck_pos branch, so MOSI changed ON the rising edge - the exact edge a
+mode-0 slave samples: zero hold time, every byte garbled. The block
+comment even said "shifted out on the falling edge" - code contradicted
+it. NEVER caught in sim because tb_lcd's model (and periph_models.sv)
+sampled a #2-DELAYED MOSI copy - models written to match the RTL race
+instead of the datasheet part (the workaround was explicitly commented!).
+Fix: TX launch moved to sck_neg (half period setup AND hold; also loads
+byte7 half a cycle before the pad clock starts via the START->SEND
+commit). RX sampling (sck_pos) + state bookkeeping untouched -> PSRAM/ADC
+read path unaffected; models unchanged (delayed copy now reads the same
+stable bit). CPHA=1 branch left alone (unused, unverified - noted).
+ASIC-CRITICAL: spi_top is in the tapeout netlist; flagged in STATUS_BRIEF
+decision 1 (netlist delta grew; fix is non-optional for silicon SPI).
+Gotcha 26 = the modelling lesson (model the part, not the RTL). Full
+regression re-run after the fix; board flashed from this bench (board
+connected to the dev PC for the first time).
+
 ## 5. Open questions for the team (track until answered)
 
 1. ~~SRAM base address~~ **RESOLVED 2026-08-10: team confirmed

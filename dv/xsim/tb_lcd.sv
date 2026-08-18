@@ -90,11 +90,13 @@ module tb_lcd;
   int         bitcnt = 0;
   bit         seen_reset_pulse = 0;
 
-  // This SPI host updates MOSI on the rising SCK edge; sampling the wire on
-  // that same edge in simulation races the update (reads the *next* bit —
-  // every byte arrived left-shifted by one). A real panel samples the
-  // electrical value present at the edge, i.e. the pre-update bit; model
-  // that with a small propagation delay on the sampled copy.
+  // History: this SPI host used to update MOSI on the rising SCK edge, and
+  // this delayed-copy sampling was the workaround that made the model decode
+  // it - which MASKED a real mode-0 hold-time bug that a physical ST7735
+  // then exposed (white screen, 2026-08-18; fixed in spi_host.sv - TX now
+  // launches on the falling edge). The delay stays because it is physically
+  // realistic (a panel sees the wire, not the FPGA register), and with the
+  // fixed RTL it reads the same stable bit as the raw wire.
   wire mosi_dly;
   assign #2 mosi_dly = spi_tx;
 
