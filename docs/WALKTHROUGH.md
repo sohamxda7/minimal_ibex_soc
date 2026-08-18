@@ -71,15 +71,20 @@ Flash to Board flow or PuTTY stays silent.
    yours may differ.
 2. PuTTY: Connection type *Serial*, Serial line *COMx*, Speed **115200**,
    Open.
-3. You should see `FreeRTOS on Ibex (XIP, 8KiB SRAM)` then `tick=N` lines
-   every second. Now type single characters (no Enter):
+3. You should see the `FreeRTOS on Ibex (XIP, 8KiB SRAM)` banner followed
+   by a full system-info block (core, kernel version, memory map,
+   peripherals, key help). The board is quiet for the next 30 s (time to
+   actually read it), then a liveness heartbeat `tick=N up=Ss` reports
+   every 10 s — it is diagnostics only, not required for anything; the
+   `t` key switches it off/on. All four RGB LEDs breathe together. Now
+   type single characters (no Enter):
 
    `1`-`4` LED pattern · `f/m/s` speed · `r/g/b/w` force RGB colour ·
-   `a` RGB auto · anything else echoes.
+   `a` RGB auto · `t` heartbeat on/off · anything else echoes.
 
 > **Reading the terminal:** your typed keys are echoed back by the FPGA as
-> the acknowledgement, so they appear interleaved with the `tick=N` lines
-> (`srgtick=42` = you pressed s, r, g just before a tick report).
+> the acknowledgement, so they appear interleaved with any heartbeat line
+> (`srgtick=642 up=32s` = you pressed s, r, g just before a report).
 > That interleaving is expected, not corruption.
 
 4. Optional scripted check (close PuTTY first — **only one program can own

@@ -446,6 +446,24 @@ case with a "git pull + rebuild" hint. Verified: full bitstream rebuild
 with the new XDC (timing met) + write_cfgmem now produces the MCS.
 Gotcha 23. Old build/ trees must rebuild the bitstream once.
 
+**2026-08-18 (night, later) — FIRST v1.1 HARDWARE PASS + console UX rework**:
+after the SPI_BUSWIDTH fix the teammate's Flash-to-Board ran clean end to
+end: FreeRTOS BOOTED FROM QSPI FLASH ON THE BOARD - banner on PuTTY, tick
+heartbeat, all console keys, switch-mirror. Phase 1 core = PASSED (evidence
+table: BRINGUP_TEST_REPORT section 8; plan boxes ticked in
+HW_VALIDATION_PLAN). Their two findings, both fixed same day:
+(1) only RGB LED0 lit - prvRgbTask drove PWM ch0-2; now drives all 12
+channels = all 4 board RGB LEDs in unison (ch3 doubles as SPKR - harmless
+until a speaker is wired, note in main.c). (2) tick spam - Soham/lead
+want boot info readable: new hardware-only system-info banner (core,
+kernel ver, memory map, peripherals, key help - NO __DATE__/__TIME__,
+builds must stay byte-reproducible), heartbeat now quiet 30 s then
+`tick=N up=Ss` every 10 s, new 't' key toggles it. SIM_BUILD keeps the
+short banner + immediate 1-tick cadence so tb_freertos still passes
+(re-ran: PASS banner=1 ticks=2). All variants rebuilt, RAM budget
+unchanged (1048 B), prebuilt refreshed (7552 B). Teammate needs ONE more
+Flash-to-Board click to get the 4-RGB/banner firmware.
+
 ## 5. Open questions for the team (track until answered)
 
 1. ~~SRAM base address~~ **RESOLVED 2026-08-10: team confirmed
@@ -474,19 +492,18 @@ docs/ASIC_SPEC.md section 3.
   flows. Default bitstream SRAM init = xip_stub.vmem (every bitstream
   boots FreeRTOS from flash). Rationale: FreeRTOS cannot fit in 8 KiB
   SRAM, so a truly volatile FreeRTOS load is physically impossible.
-- **Hardware re-validation is phased and OWED**: the 2026-08-07 board
-  pass was the OLD config; every base IO test (LEDs, RGB, buttons,
-  switches, UART, Pmod, PuTTY RGB commands) must be RE-RUN on v1.1 -
-  currently sim-proven only. The checklist of record is
-  docs/HW_VALIDATION_PLAN.md: Phase 1 = base IO + RTOS checks on the ONE
-  FreeRTOS image (ibex_soc.bat -> Flash to Board -> PROG -> PuTTY; works
-  even without a toolchain via the prebuilt), Phase 2 = batch-1 parts
-  (LCD/BME280/OLED), Phase 3 = batch-2 parts (ESP32 incl. IRQ-mode check
-  20b / PSRAM / camera / mic / speaker). Results get dated tables in
-  BRINGUP_TEST_REPORT.md; a phase is not done until the report shows it.
-  Teammate PCs verified working (2026-08-18 logs): bitstream build and
-  .xpr generation both OK on Vivado 2025.2; env-check error spew fixed;
-  lowRISC-toolchain (WSL) firmware builds now supported for them.
+- **Hardware validation: Phase 1 core PASSED 2026-08-18** on
+  ARF-BBSR-84's board - v1.1 FreeRTOS booted from QSPI flash (XIP),
+  console/patterns/switch-mirror all good (BRINGUP_TEST_REPORT section
+  8, HW_VALIDATION_PLAN boxes ticked). Outstanding in Phase 1: re-check
+  RGB with the fixed 4-LED firmware (one Flash-to-Board click),
+  scripted uart_command_test.py sweep, Pmod touch-test. Phase 2 =
+  batch-1 parts (LCD/BME280/OLED), Phase 3 = batch-2 parts (ESP32 incl.
+  IRQ-mode check 20b / PSRAM / camera / mic / speaker). Results get
+  dated tables in BRINGUP_TEST_REPORT.md; a phase is not done until the
+  report shows it. Teammate PCs verified working (2026-08-18): bitstream
+  build, .xpr generation, flash programming, board bring-up - all on
+  Vivado 2025.2 with no local RISC-V toolchain (prebuilt fallback).
 - **UART2 IRQ path is in RTL as of 2026-08-17** - the PD synthesis
   netlist mismatch (netlist predates ALL v1.1 additions) is still THE
   open decision with the lead; whatever is decided, the FPGA must

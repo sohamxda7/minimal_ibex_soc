@@ -193,15 +193,49 @@ Debug finding of the round (WALKTHROUGH gotcha 20): an early `return`
 inside a timed loop in a testbench task kills the xsim kernel with
 FATAL_ERROR; exit via the loop condition instead.
 
-## 8. Not covered (future work)
+## 8. Hardware round 2 (2026-08-18) — FIRST v1.1 BOARD RUN: XIP + FreeRTOS
 
-- XIP + FreeRTOS on the physical board (the Flash to Board flow is
-  ready; needs the board back on the desk)
+Run by ARF-BBSR-84 on their Arty A7-100T + PC (Vivado 2025.2, no RISC-V
+toolchain — the **prebuilt-firmware fallback carried the whole flow**).
+
+| Check | Result |
+|---|---|
+| `git pull` → Flash to Board (QSPI), 3 steps | PASS (after two same-day fixes below) |
+| FPGA configures **from flash** after PROG/power-cycle | PASS |
+| FreeRTOS boots via XIP, banner on PuTTY 115200 | PASS |
+| Preemptive scheduling alive (tick heartbeat) | PASS |
+| Console commands: patterns 1-4, f/m/s, r/g/b/w/a, echo-ack | PASS |
+| Switch-mirror while a button is held | PASS |
+| RGB LEDs | **BUG: only LED0 lit** — prvRgbTask drove PWM ch0-2 only; fixed same day to all 12 channels (all four LEDs), sim-verified + prebuilt refreshed |
+
+Two latent flow bugs surfaced and were fixed during this run (details:
+CLAUDE.md findings 2026-08-18, WALKTHROUGH gotchas 21/23):
+
+1. `write_cfgmem` rejected the bitstream (`SPI_BUSWIDTH=1` vs SPIx4 MCS)
+   — QSPI-boot config block added to `data/pins_artya7.xdc`.
+2. Environment-check red error spew on PCs with fewer drives (PS 5.1
+   `-Directory` dynamic-parameter binding) — locators now enumerate only
+   existing drives.
+
+Console UX reworked on lead feedback the same day: comprehensive
+system-info boot banner, heartbeat quiet for 30 s then every 10 s
+(`tick=N up=Ss`), `t` toggles it.
+
+This closes the core of **Phase 1** (HW_VALIDATION_PLAN.md): base IO +
+RTOS checks on the ONE FreeRTOS image. Remaining Phase-1 oddments (RGB
+re-check with the fixed firmware, scripted `uart_command_test.py` run)
+ride along with the next flash.
+
+## 9. Not covered (future work)
+
+- Re-flash with the 4-RGB/banner firmware (one Flash to Board click)
 - I2C devices + LCD on real pins (parts on order)
 - JTAG debug via OpenOCD (dm_top synthesises with the BSCANE2 tap; not exercised)
 
 ## Verdict
 
-**PASS — the SoC hardware platform is functional on the Arty A7-100T.**
-UART both directions, GPIO in/out, PWM/RGB, CPU, buses and both memories
-verified in simulation and on the board.
+**PASS — the SoC hardware platform is functional on the Arty A7-100T,
+and the ASIC-representative v1.1 configuration (8 KiB SRAM, XIP boot
+from QSPI flash, FreeRTOS) now runs on the physical board.** UART both
+directions, GPIO in/out, PWM/RGB, CPU, buses, both memories, flash
+config and XIP execution verified in simulation and on the board.

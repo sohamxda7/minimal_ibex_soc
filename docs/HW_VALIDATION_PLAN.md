@@ -27,13 +27,13 @@ fallback) → press PROG → PuTTY 115200:
 
 | # | Test | Pass criterion | 2026-08-07 (old cfg) | v1.1 result |
 |---|---|---|---|---|
-| 1 | UART TX | `FreeRTOS on Ibex` banner + `tick=N` heartbeat | PASS (old cfg) | ☐ |
-| 2 | UART RX + echo | typed keys echoed | PASS | ☐ |
-| 3 | Green LEDs, patterns 1–4 | `1` `2` `3` `4` switch patterns | PASS | ☐ |
-| 4 | Speed control | `f` `m` `s` visibly change step rate | PASS | ☐ |
-| 5 | **RGB LEDs via PuTTY** | `r` `g` `b` `w` force colour; `a` auto-cycle; breathing continues | PASS | ☐ |
-| 6 | Switches | SW mirrored to LEDs while BTN held | PASS | ☐ |
-| 7 | Buttons | BTN state readable (same test) | PASS | ☐ |
+| 1 | UART TX | `FreeRTOS on Ibex` banner + `tick=` heartbeat | PASS (old cfg) | **PASS 2026-08-18** (ARF-BBSR-84 board) |
+| 2 | UART RX + echo | typed keys echoed | PASS | **PASS 2026-08-18** |
+| 3 | Green LEDs, patterns 1–4 | `1` `2` `3` `4` switch patterns | PASS | **PASS 2026-08-18** |
+| 4 | Speed control | `f` `m` `s` visibly change step rate | PASS | **PASS 2026-08-18** |
+| 5 | **RGB LEDs via PuTTY** | `r` `g` `b` `w` force colour; `a` auto-cycle; breathing continues, **all 4 LEDs** | PASS | PARTIAL 2026-08-18: control worked but only LED0 lit (fw bug, fixed) → **re-check after next flash** ☐ |
+| 6 | Switches | SW mirrored to LEDs while BTN held | PASS | **PASS 2026-08-18** |
+| 7 | Buttons | BTN state readable (same test) | PASS | **PASS 2026-08-18** |
 | 8 | Scripted sweep | `python util/uart_command_test.py` → 8/8 | 8/8 | ☐ |
 | 9 | Pmod continuity | touch-test on JA free pins (board-io-test procedure) | PASS | ☐ |
 
@@ -41,10 +41,16 @@ fallback) → press PROG → PuTTY 115200:
 
 | # | Test | Pass criterion | v1.1 result |
 |---|---|---|---|
-| 10 | XIP boot from QSPI flash | `FreeRTOS on Ibex (XIP, 8KiB SRAM)` banner | ☐ |
-| 11 | Scheduler + timer IRQ | `tick=N` lines advancing | ☐ |
-| 12 | LED task | gp_o[7:4] rotating pattern | ☐ |
-| 13 | Power-cycle persistence | unplug/replug → boots again from flash | ☐ |
+| 10 | XIP boot from QSPI flash | `FreeRTOS on Ibex (XIP, 8KiB SRAM)` banner | **PASS 2026-08-18** |
+| 11 | Scheduler + timer IRQ | heartbeat lines advancing | **PASS 2026-08-18** |
+| 12 | LED task | gp_o[7:4] rotating pattern | **PASS 2026-08-18** |
+| 13 | Power-cycle persistence | unplug/replug → boots again from flash | **PASS 2026-08-18** (PROG re-config from flash) |
+
+Evidence + the two flow bugs found during the 2026-08-18 run:
+[BRINGUP_TEST_REPORT.md section 8](BRINGUP_TEST_REPORT.md). Note the
+console behaviour changed after that run (system-info banner; heartbeat
+quiet 30 s then every 10 s as `tick=N up=Ss`; `t` toggles): criteria 1/11
+read "heartbeat" accordingly.
 
 ## Phase 2 — batch-1 purchased hardware (needs: Phase 1 green + parcels)
 

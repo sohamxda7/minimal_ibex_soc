@@ -53,14 +53,18 @@ outside OneDrive, path without spaces — Vivado breaks on both.)
 
 ### The serial console
 
-Boot banner `FreeRTOS on Ibex (XIP, 8KiB SRAM)` + `tick=N` heartbeat, then
-single-key commands (each echoed back as its ack):
+Boot prints a full system-info banner (core, kernel, memory map,
+peripherals, key help). After 30 quiet seconds a liveness heartbeat
+(`tick=N up=Ss`) reports every 10 s — purely diagnostic, toggle it with
+`t`. All four RGB LEDs breathe/cycle in unison. Single-key commands (each
+echoed back as its ack):
 
 | Keys | Function |
 |---|---|
 | `1` `2` `3` `4` | Green-LED pattern: walking / nibble flip / alternating / binary count |
 | `f` `m` `s` | Pattern speed: 50 / 150 / 400 ms per step |
-| `r` `g` `b` `w` / `a` | Force RGB colour / automatic colour cycling |
+| `r` `g` `b` `w` / `a` | Force RGB colour (all 4 LEDs) / automatic colour cycling |
+| `t` | Heartbeat report on/off |
 
 Holding any board button makes the LEDs mirror the switches. Scripted
 check: `python util/uart_command_test.py`.

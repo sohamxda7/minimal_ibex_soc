@@ -4,11 +4,13 @@
  * scheduling end to end:
  *
  *   blinky  (prio 1): walks a pattern on LEDs gp_o[7:4] every wake.
- *   report  (prio 2): prints the tick count over the UART every wake.
+ *   report  (prio 2): liveness heartbeat (quiet 30 s, then every 10 s;
+ *                     't' toggles - it is diagnostics, not a requirement).
  *
- * The pre-scheduler banner prints first: if you see the banner but no tick
- * lines, C runtime + XIP are fine and the problem is in interrupts/context
- * switching. That split saved us once already -- keep it.
+ * The pre-scheduler banner (full system info on hardware) prints first: if
+ * you see the banner but no tick lines, C runtime + XIP are fine and the
+ * problem is in interrupts/context switching. That split saved us once
+ * already -- keep it.
  */
 
 #include "FreeRTOS.h"
@@ -25,17 +27,27 @@ uint8_t ucHeap[ configTOTAL_HEAP_SIZE ]
     __attribute__( ( aligned( portBYTE_ALIGNMENT ), section( ".noinit" ) ) );
 
 #ifdef SIM_BUILD
+#define REPORT_START_TICKS    0                      /* sim: tick lines ASAP */
 #define REPORT_PERIOD_TICKS   1
 #define RGB_PERIOD_TICKS      1
 #define STEP_FAST             1
 #define STEP_MED              2
 #define STEP_SLOW             4
 #else
-#define REPORT_PERIOD_TICKS   pdMS_TO_TICKS( 1000 )
+#define REPORT_START_TICKS    pdMS_TO_TICKS( 30000 ) /* quiet after banner  */
+#define REPORT_PERIOD_TICKS   pdMS_TO_TICKS( 10000 )
 #define RGB_PERIOD_TICKS      pdMS_TO_TICKS( 50 )
 #define STEP_FAST             pdMS_TO_TICKS( 50 )    /* asm-demo speeds */
 #define STEP_MED              pdMS_TO_TICKS( 150 )
 #define STEP_SLOW             pdMS_TO_TICKS( 400 )
+#endif
+
+#if defined( TOY_DEMO )
+#define FW_VARIANT            "toy"
+#elif defined( SIM_BUILD )
+#define FW_VARIANT            "sim"
+#else
+#define FW_VARIANT            "standard"
 #endif
 
 /* ---- unified console state (the old asm-demo command set, now in the
@@ -43,6 +55,7 @@ uint8_t ucHeap[ configTOTAL_HEAP_SIZE ]
 static volatile uint8_t    g_mode = 1;              /* patterns 1..4          */
 static volatile TickType_t g_step = 0;              /* set in main            */
 static volatile int8_t     g_rgb  = -1;             /* -1 auto; 0 R,1 G,2 B,3 W */
+static volatile uint8_t    g_beat = 1;              /* 't' toggles heartbeat  */
 
 /* LED patterns on gp_o[7:4]; while any button is held, mirror the switches
  * (SW = gp_i[7:4], BTN = gp_i[3:0], debounced register). */
@@ -80,15 +93,20 @@ static void prvBlinkyTask( void * pvParameters )
     }
 }
 
-/* RGB LED0 via PWM ch0..2 (0=Blue 1=Green 2=Red): brightness breathes;
- * colour auto-cycles unless forced by r/g/b/w. */
+/* All FOUR board RGB LEDs in unison via PWM ch0..11 (3 per LED, in-LED
+ * order 0=Blue 1=Green 2=Red): brightness breathes; colour auto-cycles
+ * unless forced by r/g/b/w. The asm demo drove all four; the first board
+ * run (2026-08-18) showed this task only drove LED0 - restored.
+ * Note ch3 doubles as the speaker line (PWM_SPKR_CH, Pmod JC10): harmless
+ * until a speaker is wired (Phase 3 - keep 'b' colour off then, or move
+ * audio to its own channel window; the ASIC gives SPKR a dedicated pad). */
 static void prvRgbTask( void * pvParameters )
 {
     uint32_t ulBri = 0, ulDir = 1, ulHue = 0, ulTick = 0;
 
     ( void ) pvParameters;
 
-    for( int i = 0; i < 3; i++ )
+    for( int i = 0; i < 12; i++ )
     {
         soc_write32( PWM_CH_MAX( i ), 255 );
     }
@@ -103,12 +121,13 @@ static void prvRgbTask( void * pvParameters )
             ulHue = ( ulHue + 1 ) % 3;           /* auto colour cycle       */
         }
 
-        for( int i = 0; i < 3; i++ )
+        for( int i = 0; i < 12; i++ )
         {
             uint32_t on;
-            if( g_rgb == 3 )      on = 1;                        /* white  */
-            else if( g_rgb >= 0 ) on = ( ( 2 - i ) == g_rgb );   /* forced */
-            else                  on = ( ( uint32_t ) i == ulHue );
+            int      iColour = i % 3;            /* 0=B 1=G 2=R within LED  */
+            if( g_rgb == 3 )      on = 1;                            /* white  */
+            else if( g_rgb >= 0 ) on = ( ( 2 - iColour ) == g_rgb ); /* forced */
+            else                  on = ( ( uint32_t ) iColour == ulHue );
             soc_write32( PWM_CH_PULSE( i ), on ? ulBri : 0 );
         }
 
@@ -144,6 +163,7 @@ static void prvConsoleTask( void * pvParameters )
             case 'b': g_rgb = 2;  break;
             case 'w': g_rgb = 3;  break;
             case 'a': g_rgb = -1; break;
+            case 't': g_beat ^= 1u; break;       /* heartbeat on/off        */
             default: break;
         }
 
@@ -219,22 +239,65 @@ static void prvToyTask( void * pvParameters )
 
 #endif /* TOY_DEMO */
 
+/* Liveness heartbeat - not functionally required, purely a "the scheduler
+ * is still alive" indicator (and the sim testbench's PASS criterion). On
+ * hardware it stays quiet for the first 30 s so the boot banner can be
+ * read, then reports every 10 s; the 't' key toggles it entirely. */
 static void prvReportTask( void * pvParameters )
 {
     ( void ) pvParameters;
 
+    if( REPORT_START_TICKS > 0 )
+    {
+        vTaskDelay( REPORT_START_TICKS );
+    }
+
     for( ; ; )
     {
-        uart_puts( "tick=" );
-        uart_putu32( ( uint32_t ) xTaskGetTickCount() );
-        uart_puts( "\r\n" );
+        if( g_beat )
+        {
+            uart_puts( "tick=" );
+            uart_putu32( ( uint32_t ) xTaskGetTickCount() );
+            uart_puts( " up=" );
+            uart_putu32( ( uint32_t ) ( xTaskGetTickCount() / configTICK_RATE_HZ ) );
+            uart_puts( "s\r\n" );
+        }
+
         vTaskDelay( REPORT_PERIOD_TICKS );
     }
 }
 
-int main( void )
+/* Boot banner. The first line is the sim testbench's boot criterion - keep
+ * its prefix stable. The full system-info block is hardware-only: printing
+ * it over the 2 Mbaud sim UART would just burn simulation wall-clock.
+ * No __DATE__/__TIME__ on purpose: builds must stay byte-reproducible
+ * (build.bat == build.sh == prebuilt verification relies on it). */
+static void prvPrintBanner( void )
 {
     uart_puts( "FreeRTOS on Ibex (XIP, 8KiB SRAM)\r\n" );
+#ifndef SIM_BUILD
+    uart_puts( "-------------------------------------------------\r\n" );
+    uart_puts( " minimal-ibex-soc - ARF Design (GF180MCU tapeout)\r\n" );
+    uart_puts( " Core   : lowRISC Ibex RV32IMC @ 20 MHz\r\n" );
+    uart_puts( " Kernel : FreeRTOS " tskKERNEL_VERSION_NUMBER
+               "  (fw: " FW_VARIANT ")\r\n" );
+    uart_puts( " Memory : ROM 4K @0x00100000 | SRAM 8K @0x00102000\r\n" );
+    uart_puts( "          code XIP from QSPI flash @0x20400000\r\n" );
+    uart_puts( " Periph : UART1 console | UART2 ESP32 (fast IRQ 1)\r\n" );
+    uart_puts( "          GPIO 16/16 | timer | PWM x12 | I2C | SPI\r\n" );
+    uart_puts( " Keys   : 1-4 LED pattern   f/m/s speed\r\n" );
+    uart_puts( "          r/g/b/w force RGB colour, a = auto cycle\r\n" );
+    uart_puts( "          t heartbeat on/off  (keys echo back as ack)\r\n" );
+    uart_puts( " Hold any button: LEDs mirror the switches.\r\n" );
+    uart_puts( " Hello, world - starting the scheduler; first\r\n" );
+    uart_puts( " heartbeat in 30 s, then every 10 s ('t' toggles).\r\n" );
+    uart_puts( "-------------------------------------------------\r\n" );
+#endif
+}
+
+int main( void )
+{
+    prvPrintBanner();
 
     g_step = STEP_MED;
 
