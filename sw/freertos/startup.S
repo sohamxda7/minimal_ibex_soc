@@ -28,6 +28,17 @@ _start:
     la   t0, freertos_vector_table
     csrw mtvec, t0
 
+    /* Re-arm the warm-reset path. The boot ROM jumps to SRAM+0x80 on EVERY
+       reset (ck_rst warm resets included, not just reconfiguration), so a
+       valid XIP trampoline must live there at all times. The linker keeps
+       SRAM+0x00..0x8F out of .data/.bss; writing it here makes the image
+       self-healing even after a DV program has occupied SRAM. */
+    lui  t0, 0x102          /* t0 = 0x00102000 (SRAM base)               */
+    li   t1, 0x204002b7     /* lui  t0, 0x20400                          */
+    sw   t1, 0x80(t0)
+    li   t2, 0x00028067     /* jalr zero, t0, 0  -> XIP entry 0x20400000 */
+    sw   t2, 0x84(t0)
+
     /* Copy .data image from flash to SRAM */
     la   t0, __data_load_start
     la   t1, __data_start

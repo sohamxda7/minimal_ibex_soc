@@ -51,6 +51,22 @@ FPGA validation must run the silicon configuration or it isn't validation.
      sign-off before RTL.
 1. **Simulation before hardware, always.** Nothing gets flashed that didn't
    pass an xsim testbench first. This has worked every single time.
+1b. **Model the datasheet part, NEVER the RTL — and treat every testbench
+   workaround as a suspected RTL bug** (Soham, 2026-08-18, after the SPI
+   mode-0 incident). The rule exists because we violated it and it nearly
+   reached silicon: on 2026-08-08 the tb_lcd model saw bytes arrive
+   left-shifted when sampled the way a real ST7735 samples; instead of
+   asking "why does datasheet-correct sampling fail?", the model was given
+   a delayed-sampling workaround (even documented in a comment) and the
+   suite went green. The RTL bug underneath (TX launched on the sampling
+   edge - upstream lowRISC code from 2022, not ours, but OUR job to catch)
+   then cost a hardware bench day and would have shipped a dead SPI port
+   in silicon. Standing procedure: any time a model, testbench, or
+   driver needs an accommodation to make the DUT pass, STOP - research the
+   interface contract (datasheet/spec) first, decide which side is wrong,
+   and fix or escalate the RTL; never encode the quirk into the test.
+   Verify consequences before acting - a passing suite built on a wrong
+   reference is worse than a failing one.
 2. **Ask before**: pushing to team/upstream repos, force-pushes, deleting
    anything not ours, buying/downloading large things, and any scope change.
    Proceed freely on: local edits, sim runs, local commits, docs.
@@ -568,6 +584,37 @@ Gotcha 26 = the modelling lesson (model the part, not the RTL). Full
 regression re-run after the fix; board flashed from this bench (board
 connected to the dev PC for the first time).
 
+**2026-08-18 (bench, round 3) — autonomous Phase-1 testing + BUG #9 (warm
+reset) + mode-0 accountability**: board on the dev PC; testing fully
+scripted (JTAG boot_hw_device = PROG press; pyserial COM4). (1) Soham's
+mode-0 questions answered honestly: the RTL bug is upstream lowRISC 2022
+code ("Basic SPI Host implementation", pre-fork), NOT introduced here -
+BUT the 2026-08-08 tb_lcd session SAW the symptom (bytes left-shifted
+under datasheet-correct sampling) and adapted the MODEL instead of
+questioning the RTL. Owned as a process failure -> Rule 1b (model the
+part, never the RTL; every test workaround = suspected RTL bug; verify
+consequences before acting). (2) The "board hangs after ~1 min" red
+herring: bracketing showed 130 s of flawless echoes/heartbeats - the
+board only died when a serial session CLOSED. Causality experiment:
+alive at t=43 s, close at 45 s, reopen at 50 s = dead; JTAG touch no
+revive, reconfig revives. Mechanism: port close deasserts DTR ->
+Arty couples it to ck_rst = IO_RST_N -> rst_sys_n held low (level!)
+until reopen; the warm reset then CRASH-LOOPED because .bss covered
+0x102080 - the boot ROM jumps to SRAM+0x80 on EVERY reset and the XIP
+trampoline was clobbered at startup (old link_xip.ld comment even
+documented the clobber as harmless - only true when reset==reconfig;
+same lesson family as Rule 1b: written-down assumptions need re-checks).
+Fix: RAM ORIGIN 0x102090 (SRAM 0x00-0x8F reserved) + startup.S rewrites
+the trampoline (self-healing, covers post-DV-program resets too).
+Verified end-to-end: tb_freertos PASS, reflash, close/reopen now = clean
+reboot with fresh banner; uart_command_test.py 8/8 ALL PASS (Phase-1
+test 8 done; 1/2/10/11/13 re-evidenced; RGB 4-LED = PASS per Soham's
+PuTTY session). ASIC IMPLICATION raised as STATUS_BRIEF decision 4:
+silicon SRAM powers up random + no bitstream init -> boot ROM as-is
+cannot complete FIRST boot; ROM must write the trampoline or jump
+straight to XIP. Serial disconnect = board reboot (gotcha 27) - normal
+and now harmless.
+
 ## 5. Open questions for the team (track until answered)
 
 1. ~~SRAM base address~~ **RESOLVED 2026-08-10: team confirmed
@@ -599,11 +646,13 @@ docs/ASIC_SPEC.md section 3.
 - **Hardware validation: Phase 1 core PASSED 2026-08-18** on
   ARF-BBSR-84's board - v1.1 FreeRTOS booted from QSPI flash (XIP),
   console/patterns/switch-mirror all good (BRINGUP_TEST_REPORT section
-  8, HW_VALIDATION_PLAN boxes ticked). Outstanding in Phase 1: re-check
-  RGB with the fixed 4-LED firmware (one Flash-to-Board click),
-  scripted uart_command_test.py sweep, Pmod touch-test. Phase 2a =
-  LCD only, NO soldering (pre-soldered ST7735 on jumper wires, live
-  status screen firmware ready + sim-proven as of 2026-08-18); Phase 2 =
+  8, HW_VALIDATION_PLAN boxes ticked). **Phase 1 effectively COMPLETE
+  2026-08-18** (autonomous bench run: sweep 8/8, RGB 4-LED PASS,
+  banner/echo/XIP/heartbeat/persistence re-evidenced; only the
+  no-instruments Pmod touch-test remains, needs hands). Phase 2a =
+  LCD only, NO soldering: firmware path PROVEN on hardware ("toy: lcd
+  up" after the SPI mode-0 + warm-reset fixes), visual confirm of the
+  drawn screen pending; Phase 2 =
   the soldered batch-1 parts (BME280/OLED), Phase 3 = batch-2 parts (ESP32 incl.
   IRQ-mode check 20b / PSRAM / camera / mic / speaker). Results get
   dated tables in BRINGUP_TEST_REPORT.md; a phase is not done until the

@@ -31,10 +31,10 @@ fallback) → press PROG → PuTTY 115200:
 | 2 | UART RX + echo | typed keys echoed | PASS | **PASS 2026-08-18** |
 | 3 | Green LEDs, patterns 1–4 | `1` `2` `3` `4` switch patterns | PASS | **PASS 2026-08-18** |
 | 4 | Speed control | `f` `m` `s` visibly change step rate | PASS | **PASS 2026-08-18** |
-| 5 | **RGB LEDs via PuTTY** | `r` `g` `b` `w` force colour; `a` auto-cycle; breathing continues, **all 4 LEDs** | PASS | PARTIAL 2026-08-18: control worked but only LED0 lit (fw bug, fixed) → **re-check after next flash** ☐ |
+| 5 | **RGB LEDs via PuTTY** | `r` `g` `b` `w` force colour; `a` auto-cycle; breathing continues, **all 4 LEDs** | PASS | **PASS 2026-08-18** (Soham's bench, 4-LED firmware: "putty rgb led tests working") |
 | 6 | Switches | SW mirrored to LEDs while BTN held | PASS | **PASS 2026-08-18** |
 | 7 | Buttons | BTN state readable (same test) | PASS | **PASS 2026-08-18** |
-| 8 | Scripted sweep | `python util/uart_command_test.py` → 8/8 | 8/8 | ☐ |
+| 8 | Scripted sweep | `python util/uart_command_test.py` → 8/8 | 8/8 | **PASS 2026-08-18: 8/8** (run autonomously over COM4 after the warm-reset fix; evidence in BRINGUP_TEST_REPORT sec. 9) |
 | 9 | Pmod continuity | touch-test on JA free pins (board-io-test procedure) | PASS | ☐ |
 
 **Same image, RTOS-level checks:**
@@ -65,7 +65,7 @@ nothing else wired. Tests 15-17 wait for the ~10 OLED/BME280 header joints.
 
 | # | Test | Pass criterion | Result |
 |---|---|---|---|
-| 14 | ST7735 LCD | system-status screen: ARF logo + banner render, uptime/tick advance and the alive-spinner rotates every second, PuTTY keys (`1-4`, `r/g/b/w/a`, `t`) change the pat/rgb/key fields within 1 s | ☐ |
+| 14 | ST7735 LCD | system-status screen: ARF logo (deep blue) + banner render, uptime/tick advance and the alive-spinner rotates every second, PuTTY keys (`1-4`, `r/g/b/w/a`, `t`) change the pat/rgb/key fields within 1 s | Firmware side PROVEN 2026-08-18 (`toy: lcd up` over serial after the SPI mode-0 + warm-reset fixes; full init + draw completed) → **visual confirm on the panel** ☐ |
 | 15 | I2C bus scan | OLED (0x3C) and BME280 (0x76) both ACK | ☐ |
 | 16 | BME280 | plausible T/P/H on UART every 2 s | ☐ |
 | 17 | SSD1306 | title + live temperature line rendered | ☐ |

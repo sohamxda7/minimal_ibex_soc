@@ -257,7 +257,51 @@ Evidence: full regression re-run after the fix — **14/14 ALL GREEN**
 tb_psram on the fixed edge, bitstream with timing met). The fixed
 bitstream + one-image firmware were then flash-programmed to the bench
 board from the dev PC (`Erase/Program/Verify successful`,
-build/fpga/program_flash.log). LCD re-test = press PROG and look. ☐
+build/fpga/program_flash.log).
+
+### 9b. Autonomous live testing (same bench, same day) — and bug #9
+
+With the board on the dev PC, testing ran fully scripted: JTAG
+`boot_hw_device` (identical effect to pressing PROG) + pyserial on COM4.
+
+**First finding: a "hang" that wasn't.** The board booted perfectly
+(banner, `toy: lcd up`, heartbeat at up=30 s) but appeared dead to every
+*subsequent* serial session. A bracketing run (poke `K` every 5 s from
+boot) showed 130 s of flawless echoes + heartbeats — the board only
+"died" after a serial session **closed**. A control experiment proved
+causality: alive with echoes at t=43 s → port closed at 45 s → reopened
+5 s later → silence. A JTAG *touch* did not revive it; only
+reconfiguration did.
+
+**Root cause — bug #9 (warm-reset boot, ASIC-relevant):** closing the
+serial port deasserts DTR, which the Arty couples to `ck_rst` =
+`IO_RST_N`, and `rst_sys_n = locked_pll & IO_RST_N` — so the SoC is held
+in reset until the port reopens. That warm reset then **crash-looped**:
+the boot ROM jumps to SRAM+0x80 on EVERY reset, but the firmware's
+`.bss` covered 0x102080 — the XIP trampoline was clobbered the moment
+FreeRTOS started (the old linker script even documented the clobber as
+harmless: "it has served its purpose by then" — true only when every
+reset is a reconfiguration). Fix: linker reserves SRAM+0x00..0x8F and
+`startup.S` re-writes the trampoline at every boot (self-healing).
+tb_freertos PASS, reflashed, and the control experiment re-run:
+**port close → reopen now yields an instant fresh banner + working
+console** — the board self-recovers.
+
+**Phase-1 completions from the autonomous run:**
+
+| # | Test | Result |
+|---|---|---|
+| 1/2/10/11 | banner, echo, XIP boot, heartbeat | **PASS** (serial captures, three boots) |
+| 5 | RGB all-4 re-check | **PASS** (Soham, PuTTY, same day) |
+| 8 | `uart_command_test.py` scripted sweep | **PASS 8/8** |
+| 13 | boot-from-flash persistence | **PASS** (5 JTAG-triggered reconfig cycles) |
+| 14 | LCD firmware path (`toy: lcd up` = full SPI init + draw completed) | **firmware PROVEN; visual confirm pending** ☐ |
+
+**ASIC flag from bug #9:** on silicon, SRAM powers up random and there is
+no bitstream initialisation — the boot ROM as-is (jump to SRAM+0x80)
+cannot complete a *first* boot. The ROM must either write the trampoline
+itself or jump directly to the XIP window. Raised as a lead decision in
+STATUS_BRIEF.
 
 ## 10. Not covered (future work)
 

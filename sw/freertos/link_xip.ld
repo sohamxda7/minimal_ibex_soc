@@ -7,8 +7,13 @@
  *            Code + constants execute/read in place, ~read-only, slow.
  *   RAM    = the entire 8 KiB SRAM (0x0010_2000). Data, BSS, heap, stacks.
  *
- * The SRAM boot trampoline (entry at SRAM+0x80) is overwritten once .data is
- * copied -- it has served its purpose by then.
+ * SRAM+0x00..0x8F is RESERVED (kept out of RAM below): the boot ROM jumps
+ * to the trampoline at SRAM+0x80 on EVERY reset, not just the first one.
+ * The original layout let .bss overwrite it ("served its purpose by then"),
+ * which made any warm reset (e.g. the Arty's ck_rst glitching when a serial
+ * program closes the port) a crash-loop until reconfiguration - found on
+ * hardware 2026-08-18. startup.S also re-writes the trampoline at boot
+ * (self-healing after an SRAM-resident DV program has replaced it).
  */
 
 OUTPUT_ARCH( "riscv" )
@@ -17,7 +22,7 @@ ENTRY( _start )
 MEMORY
 {
   FLASH (rx)  : ORIGIN = 0x20400000, LENGTH = 4M
-  RAM   (rwx) : ORIGIN = 0x00102000, LENGTH = 8K
+  RAM   (rwx) : ORIGIN = 0x00102090, LENGTH = 8K - 0x90
 }
 
 SECTIONS

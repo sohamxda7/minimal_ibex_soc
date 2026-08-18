@@ -22,7 +22,7 @@ all timing constraints met.
 | **UART2 RX interrupt** (Ravi's items 3+4, 2026-08-17) | **Done & sim-proven**: fast IRQ 1 wired; IRQ-driven ESP-AT client with high-priority RX task + unsolicited-event parser; polled mode kept for bring-up |
 | Lead's regression ask (item 5, sim part) | **Done**: `tb_uart2_irq` covers simultaneous UART1+UART2 traffic, 128-byte FIFO burst/overflow (exactly 128 kept of 160), IRQ vectoring, unsolicited events, post-overflow recovery |
 | Toolchain-less lab PCs | **Unblocked twice over**: the GUI now auto-installs a native Windows RISC-V GCC (Install Missing Tools / offered inside Flash to Board - build-first policy), and a committed prebuilt remains as an explicit-choice fallback — fixes ARF-BBSR-84's "unable to dump" (programming had succeeded; the firmware build was failing for lack of RISC-V GCC) |
-| Bugs found & fixed pre-silicon | **8** — newest (2026-08-18): a real **SPI mode-0 hold-time bug** in `spi_host.sv` (TX launched on the sampling edge; first physical ST7735 stayed white; sim had masked it because the models matched the RTL's race). Fixed + full regression re-run. **This block is in the tapeout netlist — the fix must reach PD** (§6) |
+| Bugs found & fixed pre-silicon | **9** — the two newest both came from first physical contact (2026-08-18): a real **SPI mode-0 hold-time bug** in `spi_host.sv` (TX launched on the sampling edge; first physical ST7735 stayed white; sim had masked it because the models matched the RTL's race — fixed, full regression green, **fix must reach the PD netlist**, §6), and a **warm-reset boot crash** (firmware `.bss` clobbered the SRAM+0x80 XIP trampoline the boot ROM jumps to on every reset — fixed: linker reserves the region, startup re-writes it; exposes an ASIC first-boot question, §6) |
 | Hardware validation | **Phase 1 core PASSED 2026-08-18**: v1.1 FreeRTOS booted from QSPI flash on the board (XIP), console + patterns verified (BRINGUP_TEST_REPORT sec. 8). **Phase 2a ready to run, no soldering**: the pre-soldered ST7735 LCD renders a live system-status screen with the ARF logo (in EVERY flashed image since 2026-08-18 — a variant dropdown caused one dark-LCD bench session and was removed). Soldered I2C parts + Phase 3 wait on bench time/parts |
 | Docs | Consolidated 13 → 9 files; root README is the front door |
 | Open decisions | **2** (below) + one watch-item: vendored Ibex is pinned at `594ea976` (2025-04) and upstream has moved 154 commits — we deliberately do NOT sync RTL pre-tapeout (the FPGA must validate the exact tapeout netlist); the 154 commits were AUDITED 2026-08-18: ~60% DV/formal/CI/docs, ~30% features we do not enable (Zcb/Zcmp, CHERIoT, SecureIbex/PMP/ICache hardening, U-mode counters), and no functional fix in the logic we tape out (closest: a minstret counter fix - unused by our firmware). Recommendation: stay pinned through tapeout; evaluate Zcmp (code density) for chip v2. FreeRTOS kernel synced to latest V11.3.0 (software, sim-verified) |
@@ -108,4 +108,15 @@ The voice-AI use case works as record → PSRAM → ESP32 → cloud AI → play.
    gates — the UART already generated the IRQ signal).
 2. **Pin plan sign-off:** 37 of Caravel's 38 user pads used, 1 spare.
 3. **Batch-2 parts approval** (~₹1,800) so Phase 3 is not blocked on shipping.
+4. **ASIC first-boot contract (new, from bug #9):** the boot ROM jumps to
+   SRAM+0x80 expecting an XIP trampoline. On the FPGA that trampoline
+   comes from **bitstream initialisation** — a mechanism silicon does not
+   have; GF180 SRAM powers up random, so the chip as-specified **cannot
+   complete its first boot**. Warm resets are already fixed
+   firmware-side (trampoline region reserved + re-written each boot),
+   but first power-on needs a decision: (a) boot ROM writes the
+   trampoline before jumping (few instructions in `boot.mem`), or
+   (b) boot ROM jumps directly to the XIP window `0x2000_0000+offset`.
+   Either is small; it must be decided and verified before the netlist
+   freezes.
 
