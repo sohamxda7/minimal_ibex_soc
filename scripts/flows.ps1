@@ -16,9 +16,12 @@
 #   regression            full suite: images + firmware + compile + 10 sims +
 #                         bitstream + scoreboard (~45-60 min)
 #
-# Tool locating (port of the retired find_tools.cmd, same order, same
-# .toolpaths file): saved answers -> env vars -> PATH -> common install roots
-# on every drive -> ask-and-save. .toolpaths is per-PC and gitignored.
+# Tool locating (same order + .toolpaths file as scripts/find_tools.cmd):
+# saved answers -> env vars -> PATH -> common install roots on every existing
+# drive -> WSL (GCC only) -> ask-and-save. GCC accepts several bin prefixes
+# (lowRISC riscv32-unknown-elf-, Zephyr riscv64-zephyr-elf-, ...); a
+# WSL-hosted toolchain is stored as RISCV_GCC_HOME=wsl:<linux path>.
+# .toolpaths is per-PC and gitignored.
 # =============================================================================
 param(
     [Parameter(Mandatory = $true)][string]$Flow,
@@ -66,13 +69,17 @@ function Find-Vivado([bool]$ask) {
         if ($w) { $v = $w.Source }
     }
     if (-not $v) {
-        foreach ($d in @("C", "D", "E", "F", "G")) {
-            foreach ($pat in @("$($d):\Xilinx\Vivado\*", "$($d):\AMD\Vivado\*")) {
+        # Only drives that actually exist: on PS 5.1, Get-ChildItem -Directory
+        # against a nonexistent drive is a parameter-BINDING error that
+        # -ErrorAction cannot suppress (docs/WALKTHROUGH.md gotcha 21).
+        foreach ($drive in (Get-PSDrive -PSProvider FileSystem | Where-Object { $null -ne $_.Free })) {
+            $r = $drive.Root
+            foreach ($pat in @("${r}Xilinx\Vivado\*", "${r}AMD\Vivado\*")) {
                 foreach ($dir in (Get-ChildItem $pat -Directory -ErrorAction SilentlyContinue)) {
                     if (Test-Path "$($dir.FullName)\bin\vivado.bat") { $v = "$($dir.FullName)\bin\vivado.bat" }
                 }
             }
-            foreach ($pat in @("$($d):\AMD\*", "$($d):\Xilinx\*")) {
+            foreach ($pat in @("${r}AMD\*", "${r}Xilinx\*", "${r}AMDDesignTools\*")) {
                 foreach ($dir in (Get-ChildItem $pat -Directory -ErrorAction SilentlyContinue)) {
                     if (Test-Path "$($dir.FullName)\Vivado\bin\vivado.bat") { $v = "$($dir.FullName)\Vivado\bin\vivado.bat" }
                 }
@@ -82,7 +89,7 @@ function Find-Vivado([bool]$ask) {
     }
     if ((-not $v) -and $ask) {
         Write-Host ""
-        Write-Host "Vivado was not found automatically (PATH, C..G: \Xilinx\, \AMD\)."
+        Write-Host "Vivado was not found automatically (PATH; \Xilinx\, \AMD\, \AMDDesignTools\ on all drives)."
         $in = Ask-Path "Enter your Vivado install dir (e.g. D:\AMD\2026.1\Vivado), blank to abort"
         if ($in -and (Test-Path "$in\bin\vivado.bat")) { $v = "$in\bin\vivado.bat" }
         elseif ($in) { Write-Host "ERROR: $in\bin\vivado.bat does not exist." }
@@ -92,39 +99,90 @@ function Find-Vivado([bool]$ask) {
 }
 
 # ---- RISC-V GCC -------------------------------------------------------------
+# Any bare-metal RISC-V GCC works; known bin prefixes, first match wins:
+#   riscv32-unknown-elf-  lowRISC toolchain (the ARF standard; the tar.xz is
+#                         Linux-only, so on Windows it is found INSIDE WSL and
+#                         stored as RISCV_GCC_HOME=wsl:<linux path>)
+#   riscv64-zephyr-elf-   Zephyr SDK (native Windows)
+#   riscv64-unknown-elf- / riscv-none-elf-  other common bare-metal builds
+$GccPrefixes = @("riscv32-unknown-elf-", "riscv64-zephyr-elf-",
+                 "riscv64-unknown-elf-", "riscv-none-elf-")
+
+function Get-GccPrefix([string]$root) {
+    # The bin prefix present under $root ('' means none). Handles wsl: roots.
+    if (-not $root) { return $null }
+    if ($root -like "wsl:*") {
+        $lin = $root.Substring(4)
+        $probe = 'for p in riscv32-unknown-elf- riscv64-zephyr-elf- riscv64-unknown-elf- riscv-none-elf-; do if [ -x "{0}/bin/${{p}}gcc" ]; then echo "$p"; exit 0; fi; done' -f $lin
+        $out = "$(& wsl -e sh -c $probe 2>$null | Select-Object -First 1)".Trim()
+        if ($GccPrefixes -contains $out) { return $out }
+        return $null
+    }
+    foreach ($p in $GccPrefixes) {
+        if (Test-Path "$root\bin\${p}gcc.exe") { return $p }
+    }
+    return $null
+}
+
+function Find-WslGcc {
+    # The lowRISC toolchain ships Linux binaries only - look inside WSL.
+    if (-not (Get-Command wsl.exe -ErrorAction SilentlyContinue)) { return $null }
+    $probe = 'for d in /opt/lowrisc-toolchain* /opt/riscv* /tools/riscv /tools/lowrisc-toolchain* $HOME/lowrisc-toolchain*; do if [ -x "$d/bin/riscv32-unknown-elf-gcc" ]; then echo "$d"; exit 0; fi; done; g=$(command -v riscv32-unknown-elf-gcc 2>/dev/null) && dirname "$(dirname "$g")"'
+    $out = "$(& wsl -e sh -c $probe 2>$null | Select-Object -First 1)".Trim()
+    if ($out.StartsWith("/")) { return "wsl:$out" }
+    return $null
+}
+
 function Find-Gcc([bool]$ask) {
     $saved = Get-SavedPaths
     $g = $saved["RISCV_GCC_HOME"]
-    if ($g -and (Test-Path "$g\bin\riscv64-zephyr-elf-gcc.exe")) { return $g }
+    $p = Get-GccPrefix $g
 
-    if ($env:RISCV_GCC_HOME -and (Test-Path "$env:RISCV_GCC_HOME\bin\riscv64-zephyr-elf-gcc.exe")) {
-        $g = $env:RISCV_GCC_HOME
-    }
-    if (-not $g) {
-        $w = Get-Command riscv64-zephyr-elf-gcc.exe -ErrorAction SilentlyContinue
-        if ($w) { $g = Split-Path -Parent (Split-Path -Parent $w.Source) }
-    }
-    if (-not $g) {
-        $roots = @()
-        foreach ($d in @("C", "D", "E", "F", "G")) {
-            $roots += "$($d):\FPGA\zephyr-sdk"
-            $roots += (Get-ChildItem "$($d):\zephyr-sdk*" -Directory -ErrorAction SilentlyContinue | ForEach-Object FullName)
+    if (-not $p) { $g = $env:RISCV_GCC_HOME; $p = Get-GccPrefix $g }
+    if (-not $p) {
+        foreach ($pre in $GccPrefixes) {
+            $w = Get-Command "${pre}gcc.exe" -ErrorAction SilentlyContinue
+            if ($w) { $g = Split-Path -Parent (Split-Path -Parent $w.Source); $p = $pre; break }
         }
-        $roots += (Get-ChildItem "$env:USERPROFILE\zephyr-sdk*" -Directory -ErrorAction SilentlyContinue | ForEach-Object FullName)
-        foreach ($r in $roots) {
-            if ($r -and (Test-Path "$r\gnu\riscv64-zephyr-elf\bin\riscv64-zephyr-elf-gcc.exe")) {
-                $g = "$r\gnu\riscv64-zephyr-elf"; break
+    }
+    if (-not $p) {
+        # Install roots - only on drives that exist (gotcha 21, as above)
+        $roots = @()
+        foreach ($drive in (Get-PSDrive -PSProvider FileSystem | Where-Object { $null -ne $_.Free })) {
+            $r = $drive.Root
+            $roots += "${r}FPGA\zephyr-sdk"
+            foreach ($pat in @("${r}zephyr-sdk*", "${r}lowrisc-toolchain*", "${r}FPGA\lowrisc-toolchain*")) {
+                $roots += (Get-ChildItem $pat -Directory -ErrorAction SilentlyContinue | ForEach-Object FullName)
             }
         }
+        foreach ($pat in @("$env:USERPROFILE\zephyr-sdk*", "$env:USERPROFILE\lowrisc-toolchain*")) {
+            $roots += (Get-ChildItem $pat -Directory -ErrorAction SilentlyContinue | ForEach-Object FullName)
+        }
+        foreach ($r in $roots) {
+            if (-not $r) { continue }
+            foreach ($cand in @($r, "$r\gnu\riscv64-zephyr-elf")) {
+                $p = Get-GccPrefix $cand
+                if ($p) { $g = $cand; break }
+            }
+            if ($p) { break }
+        }
     }
-    if ((-not $g) -and $ask) {
+    if (-not $p) { $g = Find-WslGcc; $p = Get-GccPrefix $g }
+    if ((-not $p) -and $ask) {
         Write-Host ""
-        Write-Host "RISC-V GCC (riscv64-zephyr-elf) was not found. Install per docs\FREERTOS_PORT.md,"
-        $in = Ask-Path "or enter an existing toolchain root (contains bin\riscv64-zephyr-elf-gcc.exe), blank to skip"
-        if ($in -and (Test-Path "$in\bin\riscv64-zephyr-elf-gcc.exe")) { $g = $in }
-        elseif ($in) { Write-Host "ERROR: $in\bin\riscv64-zephyr-elf-gcc.exe does not exist." }
+        Write-Host "RISC-V GCC was not found (native or inside WSL). Install per docs\FREERTOS_PORT.md,"
+        $in = Ask-Path "or enter a toolchain root (contains bin\<prefix>gcc.exe), blank to skip"
+        if ($in) {
+            $p = Get-GccPrefix $in
+            if ($p) { $g = $in }
+            else { Write-Host "ERROR: no bin\<prefix>gcc.exe under $in (prefixes: $($GccPrefixes -join ' '))." }
+        }
     }
-    if ($g) { $saved["RISCV_GCC_HOME"] = $g; Save-Paths $saved }
+    if (-not $p) { return $null }
+    $saved["RISCV_GCC_HOME"] = $g
+    $saved["RISCV_PREFIX"]   = $p
+    Save-Paths $saved
+    $script:GccPrefix = $p
     return $g
 }
 
@@ -142,9 +200,12 @@ function Invoke-Vivado([string]$tcl, [string]$log, [string[]]$tclArgs) {
 }
 
 function Build-Firmware([string]$variant) {
-    # build.bat locates GCC itself; seed RISCV_GCC_HOME so it never asks here
+    # build.bat locates GCC itself; seed home+prefix so it never asks here
     $g = Find-Gcc $false
-    if ($g) { $env:RISCV_GCC_HOME = $g }
+    if ($g) {
+        $env:RISCV_GCC_HOME = $g
+        if ($script:GccPrefix) { $env:RISCV_PREFIX = $script:GccPrefix }
+    }
     cmd /c "sw\freertos\build.bat $variant" | ForEach-Object { Write-Host $_ }
     return $LASTEXITCODE
 }
@@ -174,12 +235,16 @@ switch ($Flow.ToLower()) {
         }
 
         $g = Find-Gcc $false
-        if ($g) { Write-Host "[OK]   RISC-V GCC:  $g\bin" }
-        else {
-            Write-Host "[WARN] RISC-V GCC not found. NOT a blocker for board testing -"
-            Write-Host "       the flash flow falls back to the committed prebuilt firmware"
-            Write-Host "       (sw\freertos\prebuilt). Needed only to CHANGE firmware:"
-            Write-Host "       install per docs/FREERTOS_PORT.md."
+        if ($g -and ($g -like "wsl:*")) {
+            Write-Host "[OK]   RISC-V GCC:  $($g.Substring(4)) (inside WSL, $($script:GccPrefix)gcc)"
+        } elseif ($g) {
+            Write-Host "[OK]   RISC-V GCC:  $g\bin ($($script:GccPrefix)gcc)"
+        } else {
+            Write-Host "[WARN] RISC-V GCC not found (native or inside WSL). NOT a blocker for"
+            Write-Host "       board testing - the flash flow falls back to the committed"
+            Write-Host "       prebuilt firmware (sw\freertos\prebuilt). Needed only to CHANGE"
+            Write-Host "       firmware: install per docs/FREERTOS_PORT.md section 2"
+            Write-Host "       (lowRISC toolchain in WSL, or the Zephyr SDK natively)."
         }
 
         $git = Get-Command git -ErrorAction SilentlyContinue

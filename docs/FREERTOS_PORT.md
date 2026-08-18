@@ -14,10 +14,29 @@ future, if any, is a v2-chip item: [ASIC_SPEC.md sec. 10](ASIC_SPEC.md).)
 `vendor/freertos_kernel/` (core + `include/` + `portable/GCC/RISC-V` +
 `heap_4.c`; see `VENDORED.txt`). Official RISC-V port, unmodified.
 
-**Toolchain:** `riscv64-zephyr-elf-gcc` from the Zephyr SDK install at
-`C:\FPGA\zephyr-sdk` (the SDK stayed after the Zephyr port was removed — its
-GCC is a normal bare-metal RISC-V compiler). Flags: `-march=rv32imc_zicsr
--mabi=ilp32 -mcmodel=medany -Os`, no libc startup (`-nostartfiles`).
+**Toolchain:** any bare-metal RISC-V GCC. The build scripts auto-detect the
+install (bin prefixes tried in order: `riscv32-unknown-elf-`,
+`riscv64-zephyr-elf-`, `riscv64-unknown-elf-`, `riscv-none-elf-`) and pick
+the right `-march` spelling per compiler. Two supported installs:
+
+- **lowRISC toolchain** (the ARF/Ibex standard) — download
+  [`lowrisc-toolchain-rv32imcb-20220524-1.tar.xz`](https://github.com/lowRISC/lowrisc-toolchains/releases/download/20220524-1/lowrisc-toolchain-rv32imcb-20220524-1.tar.xz)
+  (Clang 13 + GCC 10.2, prefix `riscv32-unknown-elf-`). The tarball contains
+  **Linux binaries only**, so on Windows it lives inside **WSL**:
+  `sudo mkdir -p /opt && xzcat lowrisc-toolchain-*.tar.xz | sudo tar -x -C /opt -f -`
+  The locators find it automatically in WSL (`/opt/lowrisc-toolchain*`,
+  `/tools/riscv`, `~/lowrisc-toolchain*`) and `build.bat` then compiles
+  through `wsl` via `sw/freertos/build.sh`. Its GCC 10.2 rejects the modern
+  `rv32imc_zicsr` march spelling — the scripts probe and fall back to plain
+  `rv32imc` (equivalent there: old binutils still includes the CSR ops).
+- **Zephyr SDK** (native Windows, e.g. `C:\FPGA\zephyr-sdk`) — its
+  `riscv64-zephyr-elf-gcc` is a normal multilib bare-metal compiler.
+  (`build.bat` and `build.sh` are verified byte-identical given the same
+  toolchain; different GCC versions naturally differ in codegen.)
+
+Flags: `-march=rv32imc_zicsr` (or probed fallback) `-mabi=ilp32
+-mcmodel=medany -Os`, no libc startup (`-nostartfiles`). Native Linux users
+run `sw/freertos/build.sh` directly.
 
 ---
 

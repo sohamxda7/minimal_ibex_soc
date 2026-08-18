@@ -39,7 +39,7 @@ function Find-VivadoBin {
     $found = $null
     foreach ($drive in (Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Free -ne $null })) {
         $r = $drive.Root
-        foreach ($pat in @("${r}Xilinx\Vivado\*", "${r}AMD\Vivado\*", "${r}AMD\*", "${r}Xilinx\*")) {
+        foreach ($pat in @("${r}Xilinx\Vivado\*", "${r}AMD\Vivado\*", "${r}AMD\*", "${r}Xilinx\*", "${r}AMDDesignTools\*")) {
             Get-ChildItem $pat -Directory -ErrorAction SilentlyContinue | ForEach-Object {
                 foreach ($cand in @("$($_.FullName)\bin", "$($_.FullName)\Vivado\bin")) {
                     if (Test-Path "$cand\vivado.bat") { $found = $cand }

@@ -129,10 +129,25 @@ FPGA validation must run the silicon configuration or it isn't validation.
 - **Toolchain locations on this PC**: Vivado `C:\AMD\2026.1\Vivado\bin`
   (xvlog/xelab/xsim there too); **RISC-V GCC = the Zephyr SDK's
   `C:\FPGA\zephyr-sdk\gnu\riscv64-zephyr-elf\bin`** (the SDK stays as a
-  plain bare-metal compiler even though the Zephyr port is gone — it is
-  what `sw/freertos/build.bat` uses); CMake `C:\Program Files\CMake\bin`;
-  gh CLI `C:\Program Files\GitHub CLI\gh.exe`. My shells inherit a stale
+  plain bare-metal compiler even though the Zephyr port is gone);
+  CMake `C:\Program Files\CMake\bin`; gh CLI
+  `C:\Program Files\GitHub CLI\gh.exe`. My shells inherit a stale
   PATH — use full paths or prepend per-call.
+- **RISC-V GCC is prefix- and host-agnostic (2026-08-18)**: the team
+  standard is the **lowRISC toolchain**
+  (lowrisc-toolchain-rv32imcb-20220524-1, prefix `riscv32-unknown-elf-`,
+  GCC 10.2) whose tar.xz is **Linux-only** - on Windows it lives inside
+  WSL and is stored as `RISCV_GCC_HOME=wsl:<linux path>`; build.bat then
+  compiles via `wsl --cd sw\freertos -e bash ./build.sh` (build.sh = the
+  POSIX twin; keep both compile lines in sync; `.gitattributes` forces LF
+  on *.sh). Native toolchains (Zephyr SDK etc.) still work - prefixes
+  tried in order: riscv32-unknown-elf-, riscv64-zephyr-elf-,
+  riscv64-unknown-elf-, riscv-none-elf- (`RISCV_PREFIX` in .toolpaths).
+  **-march is probed**: old GCC (lowRISC 10.2) rejects `rv32imc_zicsr`
+  -> scripts fall back to plain `rv32imc` (correct there: pre-2.36
+  binutils still includes CSR ops). Verified: build.bat and build.sh
+  produce byte-identical .bin with the same toolchain (== the committed
+  prebuilt, so no prebuilt refresh was needed).
 - **CRITICAL Windows gotcha**: xvlog/xelab/xsim HANG (100% CPU, zero
   output, forever) when launched with piped stdio from the agent's
   Bash/PowerShell tools. Always launch via detached
@@ -148,10 +163,16 @@ FPGA validation must run the silicon configuration or it isn't validation.
   (mcause 17, level = RX-FIFO-not-empty)** - unmasked by esp_at_init(),
   ISR must drain the FIFO or the trap refires. Proven by tb_uart2_irq.
 - **Tool location is centralized**: every script resolves Vivado/GCC via
-  `scripts/find_tools.cmd` (batch) or `scripts/find_vivado.ps1`
-  (PowerShell, no prompt - safe for detached runs). Search order:
-  `.toolpaths` (per-PC saved answers, gitignored) -> env vars -> PATH ->
-  common roots on ALL drives -> interactive ask-and-save (cmd only).
+  `scripts/flows.ps1`, `scripts/find_tools.cmd` (batch) or
+  `scripts/find_vivado.ps1` (PowerShell, no prompt - safe for detached
+  runs). Search order: `.toolpaths` (per-PC saved answers, gitignored:
+  VIVADO_BAT / RISCV_GCC_HOME possibly `wsl:<path>` / RISCV_PREFIX) ->
+  env vars -> PATH -> common roots (\Xilinx, \AMD, \AMDDesignTools,
+  zephyr-sdk*, lowrisc-toolchain*) on EXISTING drives only -> WSL (GCC
+  only) -> interactive ask-and-save. PS 5.1 trap (gotcha 21): NEVER
+  `Get-ChildItem -Directory` on a guessed drive letter - on a machine
+  without that drive it is a parameter-binding error that -ErrorAction
+  cannot suppress; enumerate `Get-PSDrive -PSProvider FileSystem` first.
   NEVER hard-code an install path in a script again; extend the locators.
 - **THE user entry point**: `ibex_soc.bat` -> gui/ibex_control_panel.ps1
   (WinForms, Windows-only per team direction; no Linux user utilities).
@@ -363,6 +384,24 @@ and git history. WALKTHROUGH sections 3-5 re-cut to lead with the ONE flow
 (also fixed a latent \\f/\\b control-char corruption in its script table).
 All doc/tcl/script references to the deleted .bats updated.
 
+**2026-08-18 (later) — teammate lab logs + lowRISC toolchain support**:
+Three logs from ARF-BBSR-84 (Vivado 2025.2 @ C:\AMDDesignTools): bitstream
+BUILD OK and .xpr PROJECT OK - both flows work on their PC; the env check
+worked but spewed red `Get-ChildItem -Directory` parameter-binding errors
+(gotcha 21: dynamic FileSystem param can't bind on drives D..G that don't
+exist there; -ErrorAction can't suppress binding errors) - fixed by
+enumerating Get-PSDrive. Team compiles with the lowRISC toolchain
+(riscv32-unknown-elf-, Linux-only tar.xz -> WSL): all three locators went
+multi-prefix + WSL-aware (RISCV_GCC_HOME=wsl:..., RISCV_PREFIX saved),
+build.bat gained the -march probe (GCC 10.2 rejects _zicsr) and a WSL
+delegation path through the new sw/freertos/build.sh (POSIX twin, LF
+enforced via .gitattributes). \AMDDesignTools added to the Vivado scans.
+Verified: cold+warm setup and find_tools runs, build.bat == build.sh ==
+prebuilt byte-identical (b15234fc...), march-probe fallback exercised,
+PSParser 0 errors. Docs: FREERTOS_PORT Toolchain section rewritten
+(lowRISC install incl. WSL commands), WALKTHROUGH gotchas 21+22 +
+locator/table text, this file.
+
 ## 5. Open questions for the team (track until answered)
 
 1. ~~SRAM base address~~ **RESOLVED 2026-08-10: team confirmed
@@ -401,6 +440,9 @@ docs/ASIC_SPEC.md section 3.
   (LCD/BME280/OLED), Phase 3 = batch-2 parts (ESP32 incl. IRQ-mode check
   20b / PSRAM / camera / mic / speaker). Results get dated tables in
   BRINGUP_TEST_REPORT.md; a phase is not done until the report shows it.
+  Teammate PCs verified working (2026-08-18 logs): bitstream build and
+  .xpr generation both OK on Vivado 2025.2; env-check error spew fixed;
+  lowRISC-toolchain (WSL) firmware builds now supported for them.
 - **UART2 IRQ path is in RTL as of 2026-08-17** - the PD synthesis
   netlist mismatch (netlist predates ALL v1.1 additions) is still THE
   open decision with the lead; whatever is decided, the FPGA must
