@@ -23,10 +23,19 @@ if {![file exists $bit]}    { error "bitstream not found: $bit (run build_fpga.t
 if {![file exists $fw_bin]} { error "firmware not found: $fw_bin (run sw\\freertos\\build.bat first)" }
 
 set mcs "build/fpga/flash_image.mcs"
-write_cfgmem -force -format mcs -size 16 -interface SPIx4 \
-    -loadbit "up 0x0 $bit" \
-    -loaddata "up 0x400000 $fw_bin" \
-    $mcs
+if {[catch {
+    write_cfgmem -force -format mcs -size 16 -interface SPIx4 \
+        -loadbit "up 0x0 $bit" \
+        -loaddata "up 0x400000 $fw_bin" \
+        $mcs
+} err]} {
+    if {[string match "*SPI_BUSWIDTH*" $err]} {
+        puts "ERROR: this bitstream predates the QSPI-boot config fix (SPI_BUSWIDTH=1)."
+        puts "Fix: git pull, then rebuild it - ibex_soc.bat -> Flash to Board (QSPI)"
+        puts "(which rebuilds automatically), or the Build Bitstream button first."
+    }
+    error $err
+}
 puts "MCS written: $mcs"
 
 open_hw_manager

@@ -119,7 +119,12 @@ FPGA validation must run the silicon configuration or it isn't validation.
   package pin** — it's the CCLK config pin, driven via STARTUPE2.USRCCLKO
   (top_artya7.sv). XipClkDiv param: FPGA top uses 1 (10 MHz; flash rated
   50 MHz), ASIC-spec default 4. Flow `flashonly` (program_flash.tcl) =
-  bitstream+firmware MCS into flash.
+  bitstream+firmware MCS into flash. **QSPI-boot bitstream config lives
+  in data/pins_artya7.xdc** (CFGBVS VCCO, CONFIG_VOLTAGE 3.3,
+  BITSTREAM.CONFIG.SPI_BUSWIDTH 4 + CONFIGRATE 33 + SPI_FALL_EDGE YES):
+  without SPI_BUSWIDTH=4 the SPIx4 write_cfgmem REJECTS the bitstream
+  (gotcha 23; the config-time x4 read is independent of our x1 user XIP).
+  Bitstreams built before 2026-08-18 must be rebuilt before flashing.
 - **Ibex is vectored-only** (mtvec[1:0]=01 hardwired, 256-byte aligned):
   RTOS trap entry needs a 32-entry vector table (sw/freertos/startup.S);
   entry 7 = machine timer, base+0 = exceptions/ecall.
@@ -426,6 +431,20 @@ extracted + saved, then a full firmware build with the xPack GCC.
 Gotchas: $home is a READ-ONLY PS automatic variable (use $gccHome);
 IWR needs TLS1.2 opt-in on PS 5.1; $ProgressPreference silent makes IWR
 ~10x faster.
+
+**2026-08-18 (night) — first REAL Flash-to-Board run found a latent bug**:
+teammate reached step 3/3 (so the prebuilt-firmware fallback worked on
+their PC) and hit `write_cfgmem ERROR SPI_BUSWIDTH property is set to
+"1"` - our bitstreams never set BITSTREAM.CONFIG.SPI_BUSWIDTH, while
+program_flash.tcl writes an SPIx4 MCS. Never seen locally because the
+flash flow had not run end-to-end since XIP (board away; regression
+builds the bitstream but no MCS). Fix in data/pins_artya7.xdc (single
+source for batch build AND .xpr): CFGBVS VCCO, CONFIG_VOLTAGE 3.3,
+SPI_BUSWIDTH 4, CONFIGRATE 33, SPI_FALL_EDGE YES (Digilent-recommended
+for the Arty S25FL128). program_flash.tcl now catches the stale-bitstream
+case with a "git pull + rebuild" hint. Verified: full bitstream rebuild
+with the new XDC (timing met) + write_cfgmem now produces the MCS.
+Gotcha 23. Old build/ trees must rebuild the bitstream once.
 
 ## 5. Open questions for the team (track until answered)
 

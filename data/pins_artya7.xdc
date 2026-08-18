@@ -250,3 +250,14 @@ set_property -dict { PACKAGE_PIN J15   IOSTANDARD LVCMOS33 } [get_ports { CAM_D[
 ## SPI host MISO (v1.1): shared return line - PSRAM SO and mic-ADC DOUT both
 ## drive it (each tri-states when its CS is high). Pmod JA pin 3.
 set_property -dict { PACKAGE_PIN A11   IOSTANDARD LVCMOS33 } [get_ports { SPI_RX }]; #Sch=ja[3]
+
+## ---------------------------------------------------------------------------
+## Configuration / QSPI boot (needed so program_flash.tcl's SPIx4 MCS is
+## accepted - write_cfgmem errors on the default SPI_BUSWIDTH=1; found by
+## the first on-board Flash-to-Board run, 2026-08-18). Digilent-recommended
+## settings for the Arty A7 S25FL128 flash.
+set_property CFGBVS VCCO [current_design]
+set_property CONFIG_VOLTAGE 3.3 [current_design]
+set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]
+set_property BITSTREAM.CONFIG.CONFIGRATE 33 [current_design]
+set_property BITSTREAM.CONFIG.SPI_FALL_EDGE YES [current_design]
