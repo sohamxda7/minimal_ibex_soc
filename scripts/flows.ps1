@@ -14,8 +14,10 @@
 #   build                 synthesise the bitstream (build_fpga.tcl)
 #   program               program the board over USB-JTAG (volatile, dev-only)
 #   firmware [sim|toy]    build the FreeRTOS firmware variant
-#   flashfw  [toy]        THE flow: firmware (prebuilt fallback if no GCC)
-#                         -> XIP bitstream -> QSPI flash. Survives power-cycle.
+#   flashfw  [toy]        THE flow: BUILD firmware (no GCC? offers the
+#                         automatic toolchain install; the committed prebuilt
+#                         only on explicit choice) -> XIP bitstream -> QSPI
+#                         flash. Survives power-cycle.
 #   flashonly [file.bin]  reflash firmware+bitstream only (default FreeRTOS bin)
 #   regression            full suite: images + firmware + compile + 10 sims +
 #                         bitstream + scoreboard (~45-60 min)
@@ -191,6 +193,63 @@ function Find-Gcc([bool]$ask) {
     return $g
 }
 
+# One-click installer for the pinned xPack RISC-V GCC (native Windows zip,
+# official xpack-dev-tools releases - no WSL, no admin). Asks first (Enter =
+# go), downloads to C:\FPGA, saves .toolpaths. Returns $true when a working
+# toolchain is in place afterwards. Used by the deps flow AND by flashfw's
+# build-first policy. Write-Host only (see note below).
+function Install-XpackGcc {
+    $ver     = "15.2.0-1"
+    $zipName = "xpack-riscv-none-elf-gcc-$ver-win32-x64.zip"
+    $url     = "https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases/download/v$ver/$zipName"
+    $instDir = "C:\FPGA"
+    $gccHome = "$instDir\xpack-riscv-none-elf-gcc-$ver"
+    Write-Host ""
+    Write-Host "About to install the xPack RISC-V GCC (native Windows - no WSL):"
+    Write-Host "  what:  $zipName  (~470 MB download, ~1.7 GB on disk)"
+    Write-Host "  from:  github.com/xpack-dev-tools  (official xPack releases)"
+    Write-Host "  to:    $gccHome"
+    $ans = Ask-Path "Press Enter to install, or type n to skip"
+    if ($ans -match '^[nN]') {
+        Write-Host "Skipped GCC install."
+        return $false
+    }
+    $ok = Test-Path "$gccHome\bin\riscv-none-elf-gcc.exe"
+    if ($ok) {
+        Write-Host "[OK]   Already extracted at $gccHome - reusing."
+    } else {
+        if (((Get-PSDrive C).Free / 1GB) -lt 3) {
+            Write-Host "[FAIL] Less than 3 GB free on C: - free some space first."
+            return $false
+        }
+        New-Item -ItemType Directory -Force $instDir | Out-Null
+        $zip = "$instDir\$zipName"
+        [Net.ServicePointManager]::SecurityProtocol = `
+            [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+        $oldPP = $ProgressPreference; $ProgressPreference = "SilentlyContinue"
+        Write-Host "[....] Downloading (a few minutes; the window is NOT stuck)..."
+        Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
+        Write-Host "[....] Extracting to $instDir (another couple of minutes)..."
+        Expand-Archive -Path $zip -DestinationPath $instDir -Force
+        $ProgressPreference = $oldPP
+        Remove-Item $zip -Force
+        $ok = Test-Path "$gccHome\bin\riscv-none-elf-gcc.exe"
+    }
+    if ($ok) {
+        $saved = Get-SavedPaths
+        $saved["RISCV_GCC_HOME"] = $gccHome
+        $saved["RISCV_PREFIX"]   = "riscv-none-elf-"
+        Save-Paths $saved
+        $script:GccPrefix = "riscv-none-elf-"
+        Write-Host "[OK]   RISC-V GCC installed: $(& "$gccHome\bin\riscv-none-elf-gcc.exe" --version | Select-Object -First 1)"
+        Write-Host "       Saved to .toolpaths - every flow finds it from now on."
+        return $true
+    }
+    Write-Host "[FAIL] Extraction did not produce $gccHome\bin\riscv-none-elf-gcc.exe"
+    Write-Host "       (download interrupted?). Re-run to retry."
+    return $false
+}
+
 # Both helpers stream tool stdout to the console via Write-Host (NOT the
 # pipeline) so callers can consume the integer return value without
 # swallowing the output the user is watching.
@@ -245,12 +304,12 @@ switch ($Flow.ToLower()) {
         } elseif ($g) {
             Write-Host "[OK]   RISC-V GCC:  $g\bin ($($script:GccPrefix)gcc)"
         } else {
-            Write-Host "[WARN] RISC-V GCC not found (native or inside WSL). NOT a blocker for"
-            Write-Host "       board testing - the flash flow falls back to the committed"
-            Write-Host "       prebuilt firmware (sw\freertos\prebuilt). Needed only to CHANGE"
-            Write-Host "       firmware. EASY FIX: click 'Install Missing Tools' in the GUI"
-            Write-Host "       (or run: powershell -File scripts\flows.ps1 deps) - it downloads"
-            Write-Host "       a native Windows GCC automatically. Docs: FREERTOS_PORT.md sec. 2."
+            Write-Host "[WARN] RISC-V GCC not found (native or inside WSL). EASY FIX: click"
+            Write-Host "       'Install Missing Tools' in the GUI (or: flows.ps1 deps) - it"
+            Write-Host "       downloads a native Windows GCC automatically. The Flash to"
+            Write-Host "       Board flow also offers this install itself; the committed"
+            Write-Host "       prebuilt firmware (sw\freertos\prebuilt) is flashed only on"
+            Write-Host "       your explicit choice. Docs: FREERTOS_PORT.md section 2."
         }
 
         $git = Get-Command git -ErrorAction SilentlyContinue
@@ -304,55 +363,7 @@ switch ($Flow.ToLower()) {
         if ($g -and ($Arg -ne "force")) {
             Write-Host "[OK]   RISC-V GCC already present: $g ($($script:GccPrefix)gcc)"
         } else {
-            $ver     = "15.2.0-1"
-            $zipName = "xpack-riscv-none-elf-gcc-$ver-win32-x64.zip"
-            $url     = "https://github.com/xpack-dev-tools/riscv-none-elf-gcc-xpack/releases/download/v$ver/$zipName"
-            $instDir = "C:\FPGA"
-            $gccHome = "$instDir\xpack-riscv-none-elf-gcc-$ver"
-            Write-Host ""
-            Write-Host "About to install the xPack RISC-V GCC (native Windows - no WSL):"
-            Write-Host "  what:  $zipName  (~470 MB download, ~1.7 GB on disk)"
-            Write-Host "  from:  github.com/xpack-dev-tools  (official xPack releases)"
-            Write-Host "  to:    $gccHome"
-            $ans = Ask-Path "Press Enter to install, or type n to skip"
-            if ($ans -match '^[nN]') {
-                Write-Host "Skipped GCC install."
-            } else {
-                $ok = Test-Path "$gccHome\bin\riscv-none-elf-gcc.exe"
-                if ($ok) {
-                    Write-Host "[OK]   Already extracted at $gccHome - reusing."
-                } else {
-                    if (((Get-PSDrive C).Free / 1GB) -lt 3) {
-                        Write-Host "[FAIL] Less than 3 GB free on C: - free some space first."
-                        exit 1
-                    }
-                    New-Item -ItemType Directory -Force $instDir | Out-Null
-                    $zip = "$instDir\$zipName"
-                    [Net.ServicePointManager]::SecurityProtocol = `
-                        [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
-                    $oldPP = $ProgressPreference; $ProgressPreference = "SilentlyContinue"
-                    Write-Host "[....] Downloading (a few minutes; the window is NOT stuck)..."
-                    Invoke-WebRequest -Uri $url -OutFile $zip -UseBasicParsing
-                    Write-Host "[....] Extracting to $instDir (another couple of minutes)..."
-                    Expand-Archive -Path $zip -DestinationPath $instDir -Force
-                    $ProgressPreference = $oldPP
-                    Remove-Item $zip -Force
-                    $ok = Test-Path "$gccHome\bin\riscv-none-elf-gcc.exe"
-                }
-                if ($ok) {
-                    $saved = Get-SavedPaths
-                    $saved["RISCV_GCC_HOME"] = $gccHome
-                    $saved["RISCV_PREFIX"]   = "riscv-none-elf-"
-                    Save-Paths $saved
-                    $script:GccPrefix = "riscv-none-elf-"
-                    Write-Host "[OK]   RISC-V GCC installed: $(& "$gccHome\bin\riscv-none-elf-gcc.exe" --version | Select-Object -First 1)"
-                    Write-Host "       Saved to .toolpaths - every flow finds it from now on."
-                } else {
-                    Write-Host "[FAIL] Extraction did not produce $gccHome\bin\riscv-none-elf-gcc.exe"
-                    Write-Host "       (download interrupted?). Re-run this flow to retry."
-                    exit 1
-                }
-            }
+            Install-XpackGcc | Out-Null
         }
 
         # ---- Vivado (too big + licensed to auto-install) --------------------
@@ -392,21 +403,47 @@ switch ($Flow.ToLower()) {
         if ($Arg -eq "toy") { $fw = "freertos_demo_toy" }
 
         Write-Host "=== [1/3] Building FreeRTOS firmware ($fw) ==="
-        $rc = Build-Firmware $Arg
-        if ($rc -ne 0) {
-            if (Test-Path "sw\freertos\prebuilt\$fw.bin") {
-                Write-Host ""
-                Write-Host "*** USING PREBUILT FIRMWARE ***"
-                Write-Host "Local build failed - most likely no RISC-V GCC on this machine."
-                Write-Host "Falling back to the committed sw\freertos\prebuilt\$fw.bin."
-                Write-Host "Fine for board bring-up / IO tests. To CHANGE firmware, install"
-                Write-Host "the toolchain: docs\FREERTOS_PORT.md section 2."
-                Write-Host ""
-                New-Item -ItemType Directory -Force "sw\freertos\build" | Out-Null
-                Copy-Item "sw\freertos\prebuilt\$fw.bin" "sw\freertos\build\$fw.bin" -Force
-            } else {
-                Write-Host "FIRMWARE BUILD FAILED - and no prebuilt exists for $fw."
-                Write-Host "(The toy variant always needs a local toolchain.)"
+        # BUILD-FIRST policy (Soham, 2026-08-18): flash what you build. The
+        # committed prebuilt is used only on your explicit say-so; a failed
+        # build with a working toolchain is a hard stop, never a fallback.
+        $usePrebuilt = $false
+        $g = Find-Gcc $false
+        if (-not $g) {
+            Write-Host ""
+            Write-Host "No RISC-V GCC on this PC. The policy is to BUILD the firmware you"
+            Write-Host "flash - the committed prebuilt is a fallback, not the normal path."
+            Write-Host "  [Enter]  install the toolchain now (automatic, ~470 MB, no admin)"
+            Write-Host "  [p]      flash the committed prebuilt just this once"
+            Write-Host "  [n]      abort"
+            $ans = Ask-Path "Choice"
+            if ($ans -match '^[nN]') { exit 1 }
+            elseif ($ans -match '^[pP]') { $usePrebuilt = $true }
+            else {
+                if (-not (Install-XpackGcc)) { Write-Host "ABORTED - no toolchain."; exit 1 }
+                $g = Find-Gcc $false
+                if (-not $g) { Write-Host "ERROR: toolchain installed but not detected - run Environment Check."; exit 1 }
+            }
+        }
+
+        if ($usePrebuilt) {
+            if (-not (Test-Path "sw\freertos\prebuilt\$fw.bin")) {
+                Write-Host "No prebuilt exists for $fw (the toy variant always needs a toolchain)."
+                exit 1
+            }
+            Write-Host ""
+            Write-Host "*** USING PREBUILT FIRMWARE (your explicit choice) ***"
+            Write-Host "Fine for board bring-up / IO tests. To flash your own changes,"
+            Write-Host "install the toolchain (GUI: Install Missing Tools)."
+            Write-Host ""
+            New-Item -ItemType Directory -Force "sw\freertos\build" | Out-Null
+            Copy-Item "sw\freertos\prebuilt\$fw.bin" "sw\freertos\build\$fw.bin" -Force
+        } else {
+            $rc = Build-Firmware $Arg
+            if ($rc -ne 0) {
+                Write-Host "FIRMWARE BUILD FAILED - fix the compiler error above."
+                Write-Host "(No silent prebuilt fallback: you should flash what you build."
+                Write-Host "To flash the known-good prebuilt explicitly instead:"
+                Write-Host "  powershell -File scripts\flows.ps1 flashonly sw\freertos\prebuilt\$fw.bin )"
                 exit 1
             }
         }

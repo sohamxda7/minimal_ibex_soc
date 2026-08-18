@@ -9,10 +9,11 @@ Phase-1 hardware validation:
 ibex_soc.bat  ->  Flash to Board (QSPI)
 ```
 
-(CLI: `powershell -File scripts\flows.ps1 flashfw`) automatically falls
-back to this file when the local firmware build fails
-(no toolchain). You will see a loud `USING PREBUILT FIRMWARE` warning —
-that is fine for board bring-up and IO testing.
+(CLI: `powershell -File scripts\flows.ps1 flashfw`). The flow is
+**build-first**: with no toolchain it offers the automatic GCC install,
+and this file is flashed only when you explicitly answer `p` at that
+prompt (loud `USING PREBUILT FIRMWARE` notice). Fine for board bring-up
+and IO testing.
 
 **When you must NOT rely on it:** if you are changing anything under
 `sw/freertos/`, install the toolchain (docs/FREERTOS_PORT.md section 2)

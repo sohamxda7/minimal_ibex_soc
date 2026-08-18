@@ -198,9 +198,11 @@ FPGA validation must run the silicon configuration or it isn't validation.
     (program_fpga.tcl, volatile dev-only)
   - `firmware [sim|toy]` - compile FreeRTOS (sw/freertos/build.bat)
   - `flashfw [toy]` - THE flow: firmware -> XIP bitstream -> QSPI
-    flash, persistent; **falls back to sw/freertos/prebuilt/*.bin when
-    no RISC-V GCC is present** - refresh the prebuilt whenever
-    sw/freertos/** changes
+    flash, persistent. **BUILD-FIRST (Soham, 2026-08-18): no GCC ->
+    interactive choice [Enter]=auto-install toolchain / [p]=committed
+    prebuilt / [n]=abort; build failure with a toolchain present is a
+    HARD STOP, never a silent prebuilt fallback.** Refresh the prebuilt
+    whenever sw/freertos/** changes
   - `flashonly [bin]` - reflash only (program_flash.tcl)
   - `regression` - full suite (run_regression.ps1): images + FreeRTOS
     build + compile + 10 sims + bitstream + scoreboard, exit 0 = green
@@ -463,6 +465,24 @@ short banner + immediate 1-tick cadence so tb_freertos still passes
 (re-ran: PASS banner=1 ticks=2). All variants rebuilt, RAM budget
 unchanged (1048 B), prebuilt refreshed (7552 B). Teammate needs ONE more
 Flash-to-Board click to get the 4-RGB/banner firmware.
+
+**2026-08-18 (late night) — kernel V11.3.0 + build-first flashing +
+vendored-pin audit (Soham: "prefer build the flash... ensure OS and Ibex
+always updated")**: (1) FreeRTOS kernel vendored subset synced V11.2.0 ->
+V11.3.0 (latest upstream; diff = FPU/VPU port support compiled out on
+RV32IMC, task-startup mstatus fix, context renumbering; the
+freertos_risc_v_application_interrupt_handler contract unchanged; all
+variants rebuilt, RAM budget unchanged, tb_freertos PASS, prebuilt
+refreshed 7576 B; procedure recorded in VENDORED.txt). (2) flashfw is now
+BUILD-FIRST: extracted Install-XpackGcc into a shared function; no-GCC
+case asks install/prebuilt/abort; prebuilt NEVER silent (all docs +
+tooltips reworded). (3) Vendored-pin audit: Ibex 594ea976 (2025-04-03) is
+154 commits behind master - DELIBERATELY not synced (FPGA must validate
+the tapeout netlist; standing patches + policy in BRINGUP_HISTORY sec. 3,
+pin table added there + FREERTOS_PORT "Staying current"); flagged as a
+lead watch-item in STATUS_BRIEF. Answered in docs (FREERTOS_PORT "Where
+the code lives"): kernel is vendor/freertos_kernel (main.c is only the
+app); code XIPs from flash, SRAM holds only data/bss/heap/stacks.
 
 ## 5. Open questions for the team (track until answered)
 

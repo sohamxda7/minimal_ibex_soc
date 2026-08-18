@@ -21,11 +21,11 @@ all timing constraints met.
 | Firmware | **One** FreeRTOS image: console + LED/RGB/switch control + all drivers |
 | **UART2 RX interrupt** (Ravi's items 3+4, 2026-08-17) | **Done & sim-proven**: fast IRQ 1 wired; IRQ-driven ESP-AT client with high-priority RX task + unsolicited-event parser; polled mode kept for bring-up |
 | Lead's regression ask (item 5, sim part) | **Done**: `tb_uart2_irq` covers simultaneous UART1+UART2 traffic, 128-byte FIFO burst/overflow (exactly 128 kept of 160), IRQ vectoring, unsolicited events, post-overflow recovery |
-| Toolchain-less lab PCs | **Unblocked**: the Flash to Board flow falls back to a committed prebuilt firmware — fixes ARF-BBSR-84's "unable to dump" (programming had succeeded; the firmware build was failing for lack of RISC-V GCC) |
+| Toolchain-less lab PCs | **Unblocked twice over**: the GUI now auto-installs a native Windows RISC-V GCC (Install Missing Tools / offered inside Flash to Board - build-first policy), and a committed prebuilt remains as an explicit-choice fallback — fixes ARF-BBSR-84's "unable to dump" (programming had succeeded; the firmware build was failing for lack of RISC-V GCC) |
 | Bugs found & fixed pre-silicon | 7 (incl. 3 in the untested XIP controller, 1 in the team I2C BFM) |
-| Hardware validation | **Owed** — last board test was the old config; plan ready, waiting on board + parts |
+| Hardware validation | **Phase 1 core PASSED 2026-08-18**: v1.1 FreeRTOS booted from QSPI flash on the board (XIP), console + patterns verified (BRINGUP_TEST_REPORT sec. 8). Phases 2/3 wait on parts |
 | Docs | Consolidated 13 → 9 files; root README is the front door |
-| Open decisions | **2** (below) |
+| Open decisions | **2** (below) + one watch-item: vendored Ibex is pinned at `594ea976` (2025-04) and upstream has moved 154 commits — we deliberately do NOT sync RTL pre-tapeout (the FPGA must validate the exact tapeout netlist); flagging so you can decide if any upstream fix warrants a one-off sync before freeze. FreeRTOS kernel synced to latest V11.3.0 (software, sim-verified) |
 
 **Guiding rule adopted:** the ASIC is the product; the FPGA is only its
 pre-silicon validation vehicle. Nothing is built that cannot run on the

@@ -10,9 +10,53 @@ of RAM. (A Zephyr port existed for the pre-spec 128 KiB dev configuration;
 removed with the 8 KiB constraint - retrievable from git history. Zephyr's
 future, if any, is a v2-chip item: [ASIC_SPEC.md sec. 10](ASIC_SPEC.md).)
 
-**Kernel:** FreeRTOS-Kernel **V11.2.0** (MIT), vendored subset at
-`vendor/freertos_kernel/` (core + `include/` + `portable/GCC/RISC-V` +
-`heap_4.c`; see `VENDORED.txt`). Official RISC-V port, unmodified.
+**Kernel:** FreeRTOS-Kernel **V11.3.0** (MIT, latest upstream release,
+synced 2026-08-18), vendored subset at `vendor/freertos_kernel/` (core +
+`include/` + `portable/GCC/RISC-V` + `heap_4.c`; see `VENDORED.txt`).
+Official RISC-V port, unmodified.
+
+### Where the code lives (common questions, answered once)
+
+- **Is the OS inside `main.c`?** No. `sw/freertos/main.c` is only the
+  *application* (tasks, console, banner, the interrupt dispatch hook).
+  The FreeRTOS kernel itself — scheduler, queues, context switch — is the
+  vendored source at `vendor/freertos_kernel/` and gets compiled and
+  linked together with main.c by `build.bat`/`build.sh` (see the exact
+  file list in either script). There is no binary blob: the OS is built
+  from source in this repo on every firmware build.
+- **Is the firmware hardcoded in the repo?** The *sources* are the truth
+  and the normal flow **builds them**: Flash to Board compiles the
+  firmware first, and if no compiler is installed it *offers the
+  automatic toolchain install* right there. `sw/freertos/prebuilt/` holds
+  ONE known-good binary used **only when you explicitly choose it** at
+  that prompt — a convenience for toolchain-less lab PCs, never the
+  default (policy set 2026-08-18; the fallback is no longer silent).
+- **Does FreeRTOS run in SRAM?** Mostly no. All *code* (kernel + app)
+  and constants execute **in place from QSPI flash** (XIP window
+  `0x2000_0000`). The 8 KiB SRAM holds only the *mutable state*:
+  `.data`/`.bss` (kernel bookkeeping, ~1 KiB) and the 4 KiB heap where
+  task stacks and TCBs live. See section 1's memory diagram.
+
+### Staying current (kernel + vendored RTL)
+
+Pinned upstream versions and how to check them, verified 2026-08-18:
+
+| Component | Where | Pinned at | Upstream then |
+|---|---|---|---|
+| FreeRTOS-Kernel | `vendor/freertos_kernel` (`VENDORED.txt`) | **V11.3.0** | V11.3.0 — **current** |
+| lowRISC Ibex core | `vendor/lowrisc_ibex` (`.lock.hjson`) | `594ea976` (2025-04-03) | 154 commits ahead |
+| lowRISC primitives | `vendor/lowrisc_ip` (`.lock.hjson`) | `d268f271` | moves with OpenTitan |
+| PULP debug module | `vendor/pulp_riscv_dbg` (`.lock.hjson`) | `138d74bc` | stable |
+
+**Policy — software vs silicon:** the *kernel* is software: sync it to
+the latest release whenever convenient (procedure in `VENDORED.txt`:
+copy the same file set, rebuild all variants, re-run tb_freertos + the
+regression). The *RTL* is silicon: it stays **pinned on purpose** — the
+FPGA must validate the exact netlist that tapes out, so an Ibex upstream
+sync is a deliberate, lead-approved event (procedure + standing patches:
+[BRINGUP_HISTORY.md section 3](BRINGUP_HISTORY.md)), not routine
+freshening. The Ibex delta is tracked in
+[STATUS_BRIEF.md](STATUS_BRIEF.md) as a decision for the lead.
 
 **Toolchain:** any bare-metal RISC-V GCC. The build scripts auto-detect the
 install (bin prefixes tried in order: `riscv32-unknown-elf-`,

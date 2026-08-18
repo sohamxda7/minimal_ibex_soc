@@ -68,7 +68,17 @@ fork-owned files, re-apply these, run the full regression before pushing):
 | `vendor/lowrisc_ibex/shared/rtl/fpga/xilinx/clkgen_xil7series.sv` | `CLKOUT0_DIVIDE` 24 → 60 | 20 MHz system clock (ASIC target) |
 | `vendor/lowrisc_ibex/rtl/ibex_if_stage.sv` | DPI guard `ifndef SYNTHESIS` → `ifdef VERILATOR` | xsim cannot compile Verilator-only DPI |
 
-(FreeRTOS kernel is vendored unmodified — `vendor/freertos_kernel/VENDORED.txt`.)
+**Vendored pins** (checked 2026-08-18; RTL stays pinned on purpose — the
+FPGA must validate the exact netlist that tapes out, so an RTL sync is a
+deliberate lead-approved event, never routine freshening; the kernel is
+software and tracks upstream releases):
+
+| Component | Pin | Delta vs upstream (2026-08-18) |
+|---|---|---|
+| `vendor/lowrisc_ibex` | `594ea976` (2025-04-03) | 154 commits behind master — flagged in STATUS_BRIEF for the lead |
+| `vendor/lowrisc_ip` (OpenTitan prims) | `d268f271` | pinned with Ibex |
+| `vendor/pulp_riscv_dbg` | `138d74bc` | stable upstream |
+| `vendor/freertos_kernel` | **V11.3.0** | current (synced from V11.2.0 on 2026-08-18; kernel unmodified — `VENDORED.txt` has the sync procedure) |
 
 ## 4. The no-FuseSoC, no-toolchain build path
 

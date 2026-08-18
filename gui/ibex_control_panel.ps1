@@ -95,7 +95,7 @@ Add-Button "Build Firmware" 182 132 160 { Launch-Flow "firmware" (Get-VariantArg
 Add-Button "Flash to Board (QSPI)" 352 132 160 {
     $fw = if ($variant.SelectedIndex -eq 1) { "toy" } else { "" }
     Launch-Flow "flashfw" $fw
-} "THE flow: firmware (prebuilt fallback if no GCC) + XIP bitstream + QSPI flash. Survives power-cycle." | Out-Null
+} "THE flow: BUILDS the firmware (offers the automatic GCC install if missing; prebuilt only on your explicit choice) + XIP bitstream + QSPI flash. Survives power-cycle." | Out-Null
 Add-Button "Program Board (JTAG)" 522 132 160 { Launch-Flow "program" "" } `
   "Dev-only, volatile: lost at power-cycle. Board must be connected." | Out-Null
 

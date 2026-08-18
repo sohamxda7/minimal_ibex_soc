@@ -40,8 +40,8 @@ ibex_soc.bat
 2. **Install Missing Tools** — auto-installs whatever the check flagged:
    Python (winget) and a native Windows RISC-V GCC (official xPack build,
    downloaded to `C:\FPGA\`, no WSL, no admin). Only Vivado stays a manual
-   install. (Skippable: flashing falls back to the committed prebuilt
-   firmware even with no GCC at all.)
+   install. (Flash to Board is build-first: it offers this same install
+   if GCC is missing; the committed prebuilt flashes only on request.)
 3. **Flash to Board (QSPI)** — firmware → XIP bitstream → QSPI flash.
    Press PROG on the board; survives power-cycle.
 4. Open PuTTY at **115200 8N1** (COM port from Device Manager).
@@ -85,10 +85,12 @@ check: `python util/uart_command_test.py`.
 ## Status
 
 **14/14 regression green** (10 full-SoC simulations + images + firmware +
-compile + bitstream with timing met). Seven real bugs found and fixed
-pre-silicon. Hardware re-validation of the current config is owed — plan in
-[docs/HW_VALIDATION_PLAN.md](docs/HW_VALIDATION_PLAN.md), current state in
-[docs/STATUS_BRIEF.md](docs/STATUS_BRIEF.md).
+compile + bitstream with timing met), and **the v1.1 configuration now
+runs on the physical board** — FreeRTOS (V11.3.0) booting from QSPI
+flash, console verified (Phase 1 core passed 2026-08-18). Remaining
+phases need the ordered parts — plan in
+[docs/HW_VALIDATION_PLAN.md](docs/HW_VALIDATION_PLAN.md), current state
+in [docs/STATUS_BRIEF.md](docs/STATUS_BRIEF.md).
 
 ## Documentation (all of it)
 

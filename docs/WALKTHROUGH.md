@@ -39,8 +39,9 @@ Double-click **`ibex_soc.bat`** (the single entry point — a GUI with one
 button per flow) and click **Flash to Board (QSPI)**. It runs three steps in
 a console window:
 
-1. builds the FreeRTOS firmware (**no RISC-V toolchain? it automatically
-   falls back to the committed prebuilt** — fine for board testing),
+1. builds the FreeRTOS firmware (**build-first**: no toolchain? it offers
+   the automatic GCC install right there; the committed prebuilt is
+   flashed only if you explicitly pick it),
 2. builds the XIP-boot bitstream (~15 min),
 3. programs bitstream + firmware into the QSPI flash — survives power-cycle.
 
@@ -137,7 +138,7 @@ minutes of wall clock (~6 ms of simulated time).
 | `scripts/find_tools.cmd` / `scripts/find_vivado.ps1` | Tool locators for the remaining cmd/detached-PS callers: `.toolpaths` -> env -> PATH -> existing-drive scan -> WSL (GCC only) | called by sw/freertos/build.bat and the runner scripts | flows.ps1 carries the same search order - keep all three in sync. `.toolpaths` (per-PC, gitignored) stores `VIVADO_BAT`, `RISCV_GCC_HOME` (may be `wsl:<path>`), `RISCV_PREFIX` |
 | flow `setup` | Environment doctor: Vivado/Python/GCC/git/repo-path/board checks; asks + saves missing tool paths | GUI **Environment Check**, first thing on a new PC | The [WARN] on RISC-V GCC is fine - flashing falls back to the prebuilt firmware |
 | `scripts/run_regression.ps1` (flow `regression`) | The whole test suite in one click: images, FreeRTOS build, compile, 10 sims, bitstream, timing, scoreboard | GUI **Full Regression** (~45-60 min) | Sequential on purpose - concurrent xelab+vivado has killed 16 GB machines. Log: `build\regression.log`, exit code 0 = all green |
-| flow `flashfw` | Firmware (prebuilt fallback if no GCC) -> XIP-boot bitstream -> QSPI flash, end to end; `toy` arg adds the LCD/sensor task | GUI **Flash to Board (QSPI)** with board attached | Persists across power-cycles (unlike JTAG). Press PROG after; expect the FreeRTOS banner at 115200 |
+| flow `flashfw` | Firmware BUILD (offers GCC install if missing; prebuilt only on explicit choice) -> XIP-boot bitstream -> QSPI flash, end to end; `toy` arg adds the LCD/sensor task | GUI **Flash to Board (QSPI)** with board attached | Persists across power-cycles (unlike JTAG). Press PROG after; expect the FreeRTOS banner at 115200 |
 
 ## 8. Gotchas — the complete list
 

@@ -1,3 +1,9 @@
-FreeRTOS-Kernel V11.2.0 (commit 0adc196, github.com/FreeRTOS/FreeRTOS-Kernel)
+FreeRTOS-Kernel V11.3.0 (tag object 81896bd1a, github.com/FreeRTOS/FreeRTOS-Kernel)
 Vendored subset: kernel core + include/ + portable/GCC/RISC-V + heap_4.
 Pruned: examples, other ports, CMake glue. License: MIT (LICENSE.md).
+Updated 2026-08-18 from V11.2.0 (FPU/VPU port support - compiled out on our
+RV32IMC - plus task-startup mstatus fix and context-layout renumbering).
+Sync procedure: download the release tarball, copy this exact file set,
+rebuild all firmware variants, re-run tb_freertos + the full regression
+before pushing. Application contract used by sw/freertos:
+freertos_risc_v_application_interrupt_handler / _exception_handler.
