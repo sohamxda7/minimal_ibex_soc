@@ -42,12 +42,14 @@ uint8_t ucHeap[ configTOTAL_HEAP_SIZE ]
 #define STEP_SLOW             pdMS_TO_TICKS( 400 )
 #endif
 
-#if defined( TOY_DEMO )
-#define FW_VARIANT            "toy"
-#elif defined( SIM_BUILD )
+/* One hardware image since 2026-08-18: TOY_DEMO (the LCD/sensor task) is
+ * defined for every hw build - it tolerates missing parts, so there is no
+ * separate "standard" variant to accidentally flash (that mistake cost a
+ * bench session: dark LCD, correct wiring). Sim stays lean for tb_freertos. */
+#if defined( SIM_BUILD )
 #define FW_VARIANT            "sim"
 #else
-#define FW_VARIANT            "standard"
+#define FW_VARIANT            "hw"
 #endif
 
 /* ---- unified console state (the old asm-demo command set, now in the
@@ -244,10 +246,10 @@ static void prvToyTask( void * pvParameters )
     st7735_init();
     st7735_fill_screen( ST7735_RGB( 0, 0, 0 ) );
 
-    /* static part of the screen: big ARF logo + banner (mirrors
+    /* static part of the screen: big deep-blue ARF logo + banner (mirrors
      * prvPrintBanner). Drawn once - the one-time cost does not matter. */
     st7735_text_scale( 37, 0, "ARF", 3,
-                       ST7735_RGB( 0xFF, 0x80, 0x00 ), ST7735_RGB( 0, 0, 0 ) );
+                       ST7735_RGB( 0x00, 0x40, 0xE0 ), ST7735_RGB( 0, 0, 0 ) );
     st7735_text_ex( 0, 3, "  minimal-ibex-soc   ",
                     ST7735_RGB( 0, 0, 0 ), ST7735_RGB( 0xFF, 0x80, 0x00 ) );
     st7735_text( 0, 4, "FreeRTOS " tskKERNEL_VERSION_NUMBER );

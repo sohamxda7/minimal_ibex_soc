@@ -13,8 +13,10 @@
 #   xpr                   generate the Vivado GUI project (.xpr) for browsing
 #   build                 synthesise the bitstream (build_fpga.tcl)
 #   program               program the board over USB-JTAG (volatile, dev-only)
-#   firmware [sim|toy]    build the FreeRTOS firmware variant
-#   flashfw  [toy]        THE flow: BUILD firmware (no GCC? offers the
+#   firmware [sim]        build the FreeRTOS firmware (ONE hardware image:
+#                         console + LEDs/RGB + LCD status screen; "toy" is
+#                         an accepted alias of the default; sim = testbench)
+#   flashfw               THE flow: BUILD firmware (no GCC? offers the
 #                         automatic toolchain install; the committed prebuilt
 #                         only on explicit choice) -> XIP bitstream -> QSPI
 #                         flash. Survives power-cycle.
@@ -399,8 +401,10 @@ switch ($Flow.ToLower()) {
     }
 
     "flashfw" {
+        # ONE hardware image since 2026-08-18 ("toy" arg is a harmless alias):
+        # the LCD/sensor task ships in every build, so the variant-picker trap
+        # (standard image flashed, wired LCD stays dark) cannot recur.
         $fw = "freertos_demo"
-        if ($Arg -eq "toy") { $fw = "freertos_demo_toy" }
 
         Write-Host "=== [1/3] Building FreeRTOS firmware ($fw) ==="
         # BUILD-FIRST policy (Soham, 2026-08-18): flash what you build. The
@@ -427,7 +431,7 @@ switch ($Flow.ToLower()) {
 
         if ($usePrebuilt) {
             if (-not (Test-Path "sw\freertos\prebuilt\$fw.bin")) {
-                Write-Host "No prebuilt exists for $fw (the toy variant always needs a toolchain)."
+                Write-Host "No prebuilt exists for $fw."
                 exit 1
             }
             Write-Host ""

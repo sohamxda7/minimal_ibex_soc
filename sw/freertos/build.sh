@@ -43,11 +43,12 @@ OBJDUMP="${BIN}${PREFIX}objdump"
 KERNEL=../../vendor/freertos_kernel
 PORT=$KERNEL/portable/GCC/RISC-V
 
+# One hardware image (since 2026-08-18): the LCD/sensor task ships in every
+# hw build ("toy" stays as an alias); sim excludes it to keep tb_freertos fast.
 NAME=freertos_demo
-DEFS=
+DEFS=-DTOY_DEMO
 case "$VARIANT" in
     sim) NAME=freertos_demo_sim; DEFS=-DSIM_BUILD ;;
-    toy) NAME=freertos_demo_toy; DEFS=-DTOY_DEMO ;;
 esac
 
 mkdir -p build

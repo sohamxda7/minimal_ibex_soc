@@ -10,9 +10,13 @@ rem           tar.xz ships Linux binaries only - the compile runs inside WSL
 rem           via build.sh, the vmem/budget steps stay on Windows.
 rem No make needed -- the file list is short enough to compile in one call.
 rem
-rem   build.bat           hardware image  -> build\freertos_demo.bin/.vmem
-rem   build.bat sim       simulation image (-DSIM_BUILD: fast tick/delays)
-rem   build.bat toy       hardware image + toy task (LCD/BME280/OLED wired)
+rem   build.bat           THE hardware image -> build\freertos_demo.bin/.vmem
+rem                       (console + LEDs/RGB + LCD status screen + sensors:
+rem                       one image since 2026-08-18 - the LCD task is
+rem                       missing-part tolerant, so it ships in every build)
+rem   build.bat sim       simulation image (-DSIM_BUILD: fast tick/delays,
+rem                       no LCD task - keeps tb_freertos fast)
+rem   build.bat toy       accepted alias of the default hardware image
 rem =========================================================================
 setlocal
 rem Toolchain located dynamically (saved .toolpaths -> RISCV_GCC_HOME env ->
@@ -28,17 +32,15 @@ set KERNEL=%HERE%..\..\vendor\freertos_kernel
 set PORT=%KERNEL%\portable\GCC\RISC-V
 
 set NAME=freertos_demo
-set DEFS=
+set DEFS=-DTOY_DEMO
 set "VARIANT=%1"
 if not defined VARIANT set "VARIANT=hw"
 if "%VARIANT%"=="sim" (
     set NAME=freertos_demo_sim
     set DEFS=-DSIM_BUILD
 )
-if "%VARIANT%"=="toy" (
-    set NAME=freertos_demo_toy
-    set DEFS=-DTOY_DEMO
-)
+rem "toy" is an accepted alias of the default: the LCD/sensor task is part
+rem of every hardware image (it tolerates missing parts - bounded I2C waits).
 
 if not exist "%HERE%build" mkdir "%HERE%build"
 

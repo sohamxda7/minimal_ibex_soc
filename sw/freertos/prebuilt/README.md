@@ -1,9 +1,10 @@
 # Prebuilt FreeRTOS firmware
 
-`freertos_demo.bin` is a **committed, ready-to-flash** build of the standard
-unified firmware (console + LED/RGB/switch control + tick reports), so that
+`freertos_demo.bin` is a **committed, ready-to-flash** build of THE unified
+firmware (console + LED/RGB/switch control + tick reports + the LCD
+status screen and sensor support — one image since 2026-08-18), so that
 lab machines **without the RISC-V GCC toolchain** can still run the full
-Phase-1 hardware validation:
+Phase-1 and Phase-2a hardware validation:
 
 ```
 ibex_soc.bat  ->  Flash to Board (QSPI)
@@ -29,5 +30,6 @@ copy sw\freertos\build\freertos_demo.bin sw\freertos\prebuilt\freertos_demo.bin
 then commit with the message noting the source commit. CI-less policy:
 whoever changes `sw/freertos/**` refreshes this file in the same PR.
 
-Only the standard demo is prebuilt. The `toy` variant needs the purchased
-Phase-2 hardware wired anyway, so it always requires a local toolchain.
+There is only one hardware image (the LCD/sensor task tolerates missing
+parts), so this single prebuilt covers everything; only the `sim`
+testbench variant is not committed.

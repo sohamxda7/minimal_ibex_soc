@@ -195,9 +195,12 @@ FPGA validation must run the silicon configuration or it isn't validation.
   - `xpr` - generate the Vivado GUI project (gen_project.tcl,
     build/vivado_project/*.xpr) for browsing (team request)
   - `build` / `program` - bitstream (build_fpga.tcl) / JTAG load
-    (program_fpga.tcl, volatile dev-only)
-  - `firmware [sim|toy]` - compile FreeRTOS (sw/freertos/build.bat)
-  - `flashfw [toy]` - THE flow: firmware -> XIP bitstream -> QSPI
+    (program_fpga.tcl, volatile dev-only, CLI-ONLY since 2026-08-18 -
+    the GUI button was removed on Soham's direction)
+  - `firmware [sim]` - compile FreeRTOS (sw/freertos/build.bat). ONE
+    hardware image since 2026-08-18: TOY_DEMO (LCD/sensor task) is in
+    every hw build ("toy" arg = harmless alias); only `sim` differs
+  - `flashfw` - THE flow: firmware -> XIP bitstream -> QSPI
     flash, persistent. **BUILD-FIRST (Soham, 2026-08-18): no GCC ->
     interactive choice [Enter]=auto-install toolchain / [p]=committed
     prebuilt / [n]=abort; build failure with a toolchain present is a
@@ -518,6 +521,28 @@ to buy - Phase 2a shopping list is the LCD + 8 F-M jumpers; recommended
 session order (Phase 1 console re-check unwired -> power off -> wire ->
 Phase 2a) now in PRODUCTION_PERIPHERALS sec. 8. Standard/sim binaries
 byte-identical after the change (toy-only code); tb_freertos re-run PASS.
+
+**2026-08-18 (bench debug) — dark LCD root-caused: variant dropdown ->
+ONE hardware image; JTAG button removed**: Soham wired the LCD (console
+fine, 3.3 V present, screen dead). Debug: XDC verified pin-by-pin against
+the sec.-8 table (DISP_CTRL[0]=B7/A6, [1]=B6/A7, [2]=E6/A8, SPI_TX=E5/A9,
+SPI_SCK=A4/A10, [3]=A3/A11 - wiring story is CORRECT); real cause = GUI
+variant dropdown defaulted to "standard demo", which had no LCD code -> a
+correctly wired display stays dark (gotcha 25, incl. the residual
+checklist: old fw / BL wire / silkscreen order / CS-DC swap). Structural
+fix per Soham: MERGED THE VARIANTS - build.bat/build.sh default hw image
+now defines TOY_DEMO ("toy" stays a harmless alias; NAME stays
+freertos_demo so flows/prebuilt paths are unchanged), the LCD/sensor task
+is missing-part tolerant so it ships everywhere; FW_VARIANT is now just
+hw/sim. GUI: variant dropdown DELETED, Program Board (JTAG) button
+DELETED (dev-only, CLI `flows.ps1 program` remains). ARF logo recoloured
+deep blue per request (ST7735_RGB(0x00,0x40,0xE0)). Heap check: 6 tasks
+~3.4 KB of the 4 KiB heap - fits, sections budget unchanged. tb_freertos
+PASS (sim image unaffected); prebuilt refreshed = the combined image
+(~12.8 KB; XIP makes code size a non-issue). Docs swept for "variant
+toy" (README, FREERTOS_PORT incl. stale task list, PRODUCTION_PERIPHERALS,
+HW_VALIDATION_PLAN, WALKTHROUGH flow table, STATUS_BRIEF, prebuilt
+README).
 
 ## 5. Open questions for the team (track until answered)
 

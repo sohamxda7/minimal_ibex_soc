@@ -128,9 +128,10 @@ ST7735 1.8" SPI LCD (pre-soldered) · BME280 I2C sensor · SSD1306 OLED ·
 jumpers · breadboard · 24 MHz logic analyzer · DT830 multimeter · soldering
 kit (BME280 + OLED need ~10 header joints — ask for guidance before starting).
 
-Firmware: `ibex_soc.bat` → variant *toy (LCD+sensors)* → **Flash to Board**
-(adds the toy task: a live LCD system-status screen, plus a BME280 reading
-on UART + OLED every cycle once those are wired).
+Firmware: `ibex_soc.bat` → **Flash to Board** — nothing to select. Since
+2026-08-18 there is ONE hardware image and the LCD/sensor task is always in
+it (a live LCD system-status screen, plus a BME280 reading on UART + OLED
+every cycle once those are wired; un-wired parts are tolerated).
 
 ### Phase 2a — LCD only, NO soldering needed (start here)
 
@@ -151,7 +152,9 @@ row (a few sockets along the same edge) is labelled 3V3 / GND / 5V0 / VIN.
    closes the Phase-1 RGB re-check (only LED0 lit last time; fixed).
 2. **Power off, wire the LCD** per the table below, double-checking your
    module's silkscreen (pin order varies between ST7735 boards).
-3. **Phase 2a**: flash the *toy* firmware variant and watch the screen.
+3. **Phase 2a**: **Flash to Board** again (any firmware flashed before
+   2026-08-18 predates the LCD screen — a wired LCD stays dark on old
+   firmware) and watch the screen come up.
 
 **What the LCD shows:** a big orange **ARF** logo, the
 `minimal-ibex-soc` title bar, the core/kernel/memory banner, then a live

@@ -23,7 +23,7 @@ all timing constraints met.
 | Lead's regression ask (item 5, sim part) | **Done**: `tb_uart2_irq` covers simultaneous UART1+UART2 traffic, 128-byte FIFO burst/overflow (exactly 128 kept of 160), IRQ vectoring, unsolicited events, post-overflow recovery |
 | Toolchain-less lab PCs | **Unblocked twice over**: the GUI now auto-installs a native Windows RISC-V GCC (Install Missing Tools / offered inside Flash to Board - build-first policy), and a committed prebuilt remains as an explicit-choice fallback — fixes ARF-BBSR-84's "unable to dump" (programming had succeeded; the firmware build was failing for lack of RISC-V GCC) |
 | Bugs found & fixed pre-silicon | 7 (incl. 3 in the untested XIP controller, 1 in the team I2C BFM) |
-| Hardware validation | **Phase 1 core PASSED 2026-08-18**: v1.1 FreeRTOS booted from QSPI flash on the board (XIP), console + patterns verified (BRINGUP_TEST_REPORT sec. 8). **Phase 2a ready to run, no soldering**: the pre-soldered ST7735 LCD now renders a live system-status screen (toy firmware, sim-proven, jumper-wire hookup in PRODUCTION_PERIPHERALS §8). Soldered I2C parts + Phase 3 wait on bench time/parts |
+| Hardware validation | **Phase 1 core PASSED 2026-08-18**: v1.1 FreeRTOS booted from QSPI flash on the board (XIP), console + patterns verified (BRINGUP_TEST_REPORT sec. 8). **Phase 2a ready to run, no soldering**: the pre-soldered ST7735 LCD renders a live system-status screen with the ARF logo (in EVERY flashed image since 2026-08-18 — a variant dropdown caused one dark-LCD bench session and was removed). Soldered I2C parts + Phase 3 wait on bench time/parts |
 | Docs | Consolidated 13 → 9 files; root README is the front door |
 | Open decisions | **2** (below) + one watch-item: vendored Ibex is pinned at `594ea976` (2025-04) and upstream has moved 154 commits — we deliberately do NOT sync RTL pre-tapeout (the FPGA must validate the exact tapeout netlist); the 154 commits were AUDITED 2026-08-18: ~60% DV/formal/CI/docs, ~30% features we do not enable (Zcb/Zcmp, CHERIoT, SecureIbex/PMP/ICache hardening, U-mode counters), and no functional fix in the logic we tape out (closest: a minstret counter fix - unused by our firmware). Recommendation: stay pinned through tapeout; evaluate Zcmp (code density) for chip v2. FreeRTOS kernel synced to latest V11.3.0 (software, sim-verified) |
 
@@ -85,7 +85,7 @@ The voice-AI use case works as record → PSRAM → ESP32 → cloud AI → play.
 | Phase | Trigger | Content |
 |---|---|---|
 | **Phase 1** | Board back on desk | Re-validate all base IO on the current build: LEDs, RGB, patterns, speed, switches, buttons, UART both ways, Pmods, plus FreeRTOS boot from flash and power-cycle persistence. One flow: `ibex_soc.bat` → Flash to Board → PuTTY. ~1 session |
-| **Phase 2a** | Now (no soldering) | ST7735 LCD only, jumper wires: live system-status screen mirrors the PuTTY console — `ibex_soc.bat` → firmware variant *toy* → Flash to Board |
+| **Phase 2a** | Now (no soldering) | ST7735 LCD only, jumper wires: live system-status screen (ARF logo) mirrors the PuTTY console — `ibex_soc.bat` → Flash to Board, nothing to select |
 | **Phase 2** | ~10 header joints soldered | BME280, OLED join the same toy image; logic-analyzer captures |
 | **Phase 3** | Batch-2 parts (~₹1,800, awaiting approval) | PSRAM, ESP32/WiFi, mic, speaker, camera, then the full voice-AI loop |
 | **Tapeout** | After decisions below | Reconcile RTL ↔ PD netlist, re-run regression on the frozen config, hand over to synthesis |

@@ -47,8 +47,8 @@ ibex_soc.bat
 4. Open PuTTY at **115200 8N1** (COM port from Device Manager).
 
 Every button is also a command: `powershell -File scripts\flows.ps1 <flow>`
-with `setup | deps | xpr | build | program | firmware [sim|toy] |
-flashfw [toy] | flashonly [bin] | regression`. (Requires Windows; clone
+with `setup | deps | xpr | build | program | firmware [sim] |
+flashfw | flashonly [bin] | regression`. (Requires Windows; clone
 outside OneDrive, path without spaces — Vivado breaks on both.)
 
 ### The serial console
@@ -69,10 +69,11 @@ echoed back as its ack):
 Holding any board button makes the LEDs mirror the switches. Scripted
 check: `python util/uart_command_test.py`.
 
-With the *toy* firmware variant and the batch-1 ST7735 LCD wired
-(pre-soldered — jumper wires only, no soldering, see
-[PRODUCTION_PERIPHERALS.md §8](docs/PRODUCTION_PERIPHERALS.md)), the same
-system info + live status renders on the LCD, updating as you type.
+The flashed image always includes the LCD status screen: wire the batch-1
+ST7735 (pre-soldered — jumper wires only, no soldering, see
+[PRODUCTION_PERIPHERALS.md §8](docs/PRODUCTION_PERIPHERALS.md)) and the
+ARF logo + the same system info render on it, updating live as you type.
+No LCD wired? The screen task idles harmlessly.
 
 ## Binding constraints (from the tapeout spec)
 

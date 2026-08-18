@@ -173,9 +173,8 @@ instruction is an XIP fetch; at `XipClkDiv=1` the tick path costs ~1 ms, so
 ## 3. Building and running
 
 ```
-sw\freertos\build.bat         # hardware image -> build\freertos_demo_flash.vmem
+sw\freertos\build.bat         # THE hardware image (incl. LCD/sensor task)
 sw\freertos\build.bat sim     # simulation image (fast tick, for tb_freertos)
-sw\freertos\build.bat toy     # hardware image incl. the toy-interfacing task
 ```
 
 Simulation (after `python sw/asm-demo/xip_test.py` and the usual compile):
@@ -205,16 +204,18 @@ supported delivery is the **Flash to Board** flow in `ibex_soc.bat`
 
 - `blink` (prio 1): LED patterns 1-4 on `gp_o[7:4]`; while any button is
   held, mirrors the switches.
-- `rgb` (prio 1): RGB LED0 via PWM ch0-2 - brightness breathing, colour
-  auto-cycle or forced.
+- `rgb` (prio 1): all four RGB LEDs via PWM ch0-11 - brightness breathing,
+  colour auto-cycle or forced.
 - `console` (prio 2): PuTTY commands, same as the old asm demo -
   `1`-`4` pattern, `f/m/s` speed (50/150/400 ms), `r/g/b/w` force colour,
-  `a` auto-cycle, all other keys echoed.
-- `report` (prio 2): prints `tick=N` over UART.
-- `toy` task (TOY_DEMO builds, prio 1): the toy-interfacing final test —
-  ST7735 LCD banner over SPI, then a BME280 reading every 2 s to UART and the
-  SSD1306 OLED. Needs hardware wired per
-  [PRODUCTION_PERIPHERALS.md sec. 8](PRODUCTION_PERIPHERALS.md).
+  `a` auto-cycle, `t` heartbeat toggle, all other keys echoed.
+- `report` (prio 2): heartbeat `tick=N up=Ss` (quiet 30 s, then every 10 s).
+- `toy` task (prio 1, **in every hardware image** since 2026-08-18): the
+  ST7735 live system-status screen (deep-blue ARF logo, banner, per-second
+  status with change-only redraws), plus a BME280 reading to UART + SSD1306
+  OLED once those are wired. Tolerates missing parts (bounded I2C waits) —
+  wiring per [PRODUCTION_PERIPHERALS.md sec. 8](PRODUCTION_PERIPHERALS.md).
+  Excluded from `sim` builds to keep tb_freertos fast.
 
 ## 5. Peripheral drivers (`sw/freertos/drivers/`)
 

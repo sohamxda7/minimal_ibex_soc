@@ -1,8 +1,9 @@
 # =============================================================================
 # minimal-ibex-soc Control Panel (Windows-only, WinForms - no dependencies
 # beyond stock PowerShell). THE user interface for everything: environment
-# doctor + tool setup, .xpr generation, bitstream build, board programming,
-# FreeRTOS firmware + QSPI flashing, full regression, docs and live logs.
+# doctor + tool setup, .xpr generation, bitstream build, FreeRTOS firmware
+# + QSPI flashing, full regression, docs and live logs. (JTAG programming
+# is dev-only and CLI-only: powershell -File scripts\flows.ps1 program)
 #
 # Launch: ibex_soc.bat (the one root script), or:
 #   powershell -NoProfile -ExecutionPolicy Bypass -File gui\ibex_control_panel.ps1
@@ -77,27 +78,16 @@ Add-Button "Full Regression"   644 70 150 { Launch-Flow "regression" "" } `
   "Images + firmware + compile + all 10 simulations + bitstream + scoreboard (~1 h)." | Out-Null
 
 # ---- row 2: firmware / board ---------------------------------------------------
+# ONE image, no variant picker: the dropdown cost a bench session (2026-08-18 -
+# "standard demo" was flashed with an LCD wired, screen stayed dark). The
+# hardware firmware now always includes console + LEDs/RGB + the LCD status
+# screen (missing parts tolerated). JTAG programming is dev-only, CLI-only:
+#   powershell -File scripts\flows.ps1 program
 Add-Label "FreeRTOS firmware and board" 12 112 $true | Out-Null
-$variant = New-Object Windows.Forms.ComboBox
-$variant.Location = New-Object Drawing.Point(12, 134)
-$variant.Size     = New-Object Drawing.Size(160, 30)
-$variant.DropDownStyle = "DropDownList"
-[void]$variant.Items.AddRange(@("standard demo", "toy (LCD+sensors)", "sim image"))
-$variant.SelectedIndex = 0
-$form.Controls.Add($variant)
-
-function Get-VariantArg {
-    switch ($variant.SelectedIndex) { 1 { "toy" } 2 { "sim" } default { "" } }
-}
-
-Add-Button "Build Firmware" 182 132 160 { Launch-Flow "firmware" (Get-VariantArg) } `
-  "Compile the selected variant with the RISC-V GCC." | Out-Null
-Add-Button "Flash to Board (QSPI)" 352 132 160 {
-    $fw = if ($variant.SelectedIndex -eq 1) { "toy" } else { "" }
-    Launch-Flow "flashfw" $fw
-} "THE flow: BUILDS the firmware (offers the automatic GCC install if missing; prebuilt only on your explicit choice) + XIP bitstream + QSPI flash. Survives power-cycle." | Out-Null
-Add-Button "Program Board (JTAG)" 522 132 160 { Launch-Flow "program" "" } `
-  "Dev-only, volatile: lost at power-cycle. Board must be connected." | Out-Null
+Add-Button "Build Firmware" 12 132 160 { Launch-Flow "firmware" "" } `
+  "Compile the firmware with the RISC-V GCC (console + LEDs/RGB + LCD status screen - one image)." | Out-Null
+Add-Button "Flash to Board (QSPI)" 182 132 160 { Launch-Flow "flashfw" "" } `
+  "THE flow: BUILDS the firmware (offers the automatic GCC install if missing; prebuilt only on your explicit choice) + XIP bitstream + QSPI flash. Survives power-cycle. Includes the LCD status screen - wired or not." | Out-Null
 
 # ---- row 3: docs + logs ---------------------------------------------------------
 Add-Label "Docs and logs" 12 178 $true | Out-Null

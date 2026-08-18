@@ -56,7 +56,8 @@ read "heartbeat" accordingly.
 
 Wire per [PRODUCTION_PERIPHERALS.md sec. 8](PRODUCTION_PERIPHERALS.md) tables
 (LCD → ChipKit A6–A11; BME280 + SSD1306 → Pmod JA1/JA2 + power).
-Firmware: `ibex_soc.bat` → variant *toy* → **Flash to Board**.
+Firmware: `ibex_soc.bat` → **Flash to Board** (one image — the LCD/sensor
+task is always included since 2026-08-18; no variant to pick).
 
 **Phase 2a first — LCD only, no soldering** (the ST7735 comes pre-soldered;
 jumper wires only, PRODUCTION_PERIPHERALS §8 "Phase 2a"): run test 14 with
