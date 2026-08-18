@@ -58,9 +58,13 @@ Wire per [PRODUCTION_PERIPHERALS.md sec. 8](PRODUCTION_PERIPHERALS.md) tables
 (LCD → ChipKit A6–A11; BME280 + SSD1306 → Pmod JA1/JA2 + power).
 Firmware: `ibex_soc.bat` → variant *toy* → **Flash to Board**.
 
+**Phase 2a first — LCD only, no soldering** (the ST7735 comes pre-soldered;
+jumper wires only, PRODUCTION_PERIPHERALS §8 "Phase 2a"): run test 14 with
+nothing else wired. Tests 15-17 wait for the ~10 OLED/BME280 header joints.
+
 | # | Test | Pass criterion | Result |
 |---|---|---|---|
-| 14 | ST7735 LCD | banner + orange rectangle (matches tb_lcd sequence) | ☐ |
+| 14 | ST7735 LCD | system-status screen: banner text renders, uptime/tick advance every second, PuTTY keys (`1-4`, `r/g/b/w/a`, `t`) change the pat/rgb/key fields within 1 s | ☐ |
 | 15 | I2C bus scan | OLED (0x3C) and BME280 (0x76) both ACK | ☐ |
 | 16 | BME280 | plausible T/P/H on UART every 2 s | ☐ |
 | 17 | SSD1306 | title + live temperature line rendered | ☐ |

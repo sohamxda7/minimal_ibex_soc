@@ -129,7 +129,25 @@ jumpers · breadboard · 24 MHz logic analyzer · DT830 multimeter · soldering
 kit (BME280 + OLED need ~10 header joints — ask for guidance before starting).
 
 Firmware: `ibex_soc.bat` → variant *toy (LCD+sensors)* → **Flash to Board**
-(adds the toy task: LCD banner, then a BME280 reading on UART + OLED every 2 s).
+(adds the toy task: a live LCD system-status screen, plus a BME280 reading
+on UART + OLED every cycle once those are wired).
+
+### Phase 2a — LCD only, NO soldering needed (start here)
+
+The ST7735 ships with its header pre-soldered, so it is the one batch-1
+part testable the day it arrives: 8 female-to-male jumper wires, female end
+onto the LCD pins, male end into the Arty sockets per the table below.
+The toy firmware is missing-part tolerant — every I2C wait is bounded, so
+the un-wired OLED/BME280 just show as `--` on screen and
+`oled=... bme=... (0=ok)` non-zero on UART; nothing hangs.
+
+**What the LCD shows** (the PuTTY console's system info, on glass): an
+orange `minimal-ibex-soc` title bar, core/kernel/memory banner, then a live
+status block refreshed every second — uptime, tick count, LED pattern +
+speed, last key pressed, RGB mode, heartbeat state, OLED/BME presence, and
+the temperature once a BME280 joins. Keys typed in PuTTY update the screen
+within a second: that round trip (UART RX → task state → SPI text render)
+is itself the test.
 
 ### ST7735 LCD (SPI) — wiring to the Arty ChipKit analog header
 

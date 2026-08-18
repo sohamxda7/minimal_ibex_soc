@@ -69,6 +69,11 @@ echoed back as its ack):
 Holding any board button makes the LEDs mirror the switches. Scripted
 check: `python util/uart_command_test.py`.
 
+With the *toy* firmware variant and the batch-1 ST7735 LCD wired
+(pre-soldered — jumper wires only, no soldering, see
+[PRODUCTION_PERIPHERALS.md §8](docs/PRODUCTION_PERIPHERALS.md)), the same
+system info + live status renders on the LCD, updating as you type.
+
 ## Binding constraints (from the tapeout spec)
 
 - **SRAM = 8 KiB** at `0x0010_2000` — the Caravel area budget; not

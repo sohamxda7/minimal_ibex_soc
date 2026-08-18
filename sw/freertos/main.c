@@ -56,6 +56,7 @@ static volatile uint8_t    g_mode = 1;              /* patterns 1..4          */
 static volatile TickType_t g_step = 0;              /* set in main            */
 static volatile int8_t     g_rgb  = -1;             /* -1 auto; 0 R,1 G,2 B,3 W */
 static volatile uint8_t    g_beat = 1;              /* 't' toggles heartbeat  */
+static volatile char       g_key  = '-';            /* last key (LCD status)  */
 
 /* LED patterns on gp_o[7:4]; while any button is held, mirror the switches
  * (SW = gp_i[7:4], BTN = gp_i[3:0], debounced register). */
@@ -167,6 +168,11 @@ static void prvConsoleTask( void * pvParameters )
             default: break;
         }
 
+        if( ( c >= 32 ) && ( c < 127 ) )
+        {
+            g_key = ( char ) c;
+        }
+
         uart_putc( ( char ) c );                 /* echo-ack, as before     */
     }
 }
@@ -178,20 +184,52 @@ static void prvConsoleTask( void * pvParameters )
 #include "drivers/ssd1306.h"
 #include "drivers/st7735.h"
 
-/* The "toy interfacing" final test (docs/PRODUCTION_PERIPHERALS.md sec. 8): LCD banner over
- * SPI, then a BME280 reading every 2 s to UART + OLED. Needs the purchased
- * hardware wired per the doc's tables, so it only runs in TOY_DEMO builds. */
+/* Right-aligned decimal into a fixed-width field (space padded so shorter
+ * numbers erase longer previous ones on the LCD). */
+static void prvU32Field( char * dst, uint32_t v, int width )
+{
+    for( int i = width - 1; i >= 0; i-- )
+    {
+        if( ( v != 0u ) || ( i == width - 1 ) )
+        {
+            dst[ i ] = ( char ) ( '0' + ( v % 10u ) );
+            v /= 10u;
+        }
+        else
+        {
+            dst[ i ] = ' ';
+        }
+    }
+}
+
+/* The "toy interfacing" test (docs/PRODUCTION_PERIPHERALS.md sec. 8), now a
+ * live system-status screen on the ST7735 - the same info the PuTTY console
+ * shows, refreshed every second. Phase 2a needs ONLY the pre-soldered LCD
+ * (no soldering); the I2C parts (OLED/BME280) are probed with bounded
+ * timeouts and simply reported "--" until they are wired. */
 static void prvToyTask( void * pvParameters )
 {
     static bme280_t xSensor;          /* static: keep task stack small */
     bme280_reading_t xReading;
     int rcSensor, rcOled;
+    char line[ ST7735_TEXT_COLS + 1 ];
 
     ( void ) pvParameters;
 
     st7735_init();
     st7735_fill_screen( ST7735_RGB( 0, 0, 0 ) );
-    st7735_fill_rect( 10, 10, 108, 30, ST7735_RGB( 0xFF, 0x80, 0x00 ) );
+
+    /* static part of the screen (banner, mirrors prvPrintBanner) */
+    st7735_text_ex( 0, 0, "  minimal-ibex-soc   ",
+                    ST7735_RGB( 0, 0, 0 ), ST7735_RGB( 0xFF, 0x80, 0x00 ) );
+    st7735_text( 0, 2, "FreeRTOS " tskKERNEL_VERSION_NUMBER );
+    st7735_text( 0, 3, "Ibex RV32IMC @ 20MHz" );
+    st7735_text( 0, 4, "XIP + 8KiB SRAM" );
+    st7735_fill_rect( 0, 44, 128, 1, ST7735_RGB( 0xFF, 0x80, 0x00 ) );
+    st7735_text( 0, 15, "keys: 1-4 pattern" );
+    st7735_text( 0, 16, "f/m/s speed  t beat" );
+    st7735_text( 0, 17, "r/g/b/w/a rgb colour" );
+    st7735_fill_rect( 0, 116, 128, 1, ST7735_RGB( 0xFF, 0x80, 0x00 ) );
 
     i2c_init();
     rcOled   = ssd1306_init( SSD1306_ADDR );
@@ -210,6 +248,47 @@ static void prvToyTask( void * pvParameters )
 
     for( ; ; )
     {
+        TickType_t xNow = xTaskGetTickCount();
+
+        /* live status block, fixed-width fields overwrite in place */
+        for( int i = 0; i < ST7735_TEXT_COLS; i++ ) line[ i ] = ' ';
+        line[ ST7735_TEXT_COLS ] = '\0';
+
+        ( void ) __builtin_memcpy( line, "up", 2 );
+        prvU32Field( &line[ 3 ], ( uint32_t ) ( xNow / configTICK_RATE_HZ ), 7 );
+        line[ 10 ] = 's';
+        st7735_text( 0, 6, line );
+
+        for( int i = 0; i < ST7735_TEXT_COLS; i++ ) line[ i ] = ' ';
+        ( void ) __builtin_memcpy( line, "tick", 4 );
+        prvU32Field( &line[ 5 ], ( uint32_t ) xNow, 10 );
+        st7735_text( 0, 7, line );
+
+        for( int i = 0; i < ST7735_TEXT_COLS; i++ ) line[ i ] = ' ';
+        ( void ) __builtin_memcpy( line, "pat:  spd:  key:", 16 );
+        line[ 4 ]  = ( char ) ( '0' + g_mode );
+        line[ 10 ] = ( g_step == STEP_FAST ) ? 'f'
+                   : ( g_step == STEP_SLOW ) ? 's' : 'm';
+        line[ 16 ] = g_key;
+        st7735_text( 0, 8, line );
+
+        for( int i = 0; i < ST7735_TEXT_COLS; i++ ) line[ i ] = ' ';
+        ( void ) __builtin_memcpy( line, "rgb:      beat:", 15 );
+        {
+            const char * mode = ( g_rgb == 0 ) ? "red " : ( g_rgb == 1 ) ? "grn "
+                              : ( g_rgb == 2 ) ? "blu " : ( g_rgb == 3 ) ? "wht "
+                              : "auto";
+            ( void ) __builtin_memcpy( &line[ 4 ], mode, 4 );
+            ( void ) __builtin_memcpy( &line[ 15 ], g_beat ? "on " : "off", 3 );
+        }
+        st7735_text( 0, 9, line );
+
+        for( int i = 0; i < ST7735_TEXT_COLS; i++ ) line[ i ] = ' ';
+        ( void ) __builtin_memcpy( line, "oled:    bme:", 13 );
+        ( void ) __builtin_memcpy( &line[ 5 ], ( rcOled == I2C_OK ) ? "ok" : "--", 2 );
+        ( void ) __builtin_memcpy( &line[ 13 ], ( rcSensor == I2C_OK ) ? "ok" : "--", 2 );
+        st7735_text( 0, 10, line );
+
         if( ( rcSensor == I2C_OK ) && ( bme280_read( &xSensor, &xReading ) == I2C_OK ) )
         {
             uart_puts( "T=" );
@@ -220,20 +299,19 @@ static void prvToyTask( void * pvParameters )
             uart_putu32( xReading.hum_milli_pct );
             uart_puts( "m%\r\n" );
 
+            for( int i = 0; i < ST7735_TEXT_COLS; i++ ) line[ i ] = ' ';
+            ( void ) __builtin_memcpy( line, "T=", 2 );
+            prvU32Field( &line[ 2 ], ( uint32_t ) xReading.temp_centi_c, 5 );
+            ( void ) __builtin_memcpy( &line[ 7 ], "cC", 2 );
+            st7735_text( 0, 11, line );
+
             if( rcOled == I2C_OK )
             {
-                char line[ 12 ] = "T=      cC ";
-                uint32_t t = ( uint32_t ) xReading.temp_centi_c;
-                for( int i = 7; i >= 2 && t != 0u; i-- )
-                {
-                    line[ i ] = ( char ) ( '0' + ( t % 10u ) );
-                    t /= 10u;
-                }
                 ssd1306_text( 0, 2, line );
             }
         }
 
-        vTaskDelay( pdMS_TO_TICKS( 2000 ) );
+        vTaskDelay( pdMS_TO_TICKS( 1000 ) );
     }
 }
 

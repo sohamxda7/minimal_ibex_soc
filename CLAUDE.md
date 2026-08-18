@@ -484,6 +484,28 @@ lead watch-item in STATUS_BRIEF. Answered in docs (FREERTOS_PORT "Where
 the code lives"): kernel is vendor/freertos_kernel (main.c is only the
 app); code XIPs from flash, SRAM holds only data/bss/heap/stacks.
 
+**2026-08-18 (Phase 2a prep) — LCD system-status screen, no-solder wiring
+(Soham: "wire only the led display... without soldering... same stuff as
+putty can be shown in that")**: the ST7735 is the ONE batch-1 part that is
+pre-soldered, so Phase 2a = LCD only on 8 jumper wires (ChipKit A6-A11 +
+3V3/GND; tables in PRODUCTION_PERIPHERALS sec. 8 "Phase 2a"). (1) st7735.c
+gained a classic 5x7 font (475 B const -> XIP flash, ZERO SRAM) +
+st7735_text/_ex (6x8 cells, 21 cols x 20 rows, streams straight into RAMWR
+like every primitive - same command sequence tb_lcd proved). (2) prvToyTask
+is now a live status screen mirroring the PuTTY console: orange title bar,
+core/kernel/memory banner, then uptime/tick/pattern/speed/last-key/RGB/
+beat/OLED-BME presence (+ temperature when a BME280 joins) refreshed every
+1 s; missing I2C parts show "--" (all I2C waits are bounded - nothing
+hangs, so LCD-only wiring is safe). (3) REAL BUG fixed by review: st7735's
+prv_gpio_set did a raw RMW on shared GPIO_OUT, racing the LED tasks'
+gpio_out_update (stale-nibble writeback on preemption); harmless at
+write-once frequency, real at 1 Hz updates -> now routes through
+gpio_out_update. Gotcha 24: EVERY GPIO OUT change goes through
+gpio_out_update(). tb_freertos re-run PASS (banner=1 ticks=2); all three
+variants rebuilt; prebuilt refreshed (7584 B); RAM budget unchanged
+(~1.1 KB static). Test 14 criterion updated (status screen, not the old
+orange rectangle); new Phase 2a row in HW_VALIDATION_PLAN + STATUS_BRIEF.
+
 ## 5. Open questions for the team (track until answered)
 
 1. ~~SRAM base address~~ **RESOLVED 2026-08-10: team confirmed
@@ -517,8 +539,10 @@ docs/ASIC_SPEC.md section 3.
   console/patterns/switch-mirror all good (BRINGUP_TEST_REPORT section
   8, HW_VALIDATION_PLAN boxes ticked). Outstanding in Phase 1: re-check
   RGB with the fixed 4-LED firmware (one Flash-to-Board click),
-  scripted uart_command_test.py sweep, Pmod touch-test. Phase 2 =
-  batch-1 parts (LCD/BME280/OLED), Phase 3 = batch-2 parts (ESP32 incl.
+  scripted uart_command_test.py sweep, Pmod touch-test. Phase 2a =
+  LCD only, NO soldering (pre-soldered ST7735 on jumper wires, live
+  status screen firmware ready + sim-proven as of 2026-08-18); Phase 2 =
+  the soldered batch-1 parts (BME280/OLED), Phase 3 = batch-2 parts (ESP32 incl.
   IRQ-mode check 20b / PSRAM / camera / mic / speaker). Results get
   dated tables in BRINGUP_TEST_REPORT.md; a phase is not done until the
   report shows it. Teammate PCs verified working (2026-08-18): bitstream
