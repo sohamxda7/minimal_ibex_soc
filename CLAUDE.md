@@ -629,6 +629,16 @@ UNDRIVEN, a latent X-source; shrinks the PD-netlist delta). Also fixed
 the stale ibex_demo_system.sv map comment (0x600 is PWM, 0x700 UART2).
 Full regression re-run after the RTL delete; board reflashed.
 
+**2026-08-18 (round 5) — PR to the team repo**: pushed our main as branch
+`freertos` on ArfDesign-DB/minimal-ibex-soc (their main is an ancestor -
+clean diff, 345 commits) and opened PR #17
+(https://github.com/ArfDesign-DB/minimal-ibex-soc/pull/17): full
+technical summary - Phase 1 + 2a hardware passes, the 10 fixes
+(bring-up quartet, 3 XIP bugs, I2C BFM, SPI_BUSWIDTH, mode-0, warm-reset
+trampoline, SPICTRL removal), v1.1 additions, 14/14 regression,
+next steps + the pre-freeze decision list incl. both DFFRAM review
+flags. Merging is the team's call (branch-protected main).
+
 ## 5. Open questions for the team (track until answered)
 
 1. ~~SRAM base address~~ **RESOLVED 2026-08-10: team confirmed
