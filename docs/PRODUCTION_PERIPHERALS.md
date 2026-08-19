@@ -158,7 +158,11 @@ failed cycles (`toy: bme lost`) and picked up again on re-seat.
    WALKTHROUGH gotcha 27) — it reboots cleanly on reopen; that is not a
    crash.
 
-### Phase 2a — LCD only, NO soldering needed (start here)
+### Phase 2a — LCD only, no soldering — **PASSED on hardware 2026-08-18**
+
+Status: done (BRINGUP_TEST_REPORT §9 — live status screen up, console
+round trip verified). The steps below stay as the recipe for any fresh
+board or teammate setup.
 
 The ST7735 ships with its header pre-soldered, so it is the one batch-1
 part testable the day it arrives. **Everything you need:** the LCD + 8
@@ -220,7 +224,7 @@ reflash if your bitstream predates it: the fix is in the FPGA logic, so
 Contract: SPI host mode 0, MSB first, 5 MHz; FIFO-empty ≠ shifter idle —
 allow ~32 clocks drain before toggling DC. Verify silkscreen before power.
 
-### Phase 2b — BME280 + SSD1306 (I2C) — Pmod JA, shared bus
+### Phase 2b — BME280 + SSD1306 (I2C) — Pmod JA, shared bus — READY (parts in hand, needs one bench session)
 
 **Soldering first (the only soldering in Phase 2, ~10 joints).** Both
 modules ship with a loose 4-pin header strip. For each module:
@@ -250,6 +254,11 @@ the silkscreen (square/`JA1`), top row: 1-2-3-4-GND-VCC. Addresses are
 fixed and distinct (OLED 0x3C, BME280 0x76 with SDO low — the common
 purple breakout ties it), so no configuration is needed. Open-drain with
 XDC pull-ups + module pull-ups; OpenCores master at 100 kHz.
+
+**Read each module's silkscreen before wiring — same rule as the LCD.**
+4-pin SSD1306 boards ship in *two* pin orders (`VCC-GND-SCL-SDA` and
+`GND-VCC-SCL-SDA`) and reversed power kills the module; BME280 breakouts
+may label power `VIN`. Wire by the printed name, never by position.
 
 **Test.** No reflash needed if the board already runs the 2026-08-19
 image — the parts are auto-detected within 5 s of power-up (or even wired
