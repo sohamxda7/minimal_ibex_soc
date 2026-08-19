@@ -130,8 +130,19 @@ kit (BME280 + OLED need ~10 header joints — ask for guidance before starting).
 
 Firmware: `ibex_soc.bat` → **Flash to Board** — nothing to select. Since
 2026-08-18 there is ONE hardware image and the LCD/sensor task is always in
-it (a live LCD system-status screen, plus a BME280 reading on UART + OLED
-every cycle once those are wired; un-wired parts are tolerated).
+it. What each part adds when wired (2026-08-19 firmware):
+
+| Wired | You get |
+|---|---|
+| ST7735 LCD | live system-status screen (Phase 2a below) |
+| + BME280 | `T= 25.34C H= 45.6%` joins the LCD live block; a `T=...cC P=...Pa H=...m%` console line every 10 s (silenced together with the heartbeat by `t`). Temperature is signed — below zero prints `-` correctly. |
+| + SSD1306 | title line + the same T/H line, plus pressure and uptime (the LCD has no spare rows for those) |
+
+Un-wired parts show `--` and cost nothing. **Every absent part is
+re-probed every 5 s**, so you can wire the I2C parts *after* boot and they
+join live (`toy: oled attached` / `toy: bme attached` on the console); a
+part that stops answering (loose jumper) is demoted back to `--` after 3
+failed cycles (`toy: bme lost`) and picked up again on re-seat.
 
 ### Phase 2a — LCD only, NO soldering needed (start here)
 
@@ -160,8 +171,8 @@ row (a few sockets along the same edge) is labelled 3V3 / GND / 5V0 / VIN.
 `minimal-ibex-soc` title bar, the core/kernel/memory banner, then a live
 status block refreshed every second — uptime (with a rotating `|/-\`
 "alive" spinner), tick count, LED pattern + speed, last key pressed, RGB
-mode, heartbeat state, OLED/BME presence, and the temperature once a
-BME280 joins. Keys typed in PuTTY update the screen within a second: that
+mode, heartbeat state, OLED/BME presence, and temperature + humidity once
+a BME280 joins. Keys typed in PuTTY update the screen within a second: that
 round trip (UART RX → task state → SPI text render) is itself the test.
 
 *Why it stays smooth:* code executes in place from flash (~500× slower
@@ -195,21 +206,54 @@ reflash if your bitstream predates it: the fix is in the FPGA logic, so
 Contract: SPI host mode 0, MSB first, 5 MHz; FIFO-empty ≠ shifter idle —
 allow ~32 clocks drain before toggling DC. Verify silkscreen before power.
 
-### BME280 + SSD1306 (I2C) — Pmod JA, shared bus
+### Phase 2b — BME280 + SSD1306 (I2C) — Pmod JA, shared bus
 
-| Module pin | Connect to |
+**Soldering first (the only soldering in Phase 2, ~10 joints).** Both
+modules ship with a loose 4-pin header strip. For each module:
+
+1. Push the header's **short pins** through the module holes from the
+   component side, **long pins down**, and stand it in the breadboard so it
+   sits square (the breadboard is the jig — nothing to hold).
+2. Iron at ~350 °C, small tip. Touch pad + pin together for ~1 s, feed in
+   a little solder, pull the solder away, then the iron. 2–3 s per joint.
+3. A good joint is a small shiny cone wetting both pad and pin. A ball
+   sitting on top = reheat. A bridge between pads = reheat and drag apart
+   (worst case: no harm, the board just won't answer on I2C).
+4. Sanity check before power: multimeter continuity pin↔pad, and **no**
+   continuity VCC↔GND on the module.
+
+**Wiring (power off).** Both modules share the one I2C bus — parallel on
+the same two signal wires via breadboard rails:
+
+| Module pin (both modules) | Connect to |
 |---|---|
 | VCC / GND | Pmod JA pin 6 (3.3 V) / pin 5 (GND) via breadboard rails |
 | SCL | Pmod JA pin 1 (G13) |
 | SDA | Pmod JA pin 2 (B11) |
 
-Open-drain with XDC pull-ups + module pull-ups; OpenCores master at 100 kHz.
+Pmod JA is the 12-pin socket nearest the ethernet jack; pin 1 is marked on
+the silkscreen (square/`JA1`), top row: 1-2-3-4-GND-VCC. Addresses are
+fixed and distinct (OLED 0x3C, BME280 0x76 with SDO low — the common
+purple breakout ties it), so no configuration is needed. Open-drain with
+XDC pull-ups + module pull-ups; OpenCores master at 100 kHz.
 
-### Simulation evidence (2026-08-08, both PASS)
+**Test.** No reflash needed if the board already runs the 2026-08-19
+image — the parts are auto-detected within 5 s of power-up (or even wired
+live). Expect on the console at boot:
+`toy: lcd up, oled=0 bme=0 (0=ok)` — non-zero means that part didn't
+answer: recheck VCC/GND orientation first, then SCL/SDA swap (the classic
+miss), then the solder joints. Both parts `ok` + a `T=` line within 10 s =
+Phase 2b passed.
+
+### Simulation evidence (2026-08-08, both PASS; models tightened 2026-08-19)
 
 - **tb_lcd 5/5**: full 26-byte init + pixel sequence decoded by a
-  behavioural ST7735 model (found the sample-on-driving-edge race — SPI
-  models must sample a delayed copy).
+  behavioural ST7735 model. History: the model originally sampled a
+  *delayed* MOSI copy to tolerate the RTL's driving-edge race — which
+  masked a real mode-0 hold-time bug until a physical panel exposed it
+  (2026-08-18). The RTL is fixed and the models now sample the **raw wire
+  at the rising edge** like the datasheet part (CLAUDE.md Rule 1b), so a
+  hold-time regression fails in sim, not on a panel.
 - **tb_i2c**: full register read through the team's `i2c_slave_bfm` — found
   and fixed a real BFM bug (read path released SDA on rising SCL = phantom
   STOP). The same driver sequence reads the BME280 chip-ID on hardware.

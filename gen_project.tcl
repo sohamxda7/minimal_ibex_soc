@@ -23,7 +23,8 @@ add_files -norecurse $srcs
 add_files -norecurse rtl/fpga/top_artya7.sv
 add_files -fileset constrs_1 data/pins_artya7.xdc
 set_property top top_artya7 [current_fileset]
-set_property generic "SRAMInitFile=sw/asm-demo/xip_stub.vmem" [current_fileset]
+# No SRAMInitFile: the boot ROM jumps directly into the XIP window
+# (rtl/system/boot.mem, 2026-08-19) — SRAM ships uninitialised like silicon.
 set_property include_dirs {vendor/lowrisc_ip/ip/prim/rtl rtl/system} [current_fileset]
 update_compile_order -fileset sources_1
 puts "PROJECT OK -> build/vivado_project/minimal_ibex_soc.xpr"

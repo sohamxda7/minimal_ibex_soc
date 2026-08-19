@@ -80,7 +80,8 @@ Planned floorplan: DFFRAM ~1.8 mm² + logic (~44 kGE) ~4.0 mm² + power/routing
 
 | Item | Spec | This repo | Status |
 |---|---|---|---|
-| SRAM base | ~~`0x0010_1000`~~ | `0x0010_2000` | **RESOLVED 2026-08-10: team confirmed `0x0010_2000` is correct** (the guide's printed value is stale). Boot ROM jump contract (entry = SRAM+0x80 = `0x0010_2080`) stands. |
+| SRAM base | ~~`0x0010_1000`~~ | `0x0010_2000` | **RESOLVED 2026-08-10: team confirmed `0x0010_2000` is correct** (the guide's printed value is stale). |
+| Boot entry | jump to SRAM+0x80 | **direct XIP: ROM jumps to `0x2040_0000`** | **RESOLVED 2026-08-19 (lead-directed): direct XIP boot** — silicon SRAM powers up random, so the ROM must not read it. `rtl/system/boot.mem` = `lui t0,0x20400; jalr x0,0(t0)` at reset PC `0x0010_0080`. Legacy SRAM+0x80 entry kept alive by startup.S (self-written each boot) for debug flows. Regressed by tb_xip (**uninitialised X** SRAM) + tb_freertos (**deterministic random-garbage** SRAM = silicon power-up). |
 | PWM block | absent from guide | `0x4000_0600` (12 ch, RGB demo) | **RESOLVED 2026-08-10: keep in BOTH FPGA and ASIC** (sub-lead: the guide omitted it only because it predates the fork; it was present in the original ibex-demo-system). Gate cost ~1-2 kGE on top of the ~44 kGE budget - inside the ~29% floorplan margin. |
 | SPI control regs | `0x4000_0300` | absent (XIP has no CSRs) | Fine for now — XIP controller is fixed-function. |
 
@@ -116,6 +117,12 @@ FreeRTOS kernel hot paths in SRAM, application code XIP.
 
 **Boot flow (spec):** reset vector `0x0010_0000` (boot ROM) → set SP → clear
 BSS → jump to main in SRAM *or* directly into the XIP window.
+**Implemented (2026-08-19): the direct-XIP variant.** The ROM's only two
+real instructions jump straight to `0x2040_0000`; startup.S (in flash) then
+sets SP, writes the legacy SRAM trampoline, copies `.data`, zeroes `.bss`.
+Boot depends on no SRAM power-up content — verified in sim with
+uninitialised (X) SRAM (tb_xip) and deterministic random-garbage SRAM
+(tb_freertos, full product).
 
 This repo already implements the controller (`rtl/system/spi_flash_xip.sv`,
 decoded at `0x2000_0000` in `wb_interconnect.sv`); simulation proof and board

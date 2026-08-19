@@ -14,8 +14,13 @@
 //                     bus presents frame[ptr]. Frame = (i*7+3)&0xFF, matching
 //                     sw/asm-demo/periph_tests.py's expected checksum.
 //
-// All SPI models follow the edge discipline proven by tb_lcd/tb_i2c: sample
-// MOSI on rising SCK, change outputs on falling SCK only.
+// All SPI models are STRICT mode-0 datasheet slaves (CLAUDE.md Rule 1b):
+// sample the RAW MOSI wire on rising SCK, change outputs on falling SCK
+// only. Never sample a delayed copy of MOSI - that workaround (removed
+// 2026-08-19) forgave zero hold time and MASKED the real spi_host.sv
+// mode-0 bug that a physical ST7735 exposed on 2026-08-18. With the fixed
+// RTL, MOSI is stable half an SCK period before the sampling edge; if a
+// hold-time regression ever returns, these models must fail loudly.
 // ============================================================================
 
 `timescale 1ns / 1ps
@@ -31,10 +36,6 @@ module spi_psram_model #(
 );
   logic [7:0]  mem [0:MEM_BYTES-1];
   logic [7:0]  cmd_q, dout_q, shin_q;
-  // The SPI host updates MOSI on the RISING sck edge (same race tb_lcd
-  // exposed) - sample a delayed copy, never the raw wire on that edge.
-  wire mosi_dly;
-  assign #2 mosi_dly = mosi;
   logic [23:0] addr_q;
   int          bit_cnt;
   typedef enum int { P_CMD, P_ADDR, P_WR, P_RD, P_DEAD } pstate_e;
@@ -51,7 +52,7 @@ module spi_psram_model #(
     if (!csn) begin
       case (st)
         P_CMD: begin
-          cmd_q = {cmd_q[6:0], mosi_dly}; bit_cnt++;
+          cmd_q = {cmd_q[6:0], mosi}; bit_cnt++;
           if (bit_cnt == 8) begin
             bit_cnt = 0;
             if (cmd_q == 8'h02)      st = P_ADDR;
@@ -63,14 +64,14 @@ module spi_psram_model #(
           end
         end
         P_ADDR: begin
-          addr_q = {addr_q[22:0], mosi_dly}; bit_cnt++;
+          addr_q = {addr_q[22:0], mosi}; bit_cnt++;
           if (bit_cnt == 24) begin
             bit_cnt = 0;
             st = (cmd_q == 8'h02) ? P_WR : P_RD;
           end
         end
         P_WR: begin
-          shin_q = {shin_q[6:0], mosi_dly}; bit_cnt++;
+          shin_q = {shin_q[6:0], mosi}; bit_cnt++;
           if (bit_cnt == 8) begin
             mem[addr_q % MEM_BYTES] = shin_q;
             $display("[%0t] psram WR [%06h] = %02h", $time, addr_q, shin_q);

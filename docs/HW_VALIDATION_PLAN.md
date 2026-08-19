@@ -66,13 +66,14 @@ nothing else wired. Tests 15-17 wait for the ~10 OLED/BME280 header joints.
 | # | Test | Pass criterion | Result |
 |---|---|---|---|
 | 14 | ST7735 LCD | system-status screen: ARF logo (deep blue) + banner render, uptime/tick advance and the alive-spinner rotates every second, PuTTY keys (`1-4`, `r/g/b/w/a`, `t`) change the pat/rgb/key fields within 1 s | **PASS 2026-08-18** — firmware path proven over serial (`toy: lcd up`), panel visually confirmed by Soham after the SPI mode-0 + warm-reset fixes ("tft is also coming fine") |
-| 15 | I2C bus scan | OLED (0x3C) and BME280 (0x76) both ACK | ☐ |
-| 16 | BME280 | plausible T/P/H on UART every 2 s | ☐ |
-| 17 | SSD1306 | title + live temperature line rendered | ☐ |
+| 15 | I2C bus scan | boot line `toy: lcd up, oled=0 bme=0 (0=ok)` — both parts ACK (or `toy: oled attached` / `toy: bme attached` if wired after boot: parts are re-probed every 5 s) | ☐ **Phase 2b — parts in hand, next board session** |
+| 16 | BME280 | plausible signed T + P + H: `T=...cC P=...Pa H=...m%` on UART every 10 s (with `t` reports on) and `T= 25.34C H= 45.6%` on the LCD live block | ☐ |
+| 17 | SSD1306 | title + live T/H line + pressure + uptime rendered | ☐ |
+| 17b | Self-heal | pull the BME280 SDA jumper mid-run → `toy: bme lost` + LCD `bme:--` within ~3 s; re-seat → `toy: bme attached` within 5 s | ☐ |
 | 18 | Logic-analyzer capture | SPI + I2C traces archived for the report | ☐ |
 
-(Soldering note: BME280/OLED need ~10 header joints — ping before starting,
-guidance promised.)
+(Soldering + wiring guide: PRODUCTION_PERIPHERALS §8 "Phase 2b" —
+~10 header joints, breadboard as jig, continuity-check before power.)
 
 ## Phase 3 — batch-2 production peripherals (needs: Phase 2 green + order)
 

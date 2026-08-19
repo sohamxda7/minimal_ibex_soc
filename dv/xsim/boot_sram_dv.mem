@@ -1,9 +1,7 @@
-// Boot ROM image (1024 words, hex). Reset PC = 0x0010_0080 = word 32.
-// Words 32/33: lui t0,0x20400 / jalr x0,0(t0) -> DIRECT XIP BOOT at
-// 0x2040_0000 (firmware at flash offset 0x40_0000). The ROM touches no
-// SRAM: silicon SRAM powers up with random contents (STATUS_BRIEF
-// decision 4, resolved 2026-08-19). DV testbenches that preload a
-// program into SRAM use dv/xsim/boot_sram_dv.mem instead.
+// DV-ONLY boot ROM: jal x0,+0x2000 at word 32 -> SRAM+0x80, so asm-demo
+// testbenches can keep backdoor-loading their program into SRAM via
+// SRAMInitFile. The REAL boot path (rtl/system/boot.mem, direct XIP) is
+// regressed by tb_xip and tb_freertos with UNINITIALISED SRAM.
 00000013
 00000013
 00000013
@@ -36,8 +34,8 @@
 00000013
 00000013
 00000013
-204002B7
-00028067
+0000206F
+00000013
 00000013
 00000013
 00000013

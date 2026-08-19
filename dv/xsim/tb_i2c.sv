@@ -43,7 +43,8 @@ module tb_i2c;
     .PwmWidth       (12),
     .ClockFrequency (20_000_000),
     .BaudRate       (2_000_000),
-    .SRAMInitFile   ("sw/asm-demo/i2c_test.vmem")
+    .SRAMInitFile   ("sw/asm-demo/i2c_test.vmem"),
+    .BootInitFile   ("dv/xsim/boot_sram_dv.mem") // DV-only SRAM boot; real ROM is direct-XIP
   ) dut (
     .clk_sys_i  (clk),
     .rst_sys_ni (rst_n),

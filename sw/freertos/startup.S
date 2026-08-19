@@ -28,11 +28,14 @@ _start:
     la   t0, freertos_vector_table
     csrw mtvec, t0
 
-    /* Re-arm the warm-reset path. The boot ROM jumps to SRAM+0x80 on EVERY
-       reset (ck_rst warm resets included, not just reconfiguration), so a
-       valid XIP trampoline must live there at all times. The linker keeps
-       SRAM+0x00..0x8F out of .data/.bss; writing it here makes the image
-       self-healing even after a DV program has occupied SRAM. */
+    /* Maintain the LEGACY SRAM+0x80 entry point. Since 2026-08-19 the boot
+       ROM jumps DIRECTLY into the XIP window (no SRAM dependency - silicon
+       SRAM powers up random), so nothing in the product path reads this
+       trampoline any more. It is kept for anything that still jumps to the
+       historical SRAM+0x80 entry (debugger scripts, pre-08-19 bitstreams
+       with the old jal ROM): the linker keeps SRAM+0x00..0x8F out of
+       .data/.bss, and writing it here makes the image self-healing on
+       every boot either way. */
     lui  t0, 0x102          /* t0 = 0x00102000 (SRAM base)               */
     li   t1, 0x204002b7     /* lui  t0, 0x20400                          */
     sw   t1, 0x80(t0)

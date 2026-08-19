@@ -452,8 +452,8 @@ switch ($Flow.ToLower()) {
             }
         }
 
-        Write-Host "=== [2/3] Building XIP-boot bitstream (SRAM = trampoline) ==="
-        $rc = Invoke-Vivado "build_fpga.tcl" "build\fpga\build.log" @("sw/asm-demo/xip_stub.vmem")
+        Write-Host "=== [2/3] Building XIP-boot bitstream (direct-XIP boot ROM, SRAM uninitialised) ==="
+        $rc = Invoke-Vivado "build_fpga.tcl" "build\fpga\build.log" @()
         if ($rc -ne 0) { Write-Host "BITSTREAM BUILD FAILED - see build\fpga\build.log"; exit 1 }
 
         Write-Host "=== [3/3] Programming QSPI flash (bitstream + firmware @0x40_0000) ==="

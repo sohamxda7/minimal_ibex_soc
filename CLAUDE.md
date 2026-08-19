@@ -127,10 +127,18 @@ FPGA validation must run the silicon configuration or it isn't validation.
   JA1/JA2); SPI host `0x4000_0500`; PWM `0x4000_0600` (in BOTH FPGA and
   ASIC — team-confirmed 2026-08-10; the guide had merely omitted an
   upstream-inherited block); debug window `0x1A11_0000`.
-- **Boot contract**: everything enters at SRAM+0x80 = `0x0010_2080`.
-  For XIP firmware the SRAM image is a 2-instruction trampoline
-  (`sw/asm-demo/xip_test.py` -> xip_stub.vmem) jumping to `0x2040_0000`.
-  Changing this contract breaks boot.mem — don't.
+- **Boot contract (since 2026-08-19, lead-directed)**: the boot ROM
+  (`rtl/system/boot.mem`) jumps **DIRECTLY to `0x2040_0000`** (lui+jalr
+  at reset PC `0x0010_0080`) — it never reads SRAM, because silicon SRAM
+  powers up random. The legacy SRAM+0x80 entry (`0x0010_2080`) is
+  re-written by startup.S each boot for debug flows; the linker keeps
+  SRAM+0x00..0x8F reserved for it. DV-only: the 8 asm-demo benches boot
+  via `dv/xsim/boot_sram_dv.mem` (old jal) to keep SRAM-resident test
+  programs; tb_xip boots the REAL ROM with uninitialised (X) SRAM, and
+  tb_freertos with deterministic random garbage
+  (`dv/xsim/sram_powerup_random.vmem` — X-init passes but sprays benign
+  X-payload asserts; random garbage models silicon power-up cleanly).
+  Changing the boot path again = re-regress those two + a board boot.
 - **QSPI flash pins**: CS=L13, DQ0(MOSI)=K17, DQ1(MISO)=K18; **SCK has no
   package pin** — it's the CCLK config pin, driven via STARTUPE2.USRCCLKO
   (top_artya7.sv). XipClkDiv param: FPGA top uses 1 (10 MHz; flash rated
@@ -639,11 +647,45 @@ trampoline, SPICTRL removal), v1.1 additions, 14/14 regression,
 next steps + the pre-freeze decision list incl. both DFFRAM review
 flags. Merging is the team's call (branch-protected main).
 
+**2026-08-19 — DIRECT XIP BOOT (lead-directed) + Phase 2b prep**: Ravi's
+reply resolved the open decisions: UART2 IS in the tapeout netlist;
+first boot = **direct XIP** ("no dependency on SRAM power-up contents,
+regress thoroughly"); DFFRAM fixes assigned to the team; mode-0 fix
+confirmed must reach PD; Verilator regression is Shivanee's.
+Implemented same day:
+- `boot.mem` word 32/33 = `lui t0,0x20400; jalr x0,0(t0)` — the ROM
+  never reads SRAM. New `BootInitFile` param plumbed through
+  ibex_demo_system/wrapper_top; the 8 asm-demo benches boot a DV-only
+  SRAM-jump ROM (`dv/xsim/boot_sram_dv.mem`); **tb_xip boots the real
+  ROM with SRAMInitFile="" = X-filled SRAM (clean — zero asserts);
+  tb_freertos with deterministic random garbage** (X-init passed but
+  produced 571 benign IbexDataRPayloadX asserts from word-reads of
+  byte-built buffers — silicon returns random there, so
+  `sram_powerup_random.vmem` models the part per Rule 1b without
+  X-pessimism noise). Bitstream bakes NO SRAM
+  image any more (build_fpga.tcl conditional generic, gen_project.tcl,
+  flashfw). startup.S keeps writing the legacy SRAM+0x80 trampoline
+  (debug flows; comment updated). Compatibility matrix = gotcha 29.
+- **Rule 1b follow-through**: removed the delayed-MOSI sampling from
+  tb_lcd's ST7735 model + periph_models' PSRAM model — all SPI models
+  now sample the raw wire at the rising edge (datasheet behaviour); a
+  hold-time regression fails in sim now, not on a panel.
+- **Phase 2b firmware** (OLED + BME280 arrived): signed temperature
+  print (was 4-billion below 0 degC), H on LCD, P + uptime on OLED,
+  UART T/P/H every 10 s gated by 't' (was 1/s unconditional), absent
+  parts re-probed every 5 s (hot-attach `toy: oled/bme attached`), 3
+  consecutive I2C fails demote to absent (`toy: bme lost`). Soldering +
+  wiring guide written (PRODUCTION_PERIPHERALS sec. 8 Phase 2b).
+- Regression **14/14 ALL GREEN** on all of the above (incl. bitstream,
+  timing met). Board was not connected this session — first `flashfw`
+  + Phase 2b bench run is the next hardware step.
+
 ## 5. Open questions for the team (track until answered)
 
 1. ~~SRAM base address~~ **RESOLVED 2026-08-10: team confirmed
    `0x0010_2000` (the repo's value) is correct**; the spec sheet's printed
-   `0x0010_1000` is stale. Boot contract SRAM+0x80 = 0x0010_2080 stands.
+   `0x0010_1000` is stale. (Boot entry moved off SRAM entirely on
+   2026-08-19 — direct XIP, see section 2 "Boot contract".)
 2. ~~PWM block at `0x4000_0600`~~ **RESOLVED 2026-08-10: keep in BOTH FPGA
    and ASIC** (sub-lead: spec omitted it only because it predates the fork;
    it was present in the original ibex-demo-system). No RTL change.
@@ -656,17 +698,19 @@ docs/ASIC_SPEC.md section 3.
 
 - **Configuration is now ASIC-representative**: 8 KiB SRAM, XIP wired to
   the onboard QSPI flash, FreeRTOS as the RTOS. Full regression green
-  **2026-08-18: 14/14** (images, FreeRTOS build, compile, 10 sims incl.
-  the new tb_uart2_irq, bitstream BUILD OK with all timing met) - the
-  first run on the wired-UART2-IRQ RTL.
+  **2026-08-19: 14/14** (images, FreeRTOS build, compile, 10 sims,
+  bitstream BUILD OK with all timing met) - the first run on the
+  direct-XIP boot ROM with uninitialised-SRAM XIP benches and strict
+  mode-0 SPI models.
 - **ONE FLOW decision (Soham, 2026-08-10)**: user-facing delivery is
   ONLY the non-volatile QSPI path (flow `flashfw`); the unified
   FreeRTOS firmware absorbed the asm-demo console (patterns/speed/RGB/
   echo/switch-mirror as tasks in main.c). The asm demo + program_fpga
   (JTAG) remain DV/dev-internal only - do not present them as user
-  flows. Default bitstream SRAM init = xip_stub.vmem (every bitstream
-  boots FreeRTOS from flash). Rationale: FreeRTOS cannot fit in 8 KiB
-  SRAM, so a truly volatile FreeRTOS load is physically impossible.
+  flows. Since 2026-08-19 bitstreams bake NO SRAM image (direct-XIP boot
+  ROM; every bitstream boots FreeRTOS from flash via the silicon path).
+  Rationale: FreeRTOS cannot fit in 8 KiB SRAM, so a truly volatile
+  FreeRTOS load is physically impossible.
 - **Hardware validation: Phase 1 core PASSED 2026-08-18** on
   ARF-BBSR-84's board - v1.1 FreeRTOS booted from QSPI flash (XIP),
   console/patterns/switch-mirror all good (BRINGUP_TEST_REPORT section
@@ -674,8 +718,10 @@ docs/ASIC_SPEC.md section 3.
   (LCD) PASSED 2026-08-18** (autonomous bench run: sweep 8/8, RGB 4-LED
   PASS, banner/echo/XIP/heartbeat/persistence re-evidenced; TFT visually
   confirmed by Soham; only the no-instruments Pmod touch-test remains,
-  needs hands). Phase 2 =
-  the soldered batch-1 parts (BME280/OLED), Phase 3 = batch-2 parts (ESP32 incl.
+  needs hands). **Phase 2b READY 2026-08-19** (parts in hand, firmware
+  auto-detects + self-heals, guide in PRODUCTION_PERIPHERALS sec. 8;
+  needs one board session - board was not connected on 08-19),
+  Phase 3 = batch-2 parts (ESP32 incl.
   IRQ-mode check 20b / PSRAM / camera / mic / speaker). Results get
   dated tables in BRINGUP_TEST_REPORT.md; a phase is not done until the
   report shows it. Teammate PCs verified working (2026-08-18): bitstream

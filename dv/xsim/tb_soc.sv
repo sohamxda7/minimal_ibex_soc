@@ -19,7 +19,7 @@
 
 module tb_soc;
 
-  // 20 MHz system clock (bypasses the FPGA PLL — we drive clk directly)
+  // 20 MHz system clock (bypasses the FPGA PLL ??? we drive clk directly)
   logic clk = 1'b0;
   always #25 clk = ~clk;
 
@@ -45,7 +45,8 @@ module tb_soc;
     .PwmWidth       (12),
     .ClockFrequency (20_000_000),
     .BaudRate       (SimBaud),
-    .SRAMInitFile   ("sw/asm-demo/sram_init_sim.vmem")
+    .SRAMInitFile   ("sw/asm-demo/sram_init_sim.vmem"),
+    .BootInitFile   ("dv/xsim/boot_sram_dv.mem") // DV-only SRAM boot; real ROM is direct-XIP
   ) dut (
     .clk_sys_i  (clk),
     .rst_sys_ni (rst_n),
@@ -77,7 +78,7 @@ module tb_soc;
   );
 
   // -------------------------------------------------------------------
-  // UART TX decoder — every byte the SoC sends is printed and buffered
+  // UART TX decoder ??? every byte the SoC sends is printed and buffered
   // -------------------------------------------------------------------
   byte rx_buf [0:4095];
   int  rx_cnt = 0;

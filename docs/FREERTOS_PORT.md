@@ -107,11 +107,11 @@ FLASH (XIP window)                        SRAM (8 KiB @ 0x0010_2000)
   read-only at `0x2000_0000` by `rtl/system/spi_flash_xip.sv`. Firmware sits
   at **flash offset 0x40_0000** (behind the ~3.7 MB A7-100T bitstream), so the
   entry point is **0x2040_0000**.
-- Boot: the SRAM boot image is just a 2-instruction trampoline
-  (`sw/asm-demo/xip_test.py` → `xip_stub.vmem`) at the boot-ROM jump target
-  SRAM+0x80 that jumps to `0x2040_0000`. `_start` (in flash) then sets SP,
-  installs `mtvec`, copies `.data` to SRAM, zeroes `.bss`, calls `main`.
-  The trampoline gets overwritten by `.data` afterwards — by design.
+- Boot (since 2026-08-19): the boot ROM jumps **directly** to `0x2040_0000`
+  — it never reads SRAM (silicon SRAM powers up random). `_start` (in
+  flash) then sets SP, installs `mtvec`, re-writes the legacy SRAM+0x80
+  trampoline (kept for debug flows; the linker reserves SRAM+0x00..0x8F
+  for it), copies `.data` to SRAM, zeroes `.bss`, calls `main`.
 - The 4 KiB FreeRTOS heap lives in `.noinit` (not zeroed at boot): heap_4
   builds its own free list, and zeroing 4 KiB over XIP wastes ~20 ms.
 
@@ -186,15 +186,15 @@ xelab tb_freertos -s freertos_sim -timescale 1ns/1ps && xsim freertos_sim -R
 PASS = `FreeRTOS on Ibex` banner + two `tick=` lines over the simulated UART
 (scheduler, vectored trap entry, context switch, vTaskDelay all exercised).
 
-Hardware flow (board): build the FPGA image with the trampoline baked in,
-then program firmware into flash at 0x40_0000 —
+Hardware flow (board): build the FPGA image (the direct-XIP boot ROM is in
+the RTL; no SRAM image is baked since 2026-08-19), then program firmware
+into flash at 0x40_0000 —
 
 ```
-vivado -mode batch -source build_fpga.tcl -tclargs sw/asm-demo/xip_stub.vmem
+vivado -mode batch -source build_fpga.tcl
 ```
 
-(Flash programming script for the firmware partition: pending first board
-session — will use `write_cfgmem` to append the firmware to the bitstream MCS.)
+(or just `ibex_soc.bat` → **Flash to Board**, which does both.)
 
 ## 4. Demo application (`sw/freertos/main.c`) — THE one firmware
 
@@ -212,9 +212,13 @@ supported delivery is the **Flash to Board** flow in `ibex_soc.bat`
 - `report` (prio 2): heartbeat `tick=N up=Ss` (quiet 30 s, then every 10 s).
 - `toy` task (prio 1, **in every hardware image** since 2026-08-18): the
   ST7735 live system-status screen (deep-blue ARF logo, banner, per-second
-  status with change-only redraws), plus a BME280 reading to UART + SSD1306
-  OLED once those are wired. Tolerates missing parts (bounded I2C waits) —
-  wiring per [PRODUCTION_PERIPHERALS.md sec. 8](PRODUCTION_PERIPHERALS.md).
+  status with change-only redraws). With a BME280 wired: signed `T`/`H` on
+  the LCD live block + a `T/P/H` console line every 10 s (gated with the
+  `t` heartbeat toggle). With an SSD1306 wired: title + T/H + pressure +
+  uptime. Missing-part tolerant (bounded I2C waits), **self-healing**:
+  absent parts re-probed every 5 s (hot-attach), parts failing 3 cycles in
+  a row demoted back to absent. Wiring per
+  [PRODUCTION_PERIPHERALS.md sec. 8](PRODUCTION_PERIPHERALS.md).
   Excluded from `sim` builds to keep tb_freertos fast.
 
 ## 5. Peripheral drivers (`sw/freertos/drivers/`)
@@ -231,16 +235,18 @@ supported delivery is the **Flash to Board** flow in `ibex_soc.bat`
 | `audio.c` | SPI + PWM ch3 | 0 | v1.1: mic sample/record + speaker play/beep, clips in PSRAM |
 | `camera.c` | GPIO + I2C | 32 B bounce | v1.1: OV7670-FIFO snapshot capture into PSRAM |
 
-Status: compile-clean in all three build variants; ST7735 protocol previously
-validated against the behavioral LCD model (tb_lcd) at the assembly level;
-BME280/SSD1306 await hardware (parts on order, see procurement mail).
+Status: compile-clean in all build variants; ST7735 validated on the
+physical panel (Phase 2a, 2026-08-18); I2C driver sequence validated in
+tb_i2c; BME280/SSD1306 hardware test = Phase 2b (parts in hand,
+soldering + wiring per PRODUCTION_PERIPHERALS.md §8).
 
 ## 6. Validation status
 
 | Check | Status |
 |---|---|
-| Kernel + port + drivers build (3 variants) | ✅ done |
-| XIP controller proven in sim (tb_xip) | see [BRINGUP_TEST_REPORT.md](BRINGUP_TEST_REPORT.md) |
-| FreeRTOS boots in full-SoC sim (tb_freertos) | see [BRINGUP_TEST_REPORT.md](BRINGUP_TEST_REPORT.md) |
-| Hardware boot from QSPI flash | pending board |
-| Toy demo on hardware | pending parts |
+| Kernel + port + drivers build (all variants) | ✅ done |
+| XIP controller proven in sim (tb_xip) | ✅ — since 2026-08-19 boots the REAL direct-XIP ROM with uninitialised SRAM |
+| FreeRTOS boots in full-SoC sim (tb_freertos) | ✅ — same silicon-boot conditions |
+| Hardware boot from QSPI flash | ✅ Phase 1 passed 2026-08-18 (power-cycle + warm-reset safe) |
+| LCD status screen on hardware | ✅ Phase 2a passed 2026-08-18 |
+| OLED + BME280 on hardware | Phase 2b — parts in hand, pending wiring session |

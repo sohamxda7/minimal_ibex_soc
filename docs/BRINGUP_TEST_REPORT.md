@@ -301,7 +301,8 @@ console** — the board self-recovers.
 no bitstream initialisation — the boot ROM as-is (jump to SRAM+0x80)
 cannot complete a *first* boot. The ROM must either write the trampoline
 itself or jump directly to the XIP window. Raised as a lead decision in
-STATUS_BRIEF.
+STATUS_BRIEF. **RESOLVED 2026-08-19: lead chose direct XIP; implemented
+and regressed — see §11.**
 
 ## 10. Team-repo commit audit (2026-08-18, requested by Soham)
 
@@ -313,10 +314,53 @@ Three commits on `ArfDesign-DB/minimal-ibex-soc` reviewed for adoption:
 | `498798b` (Ravalika) | `boot.mem` copyto in the FuseSoC `.core` | **Not adopted** — we run the no-FuseSoC flow; correct fix for their build |
 | `8ed494d` (Khalid) | comments out the dead SPI_CTRL stub (0x4000_0300) | **Adopted, as full removal** — decode/ports/stub logic deleted from `wb_interconnect.sv` + `wrapper_top.sv` (ours also left `spictrl_rvalid` undriven, a latent X-source). Shrinks the RTL↔PD-netlist delta. **Verified: full regression 14/14 ALL GREEN, reflashed, on-board boot + scripted sweep 8/8 PASS on the stub-free build** |
 
-## 11. Not covered (future work)
+## 11. Simulation round 5 (2026-08-19) — direct XIP boot + Phase 2b prep
 
+Lead-directed (Ravi, 2026-08-19): direct XIP boot chosen as the ASIC
+first-boot solution, "regress it thoroughly". Implemented and regressed
+the same day:
+
+**Boot ROM (`rtl/system/boot.mem`)**: the single `jal → SRAM+0x80` was
+replaced by `lui t0,0x20400; jalr x0,0(t0)` at reset PC `0x0010_0080` —
+the ROM never touches SRAM. Testbench topology change:
+
+| Bench | Boot ROM | SRAM at t=0 | Why |
+|---|---|---|---|
+| tb_xip | **real** `boot.mem` (direct XIP) | **uninitialised (X)** | Strictest boot-path check: any read of SRAM before it is written X-poisons the sim. Ran completely clean — zero X asserts |
+| tb_freertos | **real** `boot.mem` (direct XIP) | **deterministic random garbage** (`dv/xsim/sram_powerup_random.vmem`, fixed xorshift seed) | The silicon power-up condition for the full product. X-init was tried first and *passed*, but flooded the log with 571 benign `IbexDataRPayloadX` asserts (byte-built buffers/padded structs word-read later — silicon returns random bytes there, xsim returns X); defined random garbage models the part, keeps the log clean, and still kills any boot that depends on SRAM contents |
+| 8 asm-demo benches | `dv/xsim/boot_sram_dv.mem` (DV-only, old jal) | backdoor-loaded program | Peripheral DV keeps its fast SRAM-resident programs; clearly labelled non-product boot path |
+
+The FPGA bitstream no longer bakes any SRAM image (`build_fpga.tcl`,
+`gen_project.tcl`, `flashfw` flow) — every board boot now exercises the
+silicon boot path. Legacy SRAM+0x80 entry stays alive via startup.S for
+debug flows; all old/new bitstream×firmware pairings remain bootable
+(WALKTHROUGH gotcha 29).
+
+**SPI model strictness (Rule 1b follow-through):** the delayed-MOSI
+sampling workaround was removed from `tb_lcd`'s ST7735 model and
+`periph_models.sv`'s PSRAM model. All SPI models now sample the raw wire
+on the rising edge like the datasheet parts — a reintroduced hold-time
+bug now fails tb_lcd/tb_psram instead of a physical panel.
+
+**Phase 2b firmware hardening (`main.c` toy task):** signed temperature
+formatting (`-12.07C`, was a 4-billion print below 0 °C), humidity on the
+LCD live block, pressure + uptime on the OLED, UART T/P/H report every
+10 s gated with the `t` toggle (was: every second, unconditionally),
+absent parts re-probed every 5 s (hot-attach), 3 consecutive I2C failures
+demote a part back to absent (`toy: bme lost`).
+
+**Result: full regression 14/14 ALL GREEN** — all 10 sims (incl. both
+uninitialised-SRAM XIP boots and the strict SPI models), images, firmware,
+compile, bitstream with timing met and **no SRAM init image**.
+
+## 12. Not covered (future work)
+
+- **Phase 2b on hardware** — parts + soldering kit in hand; needs the
+  board on the bench (guide: PRODUCTION_PERIPHERALS §8). Test rows
+  15-17b in HW_VALIDATION_PLAN.
+- Direct-XIP boot on hardware — sim-proven; first `flashfw` with the new
+  bitstream verifies it on the board (any boot = the silicon path now)
 - Pmod touch-test (no-instruments continuity check — needs hands)
-- I2C devices (BME280/SSD1306) — need ~10 header joints soldered
 - JTAG debug via OpenOCD (dm_top synthesises with the BSCANE2 tap; not exercised)
 
 ## Verdict

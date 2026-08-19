@@ -57,6 +57,12 @@ module wrapper_top #(
   // SRAM and crash-loops (the "glitching" seen on the board).
   parameter              SRAMInitFile    = "",
 
+  // Boot ROM image. The default performs a DIRECT XIP boot (lui+jalr to
+  // 0x2040_0000, no SRAM read/write at all — silicon SRAM powers up
+  // random). DV testbenches that backdoor-load a program into SRAM pass
+  // "dv/xsim/boot_sram_dv.mem" (the old jal -> SRAM+0x80) instead.
+  parameter              BootInitFile    = "rtl/system/boot.mem",
+
   parameter int unsigned XipClkDiv       = 4   // XIP SPI SCK = clk/(2*XipClkDiv)
 
 ) (
@@ -838,7 +844,7 @@ module wrapper_top #(
   boot_rom #(
 
     .ADDR_WIDTH (BootRomAddrWidth),
-    .INIT_FILE  ("rtl/system/boot.mem")
+    .INIT_FILE  (BootInitFile)
   ) u_boot_rom (
 
     .clk_i,

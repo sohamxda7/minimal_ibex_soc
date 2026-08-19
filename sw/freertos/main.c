@@ -204,6 +204,48 @@ static void prvU32Field( char * dst, uint32_t v, int width )
     }
 }
 
+/* Signed centi-value (0.01 units) as "sDD.dd" into exactly 6 chars:
+ * 2534 -> " 25.34", -1207 -> "-12.07". The BME280 temperature is SIGNED
+ * (-40..85 C) - printing it through an unsigned field turns -0.5 C into
+ * four billion. Clamps at +/-99.99. */
+static void prvCentiField( char * dst, int32_t centi )
+{
+    int neg = ( centi < 0 );
+    uint32_t v = ( uint32_t ) ( neg ? -centi : centi );
+
+    if( v > 9999u ) v = 9999u;
+
+    dst[ 5 ] = ( char ) ( '0' + v % 10u ); v /= 10u;
+    dst[ 4 ] = ( char ) ( '0' + v % 10u ); v /= 10u;
+    dst[ 3 ] = '.';
+    dst[ 2 ] = ( char ) ( '0' + v % 10u ); v /= 10u;
+
+    if( v != 0u )
+    {
+        dst[ 1 ] = ( char ) ( '0' + v );
+        dst[ 0 ] = neg ? '-' : ' ';
+    }
+    else
+    {
+        dst[ 1 ] = neg ? '-' : ' ';
+        dst[ 0 ] = ' ';
+    }
+}
+
+/* Signed decimal on the UART (uart_putu32 is unsigned-only). */
+static void prvUartPutS32( int32_t v )
+{
+    if( v < 0 )
+    {
+        uart_putc( '-' );
+        uart_putu32( ( uint32_t ) -v );
+    }
+    else
+    {
+        uart_putu32( ( uint32_t ) v );
+    }
+}
+
 /* Live status block: rows 8..13 of the LCD. XIP code is ~500x slower than
  * SRAM code (WALKTHROUGH gotcha 19), so a full-line redraw every second
  * would visibly crawl: keep a shadow copy and rewrite ONLY the characters
@@ -239,6 +281,9 @@ static void prvToyTask( void * pvParameters )
     bme280_reading_t xReading;
     int rcSensor, rcOled;
     uint8_t ucSpin = 0;
+    uint8_t ucSecs = 0;               /* paces re-probe (5 s) + UART report (10 s) */
+    uint8_t ucBmeFails = 0;           /* consecutive read failures -> demote to absent */
+    uint8_t ucOledFails = 0;
     char line[ ST7735_TEXT_COLS + 1 ];
 
     ( void ) pvParameters;
@@ -321,28 +366,103 @@ static void prvToyTask( void * pvParameters )
         ( void ) __builtin_memcpy( &line[ 13 ], ( rcSensor == I2C_OK ) ? "ok" : "--", 2 );
         prvLcdLiveLine( 12, line );
 
-        if( ( rcSensor == I2C_OK ) && ( bme280_read( &xSensor, &xReading ) == I2C_OK ) )
+        /* ---- environment sensor: read, display, self-heal -------------- */
+        if( rcSensor == I2C_OK )
         {
-            uart_puts( "T=" );
-            uart_putu32( ( uint32_t ) xReading.temp_centi_c );
-            uart_puts( "cC P=" );
-            uart_putu32( xReading.press_pa );
-            uart_puts( "Pa H=" );
-            uart_putu32( xReading.hum_milli_pct );
-            uart_puts( "m%\r\n" );
-
-            for( int i = 0; i < ST7735_TEXT_COLS; i++ ) line[ i ] = ' ';
-            ( void ) __builtin_memcpy( line, "T=", 2 );
-            prvU32Field( &line[ 2 ], ( uint32_t ) xReading.temp_centi_c, 5 );
-            ( void ) __builtin_memcpy( &line[ 7 ], "cC", 2 );
-            prvLcdLiveLine( 13, line );
-
-            if( rcOled == I2C_OK )
+            if( bme280_read( &xSensor, &xReading ) == I2C_OK )
             {
-                ssd1306_text( 0, 2, line );
+                ucBmeFails = 0;
+
+                /* LCD row 13 (mirrored to OLED row 2): "T= 25.34C H= 45.6%" */
+                for( int i = 0; i < ST7735_TEXT_COLS; i++ ) line[ i ] = ' ';
+                line[ 0 ] = 'T'; line[ 1 ] = '=';
+                prvCentiField( &line[ 2 ], xReading.temp_centi_c );
+                line[ 8 ] = 'C';
+                line[ 10 ] = 'H'; line[ 11 ] = '=';
+                {
+                    uint32_t h10 = xReading.hum_milli_pct / 100u;   /* tenths of %RH */
+                    prvU32Field( &line[ 12 ], h10 / 10u, 3 );
+                    line[ 15 ] = '.';
+                    line[ 16 ] = ( char ) ( '0' + h10 % 10u );
+                    line[ 17 ] = '%';
+                }
+                prvLcdLiveLine( 13, line );
+
+                if( rcOled == I2C_OK )
+                {
+                    int rcWr = ssd1306_text( 0, 2, line );
+
+                    /* OLED extras (no room on the LCD): pressure + uptime */
+                    for( int i = 0; i < ST7735_TEXT_COLS; i++ ) line[ i ] = ' ';
+                    line[ 0 ] = 'P'; line[ 1 ] = '=';
+                    prvU32Field( &line[ 2 ], xReading.press_pa, 6 );
+                    ( void ) __builtin_memcpy( &line[ 8 ], "Pa", 2 );
+                    if( rcWr == I2C_OK ) rcWr = ssd1306_text( 0, 4, line );
+
+                    for( int i = 0; i < ST7735_TEXT_COLS; i++ ) line[ i ] = ' ';
+                    ( void ) __builtin_memcpy( line, "up", 2 );
+                    prvU32Field( &line[ 3 ], ( uint32_t ) ( xNow / configTICK_RATE_HZ ), 7 );
+                    line[ 10 ] = 's';
+                    if( rcWr == I2C_OK ) rcWr = ssd1306_text( 0, 6, line );
+
+                    if( rcWr != I2C_OK )
+                    {
+                        if( ++ucOledFails >= 3u ) rcOled = rcWr;    /* wire lost */
+                    }
+                    else
+                    {
+                        ucOledFails = 0;
+                    }
+                }
+
+                /* UART report every 10 s, gated with the heartbeat toggle
+                 * ('t') - the console must never be spammed every second. */
+                if( g_beat && ( ( ucSecs % 10u ) == 0u ) )
+                {
+                    uart_puts( "T=" );
+                    prvUartPutS32( xReading.temp_centi_c );
+                    uart_puts( "cC P=" );
+                    uart_putu32( xReading.press_pa );
+                    uart_puts( "Pa H=" );
+                    uart_putu32( xReading.hum_milli_pct );
+                    uart_puts( "m%\r\n" );
+                }
+            }
+            else if( ++ucBmeFails >= 3u )
+            {
+                rcSensor = I2C_ERR_NACK;          /* demote: wire lost mid-run */
+                uart_puts( "toy: bme lost\r\n" );
             }
         }
 
+        /* ---- hot-attach: re-probe absent parts every 5 s ---------------- */
+        if( ( ucSecs % 5u ) == 4u )
+        {
+            if( rcOled != I2C_OK )
+            {
+                rcOled = ssd1306_init( SSD1306_ADDR );
+
+                if( rcOled == I2C_OK )
+                {
+                    ucOledFails = 0;
+                    ( void ) ssd1306_text( 0, 0, "IBEX SOC + FreeRTOS" );
+                    uart_puts( "toy: oled attached\r\n" );
+                }
+            }
+
+            if( rcSensor != I2C_OK )
+            {
+                rcSensor = bme280_init( &xSensor, BME280_ADDR_PRIMARY );
+
+                if( rcSensor == I2C_OK )
+                {
+                    ucBmeFails = 0;
+                    uart_puts( "toy: bme attached\r\n" );
+                }
+            }
+        }
+
+        ucSecs++;
         vTaskDelay( pdMS_TO_TICKS( 1000 ) );
     }
 }

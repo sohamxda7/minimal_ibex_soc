@@ -1,6 +1,13 @@
 // ============================================================================
-// FreeRTOS boot simulation: the CPU boots via the SRAM trampoline into the
-// FreeRTOS image executing in place from the behavioral SPI NOR flash.
+// FreeRTOS boot simulation: the boot ROM jumps DIRECTLY into the XIP
+// window (rtl/system/boot.mem) and the FreeRTOS image executes in place
+// from the behavioral SPI NOR flash. SRAM powers up as DETERMINISTIC
+// RANDOM GARBAGE (dv/xsim/sram_powerup_random.vmem, fixed xorshift seed)
+// — the silicon condition: boot succeeds only if nothing depends on SRAM
+// power-up contents. (X-init, which tb_xip uses, is stricter but floods
+// this full-product sim with benign IbexDataRPayloadX asserts whenever a
+// byte-built buffer or padded struct is word-read; random garbage keeps
+// the log clean while still killing any boot that *depends* on SRAM.)
 //
 // PASS criteria (UART, 2 Mbaud):
 //   1. "FreeRTOS on Ibex"  banner  -> C runtime + XIP fetch + data copy OK
@@ -42,7 +49,7 @@ module tb_freertos;
     .PwmWidth       (12),
     .ClockFrequency (20_000_000),
     .BaudRate       (2_000_000),
-    .SRAMInitFile   ("sw/asm-demo/xip_stub.vmem"),
+    .SRAMInitFile   ("dv/xsim/sram_powerup_random.vmem"),  // silicon-like random power-up
     .XipClkDiv      (1)
   ) dut (
     .clk_sys_i  (clk),

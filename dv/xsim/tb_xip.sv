@@ -1,8 +1,11 @@
 // ============================================================================
-// XIP execute-in-place simulation: the CPU boots from a 2-instruction SRAM
-// trampoline (sw/asm-demo/xip_stub.vmem) and then runs ENTIRELY from a
-// behavioral SPI NOR flash (dv/xsim/spi_nor_flash_model.sv) through the
-// spi_flash_xip controller at 0x2000_0000.
+// XIP execute-in-place simulation: the boot ROM jumps DIRECTLY into the
+// XIP window (lui+jalr to 0x2040_0000, rtl/system/boot.mem) and the CPU
+// runs ENTIRELY from a behavioral SPI NOR flash
+// (dv/xsim/spi_nor_flash_model.sv) through the spi_flash_xip controller.
+// SRAM is deliberately left UNINITIALISED (X in xsim) — the exact silicon
+// power-up condition: this testbench is the regression for "boot must not
+// depend on SRAM contents" (STATUS_BRIEF decision 4, resolved 2026-08-19).
 //
 // The flash program (sw/asm-demo/xip_test.py) prints "XIP OK" if both the
 // instruction-fetch and data-load paths return correct (little-endian) words,
@@ -43,7 +46,7 @@ module tb_xip;
     .PwmWidth       (12),
     .ClockFrequency (20_000_000),
     .BaudRate       (2_000_000),
-    .SRAMInitFile   ("sw/asm-demo/xip_stub.vmem")
+    .SRAMInitFile   ("")   // uninitialised SRAM = silicon power-up; boot must not read it
   ) dut (
     .clk_sys_i  (clk),
     .rst_sys_ni (rst_n),

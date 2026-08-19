@@ -48,7 +48,8 @@ module tb_lcd;
     .PwmWidth       (12),
     .ClockFrequency (20_000_000),
     .BaudRate       (2_000_000),
-    .SRAMInitFile   ("sw/asm-demo/lcd_spi_test_sim.vmem")
+    .SRAMInitFile   ("sw/asm-demo/lcd_spi_test_sim.vmem"),
+    .BootInitFile   ("dv/xsim/boot_sram_dv.mem") // DV-only SRAM boot; real ROM is direct-XIP
   ) dut (
     .clk_sys_i  (clk),
     .rst_sys_ni (rst_n),
@@ -91,24 +92,23 @@ module tb_lcd;
   bit         seen_reset_pulse = 0;
 
   // History: this SPI host used to update MOSI on the rising SCK edge, and
-  // this delayed-copy sampling was the workaround that made the model decode
+  // a delayed-copy MOSI sample was the workaround that made the model decode
   // it - which MASKED a real mode-0 hold-time bug that a physical ST7735
   // then exposed (white screen, 2026-08-18; fixed in spi_host.sv - TX now
-  // launches on the falling edge). The delay stays because it is physically
-  // realistic (a panel sees the wire, not the FPGA register), and with the
-  // fixed RTL it reads the same stable bit as the raw wire.
-  wire mosi_dly;
-  assign #2 mosi_dly = spi_tx;
+  // launches on the falling edge). The workaround was REMOVED 2026-08-19
+  // (CLAUDE.md Rule 1b): a datasheet mode-0 slave samples the wire AT the
+  // rising edge, and this model must do the same so any hold-time
+  // regression fails here in simulation instead of on a panel.
 
   always @(negedge lcd_rst) if (rst_n) begin
     seen_reset_pulse = 1;
     $display("[%0t] ST7735: hardware RESET asserted", $time);
   end
 
-  // byte assembly: sample MOSI on rising SCK while selected
+  // byte assembly: sample the RAW MOSI wire on rising SCK while selected
   always @(posedge spi_sck) begin
     if (!lcd_cs) begin
-      shreg  = {shreg[6:0], mosi_dly};   // MSB first, pre-edge value
+      shreg  = {shreg[6:0], spi_tx};     // MSB first, strict mode 0
       bitcnt = bitcnt + 1;
       if (bitcnt == 8) begin
         if (rx_n < 256) begin

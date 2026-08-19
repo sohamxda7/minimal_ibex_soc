@@ -73,15 +73,22 @@ The flashed image always includes the LCD status screen: wire the batch-1
 ST7735 (pre-soldered — jumper wires only, no soldering, see
 [PRODUCTION_PERIPHERALS.md §8](docs/PRODUCTION_PERIPHERALS.md)) and the
 ARF logo + the same system info render on it, updating live as you type.
-No LCD wired? The screen task idles harmlessly.
+The same image also drives the batch-1 I2C parts: wire the SSD1306 OLED
+and/or BME280 sensor (Pmod JA, §8 wiring) and they are auto-detected —
+temperature + humidity join the LCD, the OLED shows T/P/H + uptime, and a
+`T=... P=... H=...` line joins the console every 10 s (off with `t`).
+Parts are re-probed every 5 s, so late wiring or a re-seated jumper
+self-heals. Nothing wired? Every task idles harmlessly.
 
 ## Binding constraints (from the tapeout spec)
 
 - **SRAM = 8 KiB** at `0x0010_2000` — the Caravel area budget; not
   negotiable by software. Bigger code executes in place from SPI flash at
   `0x2000_0000` (firmware at flash offset 0x40_0000).
-- **Boot contract**: entry = SRAM+0x80 = `0x0010_2080` (XIP boots via a
-  2-instruction trampoline there).
+- **Boot contract (since 2026-08-19)**: the boot ROM jumps **directly into
+  the XIP window** (`0x2040_0000`) — it never reads SRAM, because silicon
+  SRAM powers up with random contents. The legacy SRAM+0x80 entry is
+  re-written by the firmware each boot for debug flows.
 - **20 MHz clock** — do not "fix" it upward.
 - Interrupts are flat into Ibex fast IRQs (no PLIC); Ibex is vectored-only.
   Implemented: timer (mcause 7), UART1 RX fast[0], UART2 RX fast[1].
@@ -96,7 +103,10 @@ the physical board (2026-08-18)** — FreeRTOS (V11.3.0) booting from QSPI
 flash, scripted console sweep 8/8, all four RGB LEDs, and the ST7735
 rendering the live ARF status screen. First hardware contact found and
 fixed two silicon-relevant RTL/firmware bugs (SPI mode-0 hold time;
-warm-reset trampoline clobber) — plan in
+warm-reset trampoline clobber). **2026-08-19: direct-XIP boot landed**
+(lead-directed — the ROM never reads SRAM; tb_xip/tb_freertos regress the
+exact silicon power-up condition: X-filled and random-garbage SRAM) and **Phase 2b
+(OLED + BME280) is ready for the bench** — plan in
 [docs/HW_VALIDATION_PLAN.md](docs/HW_VALIDATION_PLAN.md), current state
 in [docs/STATUS_BRIEF.md](docs/STATUS_BRIEF.md).
 
