@@ -183,6 +183,9 @@ Simulation (after `python sw/asm-demo/xip_test.py` and the usual compile):
 xelab tb_freertos -s freertos_sim -timescale 1ns/1ps && xsim freertos_sim -R
 ```
 
+(Linux / open-source: `./ibex_soc.sh sim tb_freertos` — same testbench
+under Verilator 5, minutes of wall time instead of ~10.)
+
 PASS = `FreeRTOS on Ibex` banner + two `tick=` lines over the simulated UART
 (scheduler, vectored trap entry, context switch, vTaskDelay all exercised).
 

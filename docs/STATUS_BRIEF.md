@@ -117,8 +117,14 @@ Ravi's reply resolved most of the open items. Where each stands on our side:
    instantiates the SRAM independent of `` `ifdef verilator ``; confirm
    byte/half-word write support). We stand by to re-verify on FPGA once
    the fixed commit lands.
-5. **Verilator regression** — Shivanee's, before RTL sign-off. Our xsim
-   file list + testbenches are available to her; not our lane.
+5. **Verilator regression** — Shivanee's sign-off, and the infrastructure
+   for it now exists (2026-08-19): `./ibex_soc.sh regression` runs **all
+   10 full-SoC testbenches unmodified under Verilator 5** (`--timing`),
+   same PASS criteria as the xsim suite, plus a FuseSoC wrapper
+   (`minimal_ibex_soc.core`) with all three targets verified: `lint`
+   green, `sim` 9/9, `synth` = full routed bitstream with timing met.
+   All 10 sims verified green under Verilator 5.050 on 2026-08-19 as a
+   cross-check — the independent sign-off *run* remains hers.
 
 **Still needed from the lead:**
 

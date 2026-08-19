@@ -100,16 +100,19 @@ FPGA validation must run the silicon configuration or it isn't validation.
    BRINGUP_TEST_REPORT, BRINGUP_HISTORY (merged BRINGUP_OVERVIEW +
    FPGA_BRINGUP + UART_CONTROL), WALKTHROUGH, STATUS_BRIEF,
    UPSTREAM_README. Do NOT create new doc files; extend these.
-   **ONE-SCRIPT rule (Soham, 2026-08-18)**: the repo root has exactly ONE
-   user script - `ibex_soc.bat` (opens the GUI). All flow logic lives in
-   `scripts/flows.ps1` (setup/xpr/build/program/firmware/flashfw/
-   flashonly/regression); each GUI button opens a console running one
-   flow. Do NOT re-add per-flow .bat entry points. Internal plumbing
-   that stays: sw/freertos/build.bat (firmware compiler, called by
-   flows + regression), scripts/find_tools.cmd (its locator), the
-   *.tcl implementation scripts, and the keeper scripts/*.ps1. The
-   README stays SHORT - a front page, not a manual (detail lives in
-   docs/); keep it that way.
+   **ONE-SCRIPT rule (Soham, 2026-08-18; extended 2026-08-19)**: the repo
+   root has exactly ONE user script PER OS - `ibex_soc.bat` (Windows GUI)
+   and `ibex_soc.sh` (Linux/WSL CLI twin: Verilator sims, images,
+   firmware, lint). All Windows flow logic lives in `scripts/flows.ps1`
+   (setup/xpr/build/program/firmware/flashfw/flashonly/regression); each
+   GUI button opens a console running one flow. Do NOT re-add per-flow
+   .bat entry points. Internal plumbing that stays: sw/freertos/build.bat
+   (firmware compiler, called by flows + regression), scripts/
+   find_tools.cmd (its locator), the *.tcl implementation scripts, and
+   the keeper scripts/*.ps1. `minimal_ibex_soc.core` (FuseSoC wrapper)
+   mirrors dv/xsim/filelist.f - keep them in sync, as with the
+   run_regression.ps1 / ibex_soc.sh PASS tables. The README stays SHORT -
+   a front page, not a manual (detail lives in docs/); keep it that way.
 
 ## 3. Key technical facts (verified)
 
@@ -679,6 +682,44 @@ Implemented same day:
 - Regression **14/14 ALL GREEN** on all of the above (incl. bitstream,
   timing met). Board was not connected this session — first `flashfw`
   + Phase 2b bench run is the next hardware step.
+
+**2026-08-19 (later) — Linux flow: full Verilator support + FuseSoC**:
+- `ibex_soc.sh` (root, the Linux/WSL CLI twin): setup / images /
+  firmware / lint / sim <tb> / regression — **all 10 xsim testbenches
+  run UNMODIFIED under Verilator 5 --timing** (this is what --timing
+  buys: the # delay/event TB code just works). PASS-string table
+  mirrors run_regression.ps1 (keep in sync). build.sh gained
+  `--check-toolchain` (probe-only).
+- `minimal_ibex_soc.core` (FuseSoC CAPI2, `arf:ibex:minimal_ibex_soc`):
+  self-contained (no depend: on the 220 vendored lowRISC cores),
+  mirrors filelist.f; ALL THREE targets verified: lint (Verilator,
+  green), sim (tb_soc, Verilator, 9/9 - edalize run stage misses the
+  .exe on native Windows only), synth (Vivado: full routed bitstream,
+  timing met; needed the SV-content .v i2c files marked
+  systemVerilogSource). $readmemh images land via copyto - the idea
+  from team commit 498798b, now adopted for real.
+- Verified on Windows via portable MSYS2 (C:\FPGA\msys64, Verilator
+  5.050 + gcc 16.2 + ucrt python): tb-by-tb quirks became gotcha 30
+  (prim_cipher_pkg feed, MSYS -Os string-move-ctor link bug -> -O2,
+  msys-vs-ucrt python path mangling). WSL had no distro on this PC and
+  enabling needs a reboot - Ubuntu-24.04 is downloaded, first
+  `wsl -d Ubuntu-24.04` after a reboot completes it; the flow itself
+  is host-agnostic bash.
+- Full parity pass (Soham directive, same day): no-arg interactive MENU
+  (the GUI-equivalent), `deps` flow installs EVERYTHING (apt Ubuntu /
+  dnf RHEL / pacman MSYS2; xPack riscv-none-elf-gcc download where no
+  distro package exists, recorded in `.toolpaths.sh` - the gitignored
+  twin of `.toolpaths`), and `build`/`flashfw`/`flashonly` drive the
+  SAME build_fpga.tcl / program_flash.tcl through a Linux Vivado
+  (located via $VIVADO -> PATH -> /opt|/tools/Xilinx). Everything
+  Verilator-side tested green; the Vivado-on-Linux leg reuses the
+  Windows-proven tcl but has not yet run on a real Linux Vivado
+  install - say so, don't claim it.
+- PS 5.1 file-editing traps hit twice this session, worth remembering:
+  Get-Content -Raw reads BOM-less UTF-8 as ANSI (round-tripping a doc
+  through Set-Content -Encoding UTF8 double-encodes every em-dash), and
+  double-quoted here-strings eat backticks. For non-ASCII file surgery
+  use python (rb/decode utf-8), and single-quoted here-strings.
 
 ## 5. Open questions for the team (track until answered)
 

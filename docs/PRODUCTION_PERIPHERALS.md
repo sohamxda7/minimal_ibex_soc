@@ -144,6 +144,20 @@ join live (`toy: oled attached` / `toy: bme attached` on the console); a
 part that stops answering (loose jumper) is demoted back to `--` after 3
 failed cycles (`toy: bme lost`) and picked up again on re-seat.
 
+### How to run a bench session (any phase)
+
+1. Board on USB. `ibex_soc.bat` → **Flash to Board (QSPI)** — builds
+   firmware + bitstream and programs the flash (~30 min first time,
+   cached after). Press **PROG** on the board when it finishes.
+2. Find the COM port (Device Manager → Ports → "USB Serial Port") and
+   open PuTTY: Serial, that port, **115200**, 8N1.
+3. Expect the boot banner, then drive it: `1-4` LED patterns, `f/m/s`
+   speed, `r/g/b/w/a` RGB, `t` toggles the periodic reports (heartbeat +
+   sensor line). Scripted check: `python util/uart_command_test.py`.
+4. Closing the serial port **resets the board** (DTR wired to ck_rst,
+   WALKTHROUGH gotcha 27) — it reboots cleanly on reopen; that is not a
+   crash.
+
 ### Phase 2a — LCD only, NO soldering needed (start here)
 
 The ST7735 ships with its header pre-soldered, so it is the one batch-1

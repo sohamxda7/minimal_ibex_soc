@@ -51,6 +51,25 @@ with `setup | deps | xpr | build | program | firmware [sim] |
 flashfw | flashonly [bin] | regression`. (Requires Windows; clone
 outside OneDrive, path without spaces — Vivado breaks on both.)
 
+### Linux / open-source flow
+
+**`./ibex_soc.sh`** is the Linux twin — run with no arguments for a menu,
+or name a flow: `setup | deps | images | firmware [sim] | lint |
+sim <tb> | regression | build | flashfw | flashonly [bin]`.
+
+- **`deps` installs everything**: apt (Ubuntu/Debian), dnf (RHEL/Fedora)
+  or pacman (MSYS2) for verilator/make/g++/python3, plus the xPack
+  RISC-V GCC where no distro package exists (recorded in `.toolpaths.sh`).
+  Ubuntu 24.04+ required for a Verilator 5 package (22.04 ships 4.x).
+- **Simulation is fully open-source**: all 10 testbenches run unmodified
+  under **Verilator 5** (`--timing`), same PASS criteria as the xsim
+  suite.
+- **`build` / `flashfw`** drive the same Vivado `.tcl` scripts through a
+  Linux Vivado install (found via `$VIVADO`, PATH, or `/opt|/tools/Xilinx`).
+- A FuseSoC wrapper (`minimal_ibex_soc.core`, targets `lint | sim | synth`)
+  exists for FuseSoC-based team flows — the native scripts remain the
+  supported path.
+
 ### The serial console
 
 Boot prints a full system-info banner (core, kernel, memory map,
@@ -128,7 +147,8 @@ in [docs/STATUS_BRIEF.md](docs/STATUS_BRIEF.md).
 
 | Path | Contents |
 |---|---|
-| `ibex_soc.bat` | **The one entry point** (GUI) |
+| `ibex_soc.bat` / `ibex_soc.sh` | **The one entry point per OS** (Windows GUI / Linux CLI+menu) |
+| `minimal_ibex_soc.core` | FuseSoC wrapper (`lint` / `sim` / `synth` targets) |
 | `scripts/` | `flows.ps1` (all flows) + regression/compile runners + tool locators |
 | `rtl/system/`, `rtl/fpga/` | SoC fabric + peripherals; board top levels |
 | `vendor/` | Vendored Ibex, lowRISC primitives, debug module, FreeRTOS kernel |

@@ -15,6 +15,10 @@
 set -e
 
 VARIANT="${1:-hw}"
+# --check-toolchain: exit 0 iff a RISC-V GCC is discoverable, build nothing
+# (used by ibex_soc.sh to decide whether firmware can be rebuilt).
+CHECK_ONLY=0
+[ "$VARIANT" = "--check-toolchain" ] && CHECK_ONLY=1
 ROOT="${2:-${RISCV_GCC_HOME:-}}"
 case "$ROOT" in wsl:*) ROOT="${ROOT#wsl:}" ;; esac
 
@@ -39,6 +43,11 @@ fi
 GCC="${BIN}${PREFIX}gcc"
 OBJCOPY="${BIN}${PREFIX}objcopy"
 OBJDUMP="${BIN}${PREFIX}objdump"
+
+if [ "$CHECK_ONLY" = 1 ]; then
+    echo "toolchain: ${GCC}"
+    exit 0
+fi
 
 KERNEL=../../vendor/freertos_kernel
 PORT=$KERNEL/portable/GCC/RISC-V

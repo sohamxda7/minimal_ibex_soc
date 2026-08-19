@@ -353,13 +353,48 @@ demote a part back to absent (`toy: bme lost`).
 uninitialised-SRAM XIP boots and the strict SPI models), images, firmware,
 compile, bitstream with timing met and **no SRAM init image**.
 
-## 12. Not covered (future work)
+## 12. Verilator cross-check + Linux flow (2026-08-19, later)
+
+`./ibex_soc.sh` (new, the Linux twin of `ibex_soc.bat`) runs the **same
+10 full-SoC testbenches unmodified under Verilator 5** (`--timing`) —
+providing the tooling for the independent Verilator regression Ravi asked
+for before RTL sign-off, and a second engine cross-checking every xsim
+result.
+
+**Result (Verilator 5.050): 12/12 ALL GREEN** — images + FreeRTOS sim
+firmware (built by `build.sh`) + all 10 testbenches with identical PASS
+criteria to the xsim suite, including tb_xip/tb_freertos on the direct-XIP
+boot ROM and tb_uart2_irq's full FIFO-overflow/recovery matrix. Two
+simulators, two vendors, zero disagreements.
+
+Host quirks found while proving it (encoded in the script + WALKTHROUGH
+gotcha 30): Verilator resolves dead-generate module refs (needs
+`prim_cipher_pkg` fed explicitly); MinGW GCC 16.2 `-Os` link bug → `-O2`
+on MSYS hosts; msys vs ucrt python path handling.
+
+**FuseSoC wrapper** (`minimal_ibex_soc.core`, `arf:ibex:minimal_ibex_soc`,
+mirrors filelist.f, no dependency on the vendored core tree; `$readmemh`
+images via `copyto` — the approach from team commit `498798b`, adopted):
+
+| Target | Tool | Verified |
+|---|---|---|
+| `lint` | Verilator `--lint-only` | **run green** (exit 0) |
+| `sim` (tb_soc) | Verilator `--main --timing` | **builds + binary passes 9/9** (edalize's run stage calls `./Vtb_soc` which misses the `.exe` on native Windows — Linux unaffected) |
+| `synth` (top_artya7) | Vivado | **full build green**: synthesis → place → route → 3.8 MB bitstream, "all user specified timing constraints are met" (run under MSYS2 make + Windows Vivado 2026.1; caught + fixed a file-type bug first — the SV-content `.v` i2c files must be `systemVerilogSource`) |
+
+The `deps` flow installs the complete environment (apt/dnf/pacman +
+xPack RISC-V GCC fallback); `build`/`flashfw` drive the Windows-proven
+`.tcl` scripts through a Linux Vivado — pending first exercise on a real
+Linux Vivado install.
+
+## 13. Not covered (future work)
 
 - **Phase 2b on hardware** — parts + soldering kit in hand; needs the
   board on the bench (guide: PRODUCTION_PERIPHERALS §8). Test rows
   15-17b in HW_VALIDATION_PLAN.
 - Direct-XIP boot on hardware — sim-proven; first `flashfw` with the new
   bitstream verifies it on the board (any boot = the silicon path now)
+- `ibex_soc.sh build`/`flashfw` on a real Linux Vivado install
 - Pmod touch-test (no-instruments continuity check — needs hands)
 - JTAG debug via OpenOCD (dm_top synthesises with the BSCANE2 tap; not exercised)
 
