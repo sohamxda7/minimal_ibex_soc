@@ -402,6 +402,29 @@ console test (sb/sh-heavy — a byte-store torture test by nature) on the
 DFFRAM model, in **both** xsim (`xelab -generic_top UseDffram=1`) and
 Verilator (`-GUseDffram=1`) — no extra compile, same PASS bar.
 
+**Genuine-Ubuntu run (2026-08-19, night — fresh WSL2 Ubuntu 24.04.4).**
+The whole Linux flow exercised end-to-end on a clean distro, exactly as a
+new user would: `deps` (apt) → `setup` all green → **regression 13/13 ALL
+GREEN** (images + FreeRTOS firmware + all 11 sims incl. tb_soc-dffram) →
+`lint` exit 0 → FuseSoC `lint` green and `sim` **9/9 with edalize's
+native run stage** (closing the Windows-only `.exe` caveat above). Three
+portability bugs found and fixed by this run:
+
+1. `--quiet-stats` only exists in Verilator ≥ 5.022; Ubuntu 24.04 ships
+   5.020. Removed from `ibex_soc.sh` and the `.core` (output was
+   log-redirected anyway). MSYS2's 5.050 re-verified after removal.
+2. **Ubuntu's `gcc-riscv64-unknown-elf` ships without any C library** —
+   no `stdlib.h`, cannot build the firmware, yet exists on PATH.
+   `build.sh --check-toolchain` is now a real *compile probe* (rv32 +
+   libc headers), and `deps` no longer installs the apt package — every
+   Linux distro gets the same xPack `riscv-none-elf` GCC the Windows GUI
+   installs (auto-download to `~/ibex-tools`, recorded in
+   `.toolpaths.sh`, picked up in-process so the post-install check is
+   accurate).
+3. Under MSYS2, `ibex_soc.sh` now falls back to the Windows GUI's
+   `.toolpaths` for the RISC-V GCC (`cygpath`-translated; `wsl:`-hosted
+   toolchains skipped) — one saved config serves both entry scripts.
+
 ## 13. Not covered (future work)
 
 - **Phase 2b on hardware** — parts + soldering kit in hand; needs the

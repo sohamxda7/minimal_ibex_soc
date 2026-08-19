@@ -163,7 +163,8 @@ targets:
     default_tool: verilator
     tools:
       verilator:
-        verilator_options: [--timing, --main, -Wno-fatal, --quiet-stats, -j, "0"]
+        # no --quiet-stats: only added in Verilator 5.022, Ubuntu 24.04 ships 5.020
+        verilator_options: [--timing, --main, -Wno-fatal, -j, "0"]
         # -O2 instead of Verilator's -Os default: faster sim, and dodges a
         # MinGW GCC-16 -Os link bug (WALKTHROUGH gotcha 30b)
         make_options: [OPT_FAST=-O2, OPT_SLOW=-O2, OPT_GLOBAL=-O2]

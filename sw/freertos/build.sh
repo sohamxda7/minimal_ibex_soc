@@ -45,8 +45,22 @@ OBJCOPY="${BIN}${PREFIX}objcopy"
 OBJDUMP="${BIN}${PREFIX}objdump"
 
 if [ "$CHECK_ONLY" = 1 ]; then
-    echo "toolchain: ${GCC}"
-    exit 0
+    # A real compile probe, not just an existence check: Ubuntu's
+    # gcc-riscv64-unknown-elf ships WITHOUT any libc (no stdlib.h) and
+    # cannot build the firmware even though the binary is on PATH.
+    probe=$(mktemp -d)
+    printf '#include <stdlib.h>\n#include <string.h>\nint main(void){return 0;}\n' > "$probe/p.c"
+    if "$GCC" -march=rv32imc_zicsr -mabi=ilp32 -c "$probe/p.c" -o "$probe/p.o" >/dev/null 2>&1 \
+       || "$GCC" -march=rv32imc -mabi=ilp32 -c "$probe/p.c" -o "$probe/p.o" >/dev/null 2>&1; then
+        rm -rf "$probe"
+        echo "toolchain: ${GCC}"
+        exit 0
+    fi
+    rm -rf "$probe"
+    echo "ERROR: ${GCC} exists but cannot compile rv32 code with libc headers" >&2
+    echo "       (Ubuntu's gcc-riscv64-unknown-elf has no C library - use the" >&2
+    echo "       xPack toolchain: ./ibex_soc.sh deps installs it)" >&2
+    exit 1
 fi
 
 KERNEL=../../vendor/freertos_kernel

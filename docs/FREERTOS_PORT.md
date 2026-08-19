@@ -84,6 +84,11 @@ the right `-march` spelling per compiler. Supported installs, easiest first:
   `riscv64-zephyr-elf-gcc` is a normal multilib bare-metal compiler.
   (`build.bat` and `build.sh` are verified byte-identical given the same
   toolchain; different GCC versions naturally differ in codegen.)
+- **Linux: `./ibex_soc.sh deps`** installs the same xPack toolchain to
+  `~/ibex-tools` on every distro. Do NOT use Ubuntu's
+  `gcc-riscv64-unknown-elf` apt package — it ships **without a C
+  library** (no `stdlib.h`) and cannot build the firmware;
+  `build.sh --check-toolchain` compile-probes for exactly this.
 
 Flags: `-march=rv32imc_zicsr` (or probed fallback) `-mabi=ilp32
 -mcmodel=medany -Os`, no libc startup (`-nostartfiles`). Native Linux users

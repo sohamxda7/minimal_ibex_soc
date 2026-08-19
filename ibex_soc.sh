@@ -30,6 +30,23 @@ cd "$(dirname "$0")"
 # Per-PC tool locations written by `deps` (RISCV_GCC_HOME, VIVADO, ...)
 [ -f .toolpaths.sh ] && . ./.toolpaths.sh
 
+# On MSYS2, fall back to the Windows GUI's .toolpaths for the RISC-V GCC
+# (translate C:\ -> /c/; skip wsl:-hosted toolchains - unreachable from MSYS)
+if [ -z "${RISCV_GCC_HOME:-}" ] && [ -f .toolpaths ]; then
+    case "$(uname -o 2>/dev/null)" in
+        Msys|Cygwin)
+            _wingcc=$(sed -n 's/^RISCV_GCC_HOME=//p' .toolpaths | tr -d '\r')
+            case "$_wingcc" in
+                wsl:*|"") ;;
+                *) if command -v cygpath >/dev/null 2>&1; then
+                       RISCV_GCC_HOME=$(cygpath -u "$_wingcc")
+                       RISCV_PREFIX=$(sed -n 's/^RISCV_PREFIX=//p' .toolpaths | tr -d '\r')
+                       export RISCV_GCC_HOME RISCV_PREFIX
+                   fi ;;
+            esac ;;
+    esac
+fi
+
 # ---- the 10 testbenches and their PASS lines (same table as the Windows
 #      regression, scripts/run_regression.ps1 - keep in sync) ----------------
 TBS="tb_soc tb_soc_dffram tb_lcd tb_i2c tb_xip tb_freertos tb_psram tb_wifi tb_uart2_irq tb_audio tb_cam"
@@ -116,7 +133,11 @@ do_setup() {
     fi
     if v=$(find_vivado); then echo "[ OK ] vivado: $v (bitstream/flash flows enabled)"
     else echo "[INFO] Vivado not found - sim flows unaffected; build/flashfw need it"; fi
+    # pip install --user lands in ~/.local/bin, which login shells may not have
+    # on PATH yet - look there too
     if have fusesoc; then echo "[ OK ] fusesoc: $(fusesoc --version 2>&1)"
+    elif [ -x "$HOME/.local/bin/fusesoc" ]; then
+        echo "[ OK ] fusesoc: $HOME/.local/bin/fusesoc (add ~/.local/bin to PATH)"
     else echo "[INFO] fusesoc not installed (optional): pip install fusesoc"; fi
     return $ok
 }
@@ -139,6 +160,8 @@ install_xpack_gcc() {
     [ -x "$root/bin/riscv-none-elf-gcc" ] || { echo "ERROR: extract failed"; return 1; }
     { echo "export RISCV_GCC_HOME=\"$root\""
       echo "export RISCV_PREFIX=riscv-none-elf-"; } >> .toolpaths.sh
+    # pick the new paths up in THIS process too (deps runs setup right after)
+    . ./.toolpaths.sh
     echo "RISC-V GCC installed -> $root (recorded in .toolpaths.sh)"
 }
 
@@ -146,9 +169,10 @@ do_deps() {
     echo "=== Installing dependencies ==="
     SUDO=""; [ "$(id -u)" != 0 ] && have sudo && SUDO=sudo
     if have apt-get; then                       # Ubuntu / Debian
+        # NOT gcc-riscv64-unknown-elf: that package ships without any libc
+        # (no stdlib.h) and cannot build the firmware - xPack fallback below.
         $SUDO apt-get update
-        $SUDO apt-get install -y verilator make g++ python3 python3-pip curl \
-            gcc-riscv64-unknown-elf || true
+        $SUDO apt-get install -y verilator make g++ python3 python3-pip curl || true
     elif have dnf; then                         # RHEL / Fedora / Rocky
         $SUDO dnf install -y verilator make gcc-c++ python3 python3-pip curl || true
         echo "(RHEL has no packaged bare-metal RISC-V GCC - xPack fallback below)"
@@ -208,7 +232,9 @@ do_sim() {
     mkdir -p "build/verilator/$tb"
     echo "--- verilate $tb ---"
     # shellcheck disable=SC2086
-    "$VERILATOR" --binary --timing -j "$JOBS" -Wno-fatal --quiet-stats \
+    # (no --quiet-stats: only added in Verilator 5.022; Ubuntu 24.04 ships 5.020
+    #  and the output goes to build.log anyway)
+    "$VERILATOR" --binary --timing -j "$JOBS" -Wno-fatal \
         --top-module "$top" $gparam -Mdir "build/verilator/$tb" -o "${tb}_sim" $VLT_MAKEFLAGS \
         -f dv/xsim/filelist.f "$src" $DV_SRC $VLT_EXTRA $INCDIRS \
         > "build/verilator/$tb/build.log" 2>&1 \

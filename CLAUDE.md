@@ -702,10 +702,8 @@ Implemented same day:
 - Verified on Windows via portable MSYS2 (C:\FPGA\msys64, Verilator
   5.050 + gcc 16.2 + ucrt python): tb-by-tb quirks became gotcha 30
   (prim_cipher_pkg feed, MSYS -Os string-move-ctor link bug -> -O2,
-  msys-vs-ucrt python path mangling). WSL had no distro on this PC and
-  enabling needs a reboot - Ubuntu-24.04 is downloaded, first
-  `wsl -d Ubuntu-24.04` after a reboot completes it; the flow itself
-  is host-agnostic bash.
+  msys-vs-ucrt python path mangling). WSL leg completed 2026-08-19
+  night after the reboot - see the genuine-Ubuntu entry below.
 - Full parity pass (Soham directive, same day): no-arg interactive MENU
   (the GUI-equivalent), `deps` flow installs EVERYTHING (apt Ubuntu /
   dnf RHEL / pacman MSYS2; xPack riscv-none-elf-gcc download where no
@@ -738,7 +736,30 @@ sync); dffram.sv added to filelist.f + the FuseSoC core. Gotcha 30d:
 a comment line must never START with the word "verilator"
 (BADVLTPRAGMA). ASIC netlist config = UseDffram=1.
 
-## 5. Open questions for the team (track until answered)
+**2026-08-19 (night) — Linux flow proven on genuine Ubuntu 24.04 (WSL2,
+post-reboot)**: fresh distro, exactly the new-user path: `deps` (apt) →
+`setup` all green → **regression 13/13 ALL GREEN** → `lint` exit 0 →
+FuseSoC lint green + sim 9/9 with edalize's NATIVE run stage (the .exe
+caveat is Windows-only, now confirmed). Three portability bugs found by
+this run, all fixed:
+- `--quiet-stats` needs Verilator >= 5.022; Ubuntu 24.04 ships 5.020.
+  Removed from ibex_soc.sh AND minimal_ibex_soc.core (gotcha 30e).
+  MSYS2 5.050 re-verified after removal.
+- **Ubuntu's `gcc-riscv64-unknown-elf` has NO libc** (no stdlib.h) —
+  exists on PATH, builds nothing. `build.sh --check-toolchain` is now a
+  REAL compile probe (rv32 + libc headers, mktemp scratch), and `deps`
+  installs the xPack riscv-none-elf GCC on every Linux distro instead
+  (same toolchain as the Windows GUI; install re-sources .toolpaths.sh
+  in-process so the post-install check is accurate). Gotcha 30f.
+- On MSYS2, ibex_soc.sh now falls back to the Windows `.toolpaths` for
+  the RISC-V GCC (cygpath-translated, `wsl:` entries skipped) — one
+  saved config serves both entry scripts (gotcha 30g). Also: fusesoc
+  detection looks in ~/.local/bin (pip --user on Ubuntu).
+- WSL note (this PC): distro is `Ubuntu-24.04`, repo copy for speed at
+  `~/ibex` inside WSL (ext4 - Verilator over /mnt/c is very slow); WSL
+  idle-shutdown wipes /tmp and its own background processes, and piping
+  long wsl.exe output through PowerShell can silently drop it - run via
+  Git-Bash `wsl ... bash -c '... > log'` then read the log.
 
 1. ~~SRAM base address~~ **RESOLVED 2026-08-10: team confirmed
    `0x0010_2000` (the repo's value) is correct**; the spec sheet's printed

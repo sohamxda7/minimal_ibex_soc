@@ -58,9 +58,12 @@ or name a flow: `setup | deps | images | firmware [sim] | lint |
 sim <tb> | regression | build | flashfw | flashonly [bin]`.
 
 - **`deps` installs everything**: apt (Ubuntu/Debian), dnf (RHEL/Fedora)
-  or pacman (MSYS2) for verilator/make/g++/python3, plus the xPack
-  RISC-V GCC where no distro package exists (recorded in `.toolpaths.sh`).
+  or pacman (MSYS2) for verilator/make/g++/python3, plus the **xPack
+  RISC-V GCC on every Linux distro** (recorded in `.toolpaths.sh`; the
+  apt `gcc-riscv64-unknown-elf` ships without a libc and cannot build the
+  firmware — the toolchain check is a real compile probe for this).
   Ubuntu 24.04+ required for a Verilator 5 package (22.04 ships 4.x).
+  Proven end-to-end on a fresh Ubuntu 24.04: `deps` → regression 13/13.
 - **Simulation is fully open-source**: all 11 simulations (10 testbenches
   + the DFFRAM/ASIC-SRAM config) run unmodified under **Verilator 5**
   (`--timing`), same PASS criteria as the xsim suite.

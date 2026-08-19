@@ -17,7 +17,7 @@ all timing constraints met.
 
 | Area | State |
 |---|---|
-| Full regression (11 simulations + bitstream) | **15/15 PASS** in xsim, timing met; **cross-checked ALL GREEN under Verilator 5** — incl. `tb_soc-dffram`, the ASIC-SRAM (DFFRAM) configuration |
+| Full regression (11 simulations + bitstream) | **15/15 PASS** in xsim, timing met; **cross-checked ALL GREEN under Verilator 5** — incl. `tb_soc-dffram`, the ASIC-SRAM (DFFRAM) configuration — on **two hosts**: MSYS2/Windows (Verilator 5.050) and a fresh Ubuntu 24.04 (5.020, full `deps`→`regression` 13/13) |
 | Firmware | **One** FreeRTOS image: console + LED/RGB/switch control + all drivers |
 | **UART2 RX interrupt** (Ravi's items 3+4, 2026-08-17) | **Done & sim-proven**: fast IRQ 1 wired; IRQ-driven ESP-AT client with high-priority RX task + unsolicited-event parser; polled mode kept for bring-up |
 | Lead's regression ask (item 5, sim part) | **Done**: `tb_uart2_irq` covers simultaneous UART1+UART2 traffic, 128-byte FIFO burst/overflow (exactly 128 kept of 160), IRQ vectoring, unsolicited events, post-overflow recovery |
@@ -130,8 +130,10 @@ Ravi's reply resolved most of the open items. Where each stands on our side:
    (`minimal_ibex_soc.core`) with all three targets verified: `lint`
    green, `sim` 9/9, `synth` = full routed bitstream with timing met.
    All 11 sims (incl. `tb_soc-dffram`) verified green under Verilator
-   5.050 on 2026-08-19 as a cross-check — the independent sign-off *run*
-   remains hers.
+   5.050 on 2026-08-19 as a cross-check, and the same day the whole flow
+   was re-proven end-to-end on a **fresh Ubuntu 24.04** (`deps` →
+   regression **13/13** → lint → FuseSoC lint + sim, Verilator 5.020) —
+   the independent sign-off *run* remains hers.
 
 **Still needed from the lead:**
 
