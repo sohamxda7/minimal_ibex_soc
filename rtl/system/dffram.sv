@@ -1,3 +1,12 @@
+// Behavioral model of the GF180 DFFRAM macro (the ASIC SRAM). Selected in
+// wrapper_top.sv by the UseDffram PARAMETER, not by a simulator ifdef
+// (Ravi, 2026-08-19: synthesis must not depend on a simulator define), so
+// every engine (xsim, Vivado, and Verilator) can elaborate either SRAM.
+// (NB: a comment must never START with the word "verilator" - it parses
+// as a metacomment/pragma and errors out as BADVLTPRAGMA.)
+// WE is PER-BYTE [3:0] - Ibex issues sb/sh to SRAM, a single-bit WE
+// breaks byte stores (review flag (b) on team commit 740d59c9; regressed
+// by tb_soc-dffram).
 module dffram #(
 
     parameter string MemInitFile = ""
@@ -56,11 +65,11 @@ module dffram #(
 
     end
  
-`ifndef SYNTHESIS
- 
     //------------------------------------------------------------------
 
-    // Optional initialization
+    // Optional initialization (no-op with MemInitFile="" - silicon and,
+    // since the 2026-08-19 direct-XIP boot, the FPGA both power up with
+    // uninitialised SRAM)
 
     //------------------------------------------------------------------
 
@@ -75,9 +84,12 @@ module dffram #(
         end
 
     end
- 
-    
- 
+
+`ifdef VERILATOR
+    // DPI exports for the Verilator --meminit harness ONLY. Guarded with
+    // VERILATOR, not SYNTHESIS: xsim compiles `ifndef SYNTHESIS` code and
+    // its C codegen fails on DPI exports (same fix as sram_model.sv).
+
     export "DPI-C" task simutil_memload;
 
     task simutil_memload(input string file);

@@ -1,6 +1,7 @@
 # =============================================================================
 # FULL regression, one entry point: regenerate program images, compile all
-# RTL + testbenches, run all 10 simulations, build the bitstream, verify
+# RTL + testbenches, run all 11 simulations (10 TBs + the DFFRAM config
+# of tb_soc), build the bitstream, verify
 # timing, print a PASS/FAIL scoreboard. ~45-60 min on a 16 GB machine
 # (everything sequential on purpose - concurrent xelab+vivado has killed
 # builds on 16 GB before).
@@ -60,6 +61,9 @@ $results["compile"] = ((Select-String -Path $log -Pattern "^ERROR" -SimpleMatch 
 # ---- 4. Simulations --------------------------------------------------------
 $tests = @(
   @{tb="tb_soc";      snap="soc_sim";      pass="9 PASS, 0 FAIL"},
+  # Same full-SoC checks on the GF180 DFFRAM behavioral model (the ASIC
+  # netlist SRAM; per-byte WE) - parameter-selected, no separate compile.
+  @{tb="tb_soc";      snap="soc_dffram_sim"; pass="9 PASS, 0 FAIL"; key="tb_soc-dffram"; generic="UseDffram=1"},
   @{tb="tb_lcd";      snap="lcd_sim";      pass="5 PASS, 0 FAIL"},
   @{tb="tb_i2c";      snap="i2c_sim";      pass="PASS: register"},
   @{tb="tb_xip";      snap="xip_sim";      pass="PASS: CPU executed"},
@@ -71,12 +75,17 @@ $tests = @(
   @{tb="tb_cam";      snap="cam_sim";      pass="PASS: 16-byte"}
 )
 foreach ($t in $tests) {
-  Log "--- SIM $($t.tb) ---"
-  & "$viv\xelab.bat" $t.tb -s $t.snap -timescale 1ns/1ps 2>&1 |
+  $name = if ($t.key) { $t.key } else { $t.tb }
+  Log "--- SIM $name ---"
+  $xelabArgs = @($t.tb, "-s", $t.snap, "-timescale", "1ns/1ps")
+  # embedded quotes: cmd.exe (xelab.bat) splits unquoted args on '=' and
+  # xelab then hunts for design unit "1"
+  if ($t.generic) { $xelabArgs += @("-generic_top", "`"$($t.generic)`"") }
+  & "$viv\xelab.bat" @xelabArgs 2>&1 |
     Select-String "^ERROR|Built simulation" | Out-File $log -Append -Encoding ascii
   $out = & "$viv\xsim.bat" $t.snap -R 2>&1 | Out-String
   ($out -split "`n" | Select-String "PASS|FAIL|RESULTS") | Out-File $log -Append -Encoding ascii
-  $results[$t.tb] = ($out -match [regex]::Escape($t.pass))
+  $results[$name] = ($out -match [regex]::Escape($t.pass))
 }
 
 # ---- 5. Bitstream ----------------------------------------------------------

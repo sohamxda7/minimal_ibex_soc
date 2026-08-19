@@ -73,6 +73,7 @@ rtl/system/boot_rom.sv
 rtl/system/spi_flash_xip.sv
 rtl/system/sram_controller.sv
 rtl/system/sram_model.sv
+rtl/system/dffram.sv
 rtl/system/wb_interconnect.sv
 rtl/system/obi2wb.sv
 rtl/system/pwm.sv

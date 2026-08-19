@@ -21,7 +21,7 @@
 #                         only on explicit choice) -> XIP bitstream -> QSPI
 #                         flash. Survives power-cycle.
 #   flashonly [file.bin]  reflash firmware+bitstream only (default FreeRTOS bin)
-#   regression            full suite: images + firmware + compile + 10 sims +
+#   regression            full suite: images + firmware + compile + 11 sims +
 #                         bitstream + scoreboard (~45-60 min)
 #
 # Tool locating (same order + .toolpaths file as scripts/find_tools.cmd):

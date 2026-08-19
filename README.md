@@ -61,9 +61,9 @@ sim <tb> | regression | build | flashfw | flashonly [bin]`.
   or pacman (MSYS2) for verilator/make/g++/python3, plus the xPack
   RISC-V GCC where no distro package exists (recorded in `.toolpaths.sh`).
   Ubuntu 24.04+ required for a Verilator 5 package (22.04 ships 4.x).
-- **Simulation is fully open-source**: all 10 testbenches run unmodified
-  under **Verilator 5** (`--timing`), same PASS criteria as the xsim
-  suite.
+- **Simulation is fully open-source**: all 11 simulations (10 testbenches
+  + the DFFRAM/ASIC-SRAM config) run unmodified under **Verilator 5**
+  (`--timing`), same PASS criteria as the xsim suite.
 - **`build` / `flashfw`** drive the same Vivado `.tcl` scripts through a
   Linux Vivado install (found via `$VIVADO`, PATH, or `/opt|/tools/Xilinx`).
 - A FuseSoC wrapper (`minimal_ibex_soc.core`, targets `lint | sim | synth`)
@@ -116,16 +116,18 @@ self-heals. Nothing wired? Every task idles harmlessly.
 
 ## Status
 
-**14/14 regression green** (10 full-SoC simulations + images + firmware +
-compile + bitstream with timing met), and **Phase 1 + Phase 2a passed on
-the physical board (2026-08-18)** — FreeRTOS (V11.3.0) booting from QSPI
-flash, scripted console sweep 8/8, all four RGB LEDs, and the ST7735
-rendering the live ARF status screen. First hardware contact found and
-fixed two silicon-relevant RTL/firmware bugs (SPI mode-0 hold time;
-warm-reset trampoline clobber). **2026-08-19: direct-XIP boot landed**
-(lead-directed — the ROM never reads SRAM; tb_xip/tb_freertos regress the
-exact silicon power-up condition: X-filled and random-garbage SRAM) and **Phase 2b
-(OLED + BME280) is ready for the bench** — plan in
+**15/15 regression green in xsim** (11 full-SoC simulations — including
+`tb_soc-dffram`, the GF180 DFFRAM/ASIC-SRAM configuration — + images +
+firmware + compile + bitstream with timing met), **cross-checked ALL
+GREEN under Verilator 5** (`./ibex_soc.sh regression`), and **Phase 1 +
+Phase 2a passed on the physical board (2026-08-18)** — FreeRTOS (V11.3.0)
+booting from QSPI flash, scripted console sweep 8/8, all four RGB LEDs,
+and the ST7735 rendering the live ARF status screen. First hardware
+contact found and fixed two silicon-relevant RTL/firmware bugs (SPI
+mode-0 hold time; warm-reset trampoline clobber). **2026-08-19:
+direct-XIP boot landed** (lead-directed — the ROM never reads SRAM;
+tb_xip/tb_freertos regress the exact silicon power-up condition) and
+**Phase 2b (OLED + BME280) is ready for the bench** — plan in
 [docs/HW_VALIDATION_PLAN.md](docs/HW_VALIDATION_PLAN.md), current state
 in [docs/STATUS_BRIEF.md](docs/STATUS_BRIEF.md).
 

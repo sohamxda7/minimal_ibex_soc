@@ -235,7 +235,8 @@ FPGA validation must run the silicon configuration or it isn't validation.
     whenever sw/freertos/** changes
   - `flashonly [bin]` - reflash only (program_flash.tcl)
   - `regression` - full suite (run_regression.ps1): images + FreeRTOS
-    build + compile + 10 sims + bitstream + scoreboard, exit 0 = green
+    build + compile + 11 sims (10 TBs + tb_soc-dffram) + bitstream +
+    scoreboard, exit 0 = green
   flows.ps1 streams tool output via Write-Host (NOT the pipeline - the
   callers consume the numeric return; piping to Out-Null would eat the
   console output, this bit once). Keep this inventory + the WALKTHROUGH
@@ -721,6 +722,22 @@ Implemented same day:
   double-quoted here-strings eat backticks. For non-ASCII file surgery
   use python (rb/decode utf-8), and single-quoted here-strings.
 
+**2026-08-19 (evening) — DFFRAM as a parameter-selected SRAM config
+(teammate proposal, upgraded)**: teammate proposed an `ifdef verilator`
+dffram/sram_model split in wrapper_top. Implemented as a **UseDffram
+PARAMETER** instead (Ravi: synthesis must not depend on a simulator
+define) — generate-select in wrapper_top, plumbed through
+ibex_demo_system and tb_soc, so xsim (`xelab -generic_top UseDffram=1`)
+and Verilator (`-GUseDffram=1`) both regress the GF180 DFFRAM
+behavioral model with NO extra compile. Our dffram.sv already had
+per-byte WE[3:0] (flag b of 740d59c9 satisfied); its DPI exports moved
+from `ifndef SYNTHESIS` to `ifdef VERILATOR` (the guard that once broke
+xsim in sram_model). New scoreboard row **tb_soc-dffram** in BOTH
+regressions (run_regression.ps1 + ibex_soc.sh — keep the tables in
+sync); dffram.sv added to filelist.f + the FuseSoC core. Gotcha 30d:
+a comment line must never START with the word "verilator"
+(BADVLTPRAGMA). ASIC netlist config = UseDffram=1.
+
 ## 5. Open questions for the team (track until answered)
 
 1. ~~SRAM base address~~ **RESOLVED 2026-08-10: team confirmed
@@ -739,10 +756,11 @@ docs/ASIC_SPEC.md section 3.
 
 - **Configuration is now ASIC-representative**: 8 KiB SRAM, XIP wired to
   the onboard QSPI flash, FreeRTOS as the RTOS. Full regression green
-  **2026-08-19: 14/14** (images, FreeRTOS build, compile, 10 sims,
-  bitstream BUILD OK with all timing met) - the first run on the
-  direct-XIP boot ROM with uninitialised-SRAM XIP benches and strict
-  mode-0 SPI models.
+  **2026-08-19: 15/15 in xsim** (images, FreeRTOS build, compile, 11
+  sims incl. tb_soc-dffram, bitstream BUILD OK with all timing met) on
+  the direct-XIP boot ROM with silicon-power-up XIP benches, strict
+  mode-0 SPI models, and the parameter-selected DFFRAM config; **all 11
+  sims cross-checked ALL GREEN under Verilator 5** (ibex_soc.sh).
 - **ONE FLOW decision (Soham, 2026-08-10)**: user-facing delivery is
   ONLY the non-volatile QSPI path (flow `flashfw`); the unified
   FreeRTOS firmware absorbed the asm-demo console (patterns/speed/RGB/

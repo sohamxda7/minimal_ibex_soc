@@ -9,13 +9,14 @@
 #   ./ibex_soc.sh firmware [sim]   # FreeRTOS build (default: hw image)
 #   ./ibex_soc.sh lint             # verilator --lint-only of the SoC RTL
 #   ./ibex_soc.sh sim <tb>         # build + run ONE testbench (e.g. tb_soc)
-#   ./ibex_soc.sh regression       # images + sim firmware + all 10 sims (Verilator)
+#   ./ibex_soc.sh regression       # images + sim firmware + all 11 sims (Verilator)
 #   ./ibex_soc.sh build            # bitstream via Vivado-on-Linux (build_fpga.tcl)
 #   ./ibex_soc.sh flashfw          # firmware + bitstream + program QSPI flash
 #   ./ibex_soc.sh flashonly [bin]  # program existing bitstream + firmware .bin
 #
-# Simulation is fully open-source: Verilator 5 (--timing) runs all 10 xsim
-# testbenches unmodified. Bitstream/flash flows need a Linux Vivado install
+# Simulation is fully open-source: Verilator 5 (--timing) runs all xsim
+# testbenches unmodified (10 TBs + the DFFRAM config of tb_soc).
+# Bitstream/flash flows need a Linux Vivado install
 # (located via $VIVADO, PATH, or /opt|/tools/Xilinx). Supported distros for
 # `deps`: Ubuntu/Debian (apt), RHEL/Fedora (dnf), MSYS2 (pacman).
 # Ubuntu 22.04's verilator 4.x is too old - deps warns; 24.04+ is fine.
@@ -31,10 +32,11 @@ cd "$(dirname "$0")"
 
 # ---- the 10 testbenches and their PASS lines (same table as the Windows
 #      regression, scripts/run_regression.ps1 - keep in sync) ----------------
-TBS="tb_soc tb_lcd tb_i2c tb_xip tb_freertos tb_psram tb_wifi tb_uart2_irq tb_audio tb_cam"
+TBS="tb_soc tb_soc_dffram tb_lcd tb_i2c tb_xip tb_freertos tb_psram tb_wifi tb_uart2_irq tb_audio tb_cam"
 pass_of() {
     case "$1" in
         tb_soc)       echo "9 PASS, 0 FAIL" ;;
+        tb_soc_dffram) echo "9 PASS, 0 FAIL" ;;  # tb_soc on the GF180 DFFRAM model (ASIC SRAM, per-byte WE)
         tb_lcd)       echo "5 PASS, 0 FAIL" ;;
         tb_i2c)       echo "PASS: register" ;;
         tb_xip)       echo "PASS: CPU executed" ;;
@@ -198,12 +200,17 @@ do_lint() {
 do_sim() {
     tb="$1"
     [ "$(pass_of "$tb")" = "__NO_SUCH_TB__" ] && { echo "unknown tb '$tb' (one of: $TBS)"; return 2; }
+    # tb_soc_dffram = tb_soc with the DFFRAM storage array (parameter, -G)
+    src="dv/xsim/$tb.sv"; top="$tb"; gparam=""
+    if [ "$tb" = "tb_soc_dffram" ]; then
+        src="dv/xsim/tb_soc.sv"; top="tb_soc"; gparam="-GUseDffram=1"
+    fi
     mkdir -p "build/verilator/$tb"
     echo "--- verilate $tb ---"
     # shellcheck disable=SC2086
     "$VERILATOR" --binary --timing -j "$JOBS" -Wno-fatal --quiet-stats \
-        --top-module "$tb" -Mdir "build/verilator/$tb" -o "${tb}_sim" $VLT_MAKEFLAGS \
-        -f dv/xsim/filelist.f "dv/xsim/$tb.sv" $DV_SRC $VLT_EXTRA $INCDIRS \
+        --top-module "$top" $gparam -Mdir "build/verilator/$tb" -o "${tb}_sim" $VLT_MAKEFLAGS \
+        -f dv/xsim/filelist.f "$src" $DV_SRC $VLT_EXTRA $INCDIRS \
         > "build/verilator/$tb/build.log" 2>&1 \
         || { echo "VERILATE FAILED - build/verilator/$tb/build.log"; return 1; }
     echo "--- run $tb ---"

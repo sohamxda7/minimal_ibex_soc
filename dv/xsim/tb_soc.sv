@@ -17,9 +17,14 @@
 
 `timescale 1ns / 1ps
 
-module tb_soc;
+// Set UseDffram=1 (xelab -generic_top / verilator -G) to run the same
+// full-SoC checks on the GF180 DFFRAM behavioral model - the ASIC netlist
+// SRAM. The console is sb/sh-heavy, so this directly regresses per-byte WE.
+module tb_soc #(
+  parameter bit UseDffram = 1'b0
+);
 
-  // 20 MHz system clock (bypasses the FPGA PLL ??? we drive clk directly)
+  // 20 MHz system clock (bypasses the FPGA PLL - we drive clk directly)
   logic clk = 1'b0;
   always #25 clk = ~clk;
 
@@ -46,7 +51,8 @@ module tb_soc;
     .ClockFrequency (20_000_000),
     .BaudRate       (SimBaud),
     .SRAMInitFile   ("sw/asm-demo/sram_init_sim.vmem"),
-    .BootInitFile   ("dv/xsim/boot_sram_dv.mem") // DV-only SRAM boot; real ROM is direct-XIP
+    .BootInitFile   ("dv/xsim/boot_sram_dv.mem"), // DV-only SRAM boot; real ROM is direct-XIP
+    .UseDffram      (UseDffram)
   ) dut (
     .clk_sys_i  (clk),
     .rst_sys_ni (rst_n),
@@ -78,7 +84,7 @@ module tb_soc;
   );
 
   // -------------------------------------------------------------------
-  // UART TX decoder ??? every byte the SoC sends is printed and buffered
+  // UART TX decoder - every byte the SoC sends is printed and buffered
   // -------------------------------------------------------------------
   byte rx_buf [0:4095];
   int  rx_cnt = 0;

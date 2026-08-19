@@ -84,6 +84,7 @@ Planned floorplan: DFFRAM ~1.8 mm² + logic (~44 kGE) ~4.0 mm² + power/routing
 | Boot entry | jump to SRAM+0x80 | **direct XIP: ROM jumps to `0x2040_0000`** | **RESOLVED 2026-08-19 (lead-directed): direct XIP boot** — silicon SRAM powers up random, so the ROM must not read it. `rtl/system/boot.mem` = `lui t0,0x20400; jalr x0,0(t0)` at reset PC `0x0010_0080`. Legacy SRAM+0x80 entry kept alive by startup.S (self-written each boot) for debug flows. Regressed by tb_xip (**uninitialised X** SRAM) + tb_freertos (**deterministic random-garbage** SRAM = silicon power-up). |
 | PWM block | absent from guide | `0x4000_0600` (12 ch, RGB demo) | **RESOLVED 2026-08-10: keep in BOTH FPGA and ASIC** (sub-lead: the guide omitted it only because it predates the fork; it was present in the original ibex-demo-system). Gate cost ~1-2 kGE on top of the ~44 kGE budget - inside the ~29% floorplan margin. |
 | SPI control regs | `0x4000_0300` | absent (XIP has no CSRs) | Fine for now — XIP controller is fixed-function. |
+| SRAM macro | GF180 DFFRAM | parameter-selected (2026-08-19): `UseDffram=1` = `dffram.sv`, the DFFRAM behavioral model (per-byte WE); `0` (default) = `sram_model` (FPGA BRAM) | **The ASIC netlist config is `UseDffram=1`.** Deliberately a parameter, not a simulator ifdef (lead direction) — regressed as `tb_soc-dffram` in both xsim and Verilator. |
 
 ### Interrupt plan
 

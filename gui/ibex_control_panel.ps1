@@ -71,11 +71,11 @@ Add-Button "Environment Check" 12  70 150 { Launch-Flow "setup" "" } `
 Add-Button "Install Missing Tools" 170 70 150 { Launch-Flow "deps" "" } `
   "Step 2 - Auto-installs what the check flagged: Python (winget) + a native Windows RISC-V GCC (xPack, ~470 MB download, no WSL, no admin). Vivado stays a manual install." | Out-Null
 Add-Button "Build Bitstream"   328 70 150 { Launch-Flow "build" "" } `
-  "Synthesise with the demo program baked into SRAM (~15 min)." | Out-Null
+  "Synthesise the direct-XIP bitstream - no SRAM image baked (~15 min)." | Out-Null
 Add-Button "Generate .xpr"     486 70 150 { Launch-Flow "xpr" "" } `
   "Vivado GUI project for browsing (build\vivado_project). Official build stays batch." | Out-Null
 Add-Button "Full Regression"   644 70 150 { Launch-Flow "regression" "" } `
-  "Images + firmware + compile + all 10 simulations + bitstream + scoreboard (~1 h)." | Out-Null
+  "Images + firmware + compile + all 11 simulations + bitstream + scoreboard (~1 h)." | Out-Null
 
 # ---- row 2: firmware / board ---------------------------------------------------
 # ONE image, no variant picker: the dropdown cost a bench session (2026-08-18 -

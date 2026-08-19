@@ -387,6 +387,21 @@ xPack RISC-V GCC fallback); `build`/`flashfw` drive the Windows-proven
 `.tcl` scripts through a Linux Vivado — pending first exercise on a real
 Linux Vivado install.
 
+**DFFRAM configuration (same day, evening — teammate proposal, upgraded).**
+A teammate proposed an `` `ifdef verilator `` split (dffram under
+Verilator, sram_model under Vivado). Adopted as a **`UseDffram`
+parameter** instead — Ravi's direction was that synthesis must not depend
+on a simulator define, and a parameter lets *every* engine elaborate
+either SRAM: `wrapper_top.sv` generate-selects `sram_model` (default,
+FPGA BRAM) or `dffram` (GF180 DFFRAM behavioral model, **per-byte
+WE[3:0]** — our copy already satisfied review flag b). `dffram.sv`'s DPI
+exports were re-guarded from `` `ifndef SYNTHESIS `` to
+`` `ifdef VERILATOR `` (the same guard bug that once broke xsim in
+sram_model). New regression row **tb_soc-dffram**: the full 9-check
+console test (sb/sh-heavy — a byte-store torture test by nature) on the
+DFFRAM model, in **both** xsim (`xelab -generic_top UseDffram=1`) and
+Verilator (`-GUseDffram=1`) — no extra compile, same PASS bar.
+
 ## 13. Not covered (future work)
 
 - **Phase 2b on hardware** — parts + soldering kit in hand; needs the

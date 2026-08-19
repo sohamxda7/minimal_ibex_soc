@@ -66,6 +66,8 @@ module ibex_demo_system #(
 
   parameter                     BootInitFile   = "rtl/system/boot.mem", // boot ROM image; default = direct XIP boot (no SRAM dependency)
 
+  parameter bit                 UseDffram      = 1'b0, // 1 = GF180 DFFRAM behavioral model (ASIC netlist SRAM); 0 = sram_model
+
   // SPI clock divider for the XIP flash controller: SCK = clk/(2*XipClkDiv).
   // Spec default 4 (2.5 MHz at 20 MHz). The Arty's S25FL128 flash is rated
   // to 50 MHz for cmd 0x03, so 1 (10 MHz) is valid on hardware and is what
@@ -401,6 +403,8 @@ module ibex_demo_system #(
     .SRAMInitFile   (SRAMInitFile),
 
     .BootInitFile   (BootInitFile),
+
+    .UseDffram      (UseDffram),
 
     .XipClkDiv      (XipClkDiv)
 

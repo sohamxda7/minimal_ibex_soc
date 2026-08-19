@@ -63,6 +63,14 @@ module wrapper_top #(
   // "dv/xsim/boot_sram_dv.mem" (the old jal -> SRAM+0x80) instead.
   parameter              BootInitFile    = "rtl/system/boot.mem",
 
+  // SRAM storage-array select (a PARAMETER, deliberately not a simulator
+  // ifdef — Ravi 2026-08-19: synthesis must not depend on a simulator
+  // define). 0 = sram_model (FPGA BRAM inference + sim DPI, default);
+  // 1 = dffram, the behavioral model of the GF180 DFFRAM macro that the
+  // ASIC netlist instantiates (per-byte WE; regressed by tb_soc-dffram
+  // in both xsim and Verilator).
+  parameter bit          UseDffram       = 1'b0,
+
   parameter int unsigned XipClkDiv       = 4   // XIP SPI SCK = clk/(2*XipClkDiv)
 
 ) (
@@ -867,19 +875,19 @@ module wrapper_top #(
 
   // ===========================================================
 
-  // SRAM (128 KiB)
+  // SRAM (8 KiB — ASIC area budget)
 
-  // sram_controller handles WB handshake and address decode;
+  // sram_controller handles WB handshake and address decode; the
 
-  // sram_model is the actual storage array and exports the
+  // storage array is parameter-selected below (UseDffram). Both models
 
-  // DPI-C functions (simutil_set_mem / simutil_get_mem /
+  // export the DPI-C functions (simutil_set_mem / simutil_get_mem /
 
-  // simutil_memload) that let the simulation harness pre-load ELF
+  // simutil_memload) under `ifdef VERILATOR for harness pre-loading.
 
-  // images.  The sim memory registration path is:
+  // Sim memory registration path (UseDffram=0):
 
-  //   TOP.top_verilator.u_ibex_demo_system.u_wrapper.u_sram_model
+  //   ...u_wrapper.gen_sram_model.u_sram_model
 
   // ===========================================================
 
@@ -935,29 +943,49 @@ module wrapper_top #(
 
   );
 
-  sram_model #(
+  // Storage array, parameter-selected (see UseDffram above).
+  generate
+    if (UseDffram) begin : gen_sram_dffram
 
-    .Width (DW),
+      dffram #(
+        .MemInitFile (SRAMInitFile)
+      ) u_dffram (
+        .CLK (clk_i),
+        .EN  (sram_mem_en),
+        .WE  (sram_mem_we),      // per-byte strobes straight through
+        .Di  (sram_mem_wdata),
+        .Do  (sram_mem_rdata),
+        .A   (sram_mem_addr)
+      );
 
-    .Depth (1 << SramWordAddrWidth),
+    end else begin : gen_sram_model
 
-    .MemInitFile (SRAMInitFile)
+      sram_model #(
 
-  ) u_sram_model (
+        .Width (DW),
 
-    .clk_i,
+        .Depth (1 << SramWordAddrWidth),
 
-    .req_i    (sram_mem_en),
+        .MemInitFile (SRAMInitFile)
 
-    .addr_i   (sram_mem_addr),
+      ) u_sram_model (
 
-    .we_i     (sram_mem_we),
+        .clk_i,
 
-    .wdata_i  (sram_mem_wdata),
+        .req_i    (sram_mem_en),
 
-    .rdata_o  (sram_mem_rdata)
+        .addr_i   (sram_mem_addr),
 
-  );
+        .we_i     (sram_mem_we),
+
+        .wdata_i  (sram_mem_wdata),
+
+        .rdata_o  (sram_mem_rdata)
+
+      );
+
+    end
+  endgenerate
 
   // ===========================================================
 

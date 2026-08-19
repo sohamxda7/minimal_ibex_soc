@@ -17,7 +17,7 @@ all timing constraints met.
 
 | Area | State |
 |---|---|
-| Full regression (10 simulations + bitstream) | **14/14 PASS**, timing met |
+| Full regression (11 simulations + bitstream) | **15/15 PASS** in xsim, timing met; **cross-checked ALL GREEN under Verilator 5** — incl. `tb_soc-dffram`, the ASIC-SRAM (DFFRAM) configuration |
 | Firmware | **One** FreeRTOS image: console + LED/RGB/switch control + all drivers |
 | **UART2 RX interrupt** (Ravi's items 3+4, 2026-08-17) | **Done & sim-proven**: fast IRQ 1 wired; IRQ-driven ESP-AT client with high-priority RX task + unsolicited-event parser; polled mode kept for bring-up |
 | Lead's regression ask (item 5, sim part) | **Done**: `tb_uart2_irq` covers simultaneous UART1+UART2 traffic, 128-byte FIFO burst/overflow (exactly 128 kept of 160), IRQ vectoring, unsolicited events, post-overflow recovery |
@@ -113,18 +113,25 @@ Ravi's reply resolved most of the open items. Where each stands on our side:
    is in `spi_host.sv` on main and in PR #17. Sim models were additionally
    tightened (2026-08-19) to strict datasheet mode-0 slaves so any
    regression of this bug fails in simulation, not on a panel.
-4. **DFFRAM (`740d59c9`) issues — assigned to the team** (ensure synthesis
-   instantiates the SRAM independent of `` `ifdef verilator ``; confirm
-   byte/half-word write support). We stand by to re-verify on FPGA once
-   the fixed commit lands.
+4. **DFFRAM (`740d59c9`) issues — RESOLVED in our tree (2026-08-19 evening,
+   on a teammate's ifdef proposal, upgraded per Ravi's "no simulator
+   ifdef" direction):** the SRAM storage array is now selected by a
+   **`UseDffram` parameter** (default 0 = `sram_model`; 1 = `dffram`, the
+   GF180 DFFRAM behavioral model with **per-byte WE**), so xsim, Verilator
+   and Vivado all elaborate either SRAM deterministically — synthesis can
+   never silently lose the SRAM. Regressed: `tb_soc-dffram` runs the full
+   sb/sh-heavy console on the DFFRAM model in **both** simulators — that
+   empirically proves byte/half-word writes (flag b). The team repo can
+   lift `dffram.sv` + the wrapper_top select as-is.
 5. **Verilator regression** — Shivanee's sign-off, and the infrastructure
    for it now exists (2026-08-19): `./ibex_soc.sh regression` runs **all
    10 full-SoC testbenches unmodified under Verilator 5** (`--timing`),
    same PASS criteria as the xsim suite, plus a FuseSoC wrapper
    (`minimal_ibex_soc.core`) with all three targets verified: `lint`
    green, `sim` 9/9, `synth` = full routed bitstream with timing met.
-   All 10 sims verified green under Verilator 5.050 on 2026-08-19 as a
-   cross-check — the independent sign-off *run* remains hers.
+   All 11 sims (incl. `tb_soc-dffram`) verified green under Verilator
+   5.050 on 2026-08-19 as a cross-check — the independent sign-off *run*
+   remains hers.
 
 **Still needed from the lead:**
 
