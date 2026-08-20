@@ -236,7 +236,7 @@ supported delivery is the **Flash to Board** flow in `ibex_soc.bat`
 | `i2c.c` | — | 0 | OpenCores master @0x4000_0400, 100 kHz, bounded waits, probe/reg/burst ops |
 | `st7735.c` | SPI host | 0 | No framebuffer (40 KB doesn't exist here); streams pixels to RAMWR. Control lines on GPIO[3:0] per PRODUCTION_PERIPHERALS.md sec. 8 wiring |
 | `bme280.c` | I2C 0x76 | 33 B calib | Forced-mode one-shot; 32-bit-only Bosch compensation (no 64-bit math on RV32IMC) |
-| `ssd1306.c` | I2C 0x3C | 0 | Zero-framebuffer text rendering from flash-resident 5×7 font; ~21×8 chars |
+| `ssd1306.c` | I2C 0x3C | 0 | Zero-framebuffer rendering from the flash-resident 5×7 font: 21×8 text, double-height text (`_text2x`, 12×16 cells), and pattern fills (`_fill`) for rules and the activity bar. Animation stays local — 12 bytes/s, never a repaint |
 | `spi_bus.c` | — | ~80 B mutex | v1.1: shared-bus arbitration + atomic GPIO RMW + RX-paced byte primitives |
 | `psram.c` | SPI CS=gp_o[8] | 0 | v1.1: 8 MB external memory - write/read/selftest (docs/PRODUCTION_PERIPHERALS.md) |
 | `esp_at.c` | UART2 | ~450 B static + ~650 B heap after `esp_at_init()` | v1.1: WiFi/internet via ESP32 AT commands; polled until `esp_at_init()`, then IRQ-driven with RX task + unsolicited-event parser (§2); bulk upload streams from PSRAM |

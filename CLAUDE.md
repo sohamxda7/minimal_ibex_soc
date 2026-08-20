@@ -803,6 +803,25 @@ this run, all fixed:
   scratchpad boot_from_flash.tcl) - no hands needed. Hardware re-test:
   all key echoes green; oled=2 bme=2 persists (wiring-side, awaiting
   bench fix).
+- **BME280 verdict: dead part.** Boot-time bus scan (new, permanent:
+  `toy: i2c scan: ...` over 0x08..0x77, run on a VIRGIN bus before any
+  driver transmits, aborting on the first timeout because a held-low
+  bus times out per address and over XIP that stalls boot for minutes)
+  prints `3C` only. Sensor ACKs at NO address while sharing wires with
+  a working OLED; 3.3 V / CSB high / SDO low / continuity all verified
+  AT THE MODULE PINS. -> LGA reflow damage or an open pad-to-die link,
+  neither visible to pin-level continuity. Phase 2b sensor half = WIP
+  pending a replacement; do NOT spend more time debugging it.
+- **OLED now has its own live screen** (it used to update only INSIDE
+  the sensor-present branch, so a missing BME left the panel frozen on
+  its title - exactly the wrong failure mode). New ssd1306 primitives:
+  `ssd1306_text2x` (double-height, 12x16 cell, one 24-byte burst per
+  glyph - horizontal addressing fills page N fully before page N+1) and
+  `ssd1306_fill` (rect of one byte pattern; `ssd1306_clear` is now a
+  one-liner on it). Animation rule for a framebuffer-less panel: keep it
+  LOCAL - the sweep bar rewrites 12 bytes/s, the spinner 6, versus 1024
+  for a repaint. Layout + per-row content documented in
+  PRODUCTION_PERIPHERALS sec. 8.
 - Rewiring result (same day, later): OLED UP (`oled=0 bme=1`) after
   moving junctions off the edge rails - the 2->1 code change proves
   the stuck-bus diagnosis. BME280 NACKs both addresses on the healthy
@@ -810,6 +829,21 @@ this run, all fixed:
   promoted to REQUIRED in the docs. Wiring diagram committed as
   docs/img/phase2b_wiring.svg (embedded in PRODUCTION_PERIPHERALS
   sec. 8).
+- **Linux deps must never dead-end (Shivanee's log, 2026-08-20)**: her
+  box is Ubuntu 22.04 where apt's verilator is 4.210 and NO apt package
+  can give 5.x - `deps` used to just WARN, which is useless. Now: (a)
+  `install_verilator_src` BUILDS verilator from the latest upstream
+  release tag into ~/ibex-tools/verilator (the Linux twin of the Windows
+  GUI's auto-download); (b) every tool has an ask-for-path fallback that
+  saves to .toolpaths.sh (set_verilator/ask_verilator, ask_riscv_gcc,
+  ask_vivado) - `interactive()` guards them so CI never blocks; (c)
+  `find_verilator` walks EVERY PATH entry and picks by VERSION, because
+  her `export PATH=$HOME/verilator/bin:$PATH` in front of a distro 4.x
+  is exactly the case that must not decide the outcome; (d)
+  `require_verilator` makes lint/sim/regression refuse up front with the
+  version they found. Also warn on fusesoc < 2 (hers reported "0.1").
+  All four cases regression-tested in WSL with a fake 4.210 shim and
+  `unshare -m` bind-mounts so the host stayed untouched.
 - Teammate "can't run Verilator" (ARF-BBSR-84 transcript, docx): they
   are on a PRE-08-18 checkout (setup_check.bat/build_fpga.bat era - no
   ibex_soc.sh at all) and/or launching from cmd. Answer: git pull +

@@ -136,7 +136,7 @@ it. What each part adds when wired (2026-08-19 firmware):
 |---|---|
 | ST7735 LCD | live system-status screen (Phase 2a below) |
 | + BME280 | `T= 25.34C H= 45.6%` joins the LCD live block; a `T=...cC P=...Pa H=...m%` console line every 10 s (silenced together with the heartbeat by `t`). Temperature is signed — below zero prints `-` correctly. |
-| + SSD1306 | title line + the same T/H line, plus pressure and uptime (the LCD has no spare rows for those) |
+| + SSD1306 | a **second, independent status screen**: double-height `ARF` logo + `minimal-ibex / SoC GF180MCU` identity, a rule, then live uptime + spinner, pattern/speed/last-key, rgb/heartbeat, a sensor row, and a sweeping activity bar. It updates every second **with or without a sensor** — with a BME280 fitted the bar row becomes the pressure readout |
 
 Un-wired parts show `--` and cost nothing. **Every absent part is
 re-probed every 5 s**, so you can wire the I2C parts *after* boot and they
@@ -224,7 +224,7 @@ reflash if your bitstream predates it: the fix is in the FPGA logic, so
 Contract: SPI host mode 0, MSB first, 5 MHz; FIFO-empty ≠ shifter idle —
 allow ~32 clocks drain before toggling DC. Verify silkscreen before power.
 
-### Phase 2b — BME280 + SSD1306 (I2C) — Pmod JA, shared bus — READY (parts in hand, needs one bench session)
+### Phase 2b — BME280 + SSD1306 (I2C) — Pmod JA, shared bus — **OLED PASSED 2026-08-20; BME280 WIP (first module dead, replacement on order)**
 
 **Soldering first (the only soldering in Phase 2, ~10 joints).** Both
 modules ship with a loose 4-pin header strip. For each module:
@@ -279,6 +279,23 @@ unstrapped CSB leaves the chip in SPI mode, NACKing every I2C address
 OLED answers and the sensor doesn't (then: the BME's own SCL/SDA
 joints, beep-tested module-pin to module-pin through the row). The
 firmware probes **both 0x76 and 0x77**, so either SDO level works.
+
+**The boot-time bus scan (first diagnostic to read).** Since 2026-08-20
+the firmware prints, *before any device traffic*, every address that
+ACKs on a virgin bus:
+
+```
+toy: i2c scan: 3C 76        <- both parts alive (OLED 0x3C, BME280 0x76)
+toy: i2c scan: 3C           <- only the OLED answers
+toy: i2c scan: BUS STUCK (held low)
+```
+
+This settles wiring-vs-part arguments in one line, and it cannot be
+confounded by either driver: it runs on the bare bus right after
+`i2c_init()`. An address that does not appear here is **not on the
+bus** — no amount of driver work will find it. The scan aborts at the
+first timeout because a held-low bus times out per address, which over
+XIP would stall boot for minutes.
 
 **Decoding `oled=X bme=X` (the number is `-rc`):**
 

@@ -309,15 +309,58 @@ static int prvBmeProbe( bme280_t * dev )
     return rc;
 }
 
+/* "T= 25.34C H= 45.6%" into a 21-char field - both displays render it. */
+static void prvSensorLine( char * dst, const bme280_reading_t * r )
+{
+    for( int i = 0; i < ST7735_TEXT_COLS; i++ ) dst[ i ] = ' ';
+
+    dst[ 0 ] = 'T'; dst[ 1 ] = '=';
+    prvCentiField( &dst[ 2 ], r->temp_centi_c );
+    dst[ 8 ] = 'C';
+    dst[ 10 ] = 'H'; dst[ 11 ] = '=';
+
+    {
+        uint32_t h10 = r->hum_milli_pct / 100u;      /* tenths of %RH */
+
+        prvU32Field( &dst[ 12 ], h10 / 10u, 3 );
+        dst[ 15 ] = '.';
+        dst[ 16 ] = ( char ) ( '0' + h10 % 10u );
+        dst[ 17 ] = '%';
+    }
+}
+
+/* OLED furniture, drawn once per attach (boot or hot-attach): the big ARF
+ * logo, the identity lines beside it, and a rule under the header. The
+ * live loop then only ever touches rows 3..7, which is what keeps the
+ * per-second I2C cost down (see the ssd1306.c header). Layout, 21x8 cells:
+ *   rows 0-1  ARF (double height)      + "minimal-ibex" / "SoC  GF180MCU"
+ *   row  2    rule
+ *   rows 3-5  uptime+spinner / pattern+speed+key / rgb+heartbeat
+ *   row  6    sensor line
+ *   row  7    sweeping activity bar                                        */
+static int prvOledStatic( void )
+{
+    int rc = ssd1306_clear();
+
+    if( rc == I2C_OK ) rc = ssd1306_text2x( 0, 0, "ARF" );
+    if( rc == I2C_OK ) rc = ssd1306_text( 7, 0, "minimal-ibex" );
+    if( rc == I2C_OK ) rc = ssd1306_text( 7, 1, "SoC  GF180MCU" );
+    if( rc == I2C_OK ) rc = ssd1306_fill( 0, 127, 2, 2, 0x18 );
+
+    return rc;
+}
+
 static void prvToyTask( void * pvParameters )
 {
     static bme280_t xSensor;          /* static: keep task stack small */
     bme280_reading_t xReading;
     int rcSensor, rcOled;
     uint8_t ucSpin = 0;
+    uint8_t ucBar  = 0;               /* sweeping bar cell, OLED row 7 */
     uint8_t ucSecs = 0;               /* paces re-probe (5 s) + UART report (10 s) */
     uint8_t ucBmeFails = 0;           /* consecutive read failures -> demote to absent */
     uint8_t ucOledFails = 0;
+    uint8_t ucHaveReading = 0;        /* sensor produced values THIS cycle */
     char line[ ST7735_TEXT_COLS + 1 ];
 
     ( void ) pvParameters;
@@ -341,6 +384,32 @@ static void prvToyTask( void * pvParameters )
     st7735_fill_rect( 0, 114, 128, 1, ST7735_RGB( 0xFF, 0x80, 0x00 ) );
 
     i2c_init();
+
+    /* One-shot bus scan at boot, BEFORE any device traffic: prints every
+     * address that ACKs. The cheapest bring-up diagnostic there is - it
+     * answers "which chips are actually alive" in one line, on a virgin
+     * bus, so no device's driver can be blamed for another's silence.
+     * Aborts on the first TIMEOUT: a stuck bus times out per address and
+     * over XIP that would stall boot for minutes. */
+    uart_puts( "toy: i2c scan:" );
+    for( uint8_t a = 0x08u; a <= 0x77u; a++ )
+    {
+        int rcScan = i2c_probe( a );
+
+        if( rcScan == I2C_ERR_TIMEOUT )
+        {
+            uart_puts( " BUS STUCK (held low)" );
+            break;
+        }
+
+        if( rcScan == I2C_OK )
+        {
+            uart_puts( " " );
+            uart_puthex8( a );
+        }
+    }
+    uart_puts( "\r\n" );
+
     rcOled   = ssd1306_init( SSD1306_ADDR );
     rcSensor = prvBmeProbe( &xSensor );
 
@@ -352,7 +421,7 @@ static void prvToyTask( void * pvParameters )
 
     if( rcOled == I2C_OK )
     {
-        ssd1306_text( 0, 0, "IBEX SOC + FreeRTOS" );
+        rcOled = prvOledStatic();
     }
 
     for( ; ; )
@@ -401,53 +470,17 @@ static void prvToyTask( void * pvParameters )
         prvLcdLiveLine( 12, line );
 
         /* ---- environment sensor: read, display, self-heal -------------- */
+        ucHaveReading = 0;
+
         if( rcSensor == I2C_OK )
         {
             if( bme280_read( &xSensor, &xReading ) == I2C_OK )
             {
-                ucBmeFails = 0;
+                ucBmeFails    = 0;
+                ucHaveReading = 1;
 
-                /* LCD row 13 (mirrored to OLED row 2): "T= 25.34C H= 45.6%" */
-                for( int i = 0; i < ST7735_TEXT_COLS; i++ ) line[ i ] = ' ';
-                line[ 0 ] = 'T'; line[ 1 ] = '=';
-                prvCentiField( &line[ 2 ], xReading.temp_centi_c );
-                line[ 8 ] = 'C';
-                line[ 10 ] = 'H'; line[ 11 ] = '=';
-                {
-                    uint32_t h10 = xReading.hum_milli_pct / 100u;   /* tenths of %RH */
-                    prvU32Field( &line[ 12 ], h10 / 10u, 3 );
-                    line[ 15 ] = '.';
-                    line[ 16 ] = ( char ) ( '0' + h10 % 10u );
-                    line[ 17 ] = '%';
-                }
+                prvSensorLine( line, &xReading );
                 prvLcdLiveLine( 13, line );
-
-                if( rcOled == I2C_OK )
-                {
-                    int rcWr = ssd1306_text( 0, 2, line );
-
-                    /* OLED extras (no room on the LCD): pressure + uptime */
-                    for( int i = 0; i < ST7735_TEXT_COLS; i++ ) line[ i ] = ' ';
-                    line[ 0 ] = 'P'; line[ 1 ] = '=';
-                    prvU32Field( &line[ 2 ], xReading.press_pa, 6 );
-                    ( void ) __builtin_memcpy( &line[ 8 ], "Pa", 2 );
-                    if( rcWr == I2C_OK ) rcWr = ssd1306_text( 0, 4, line );
-
-                    for( int i = 0; i < ST7735_TEXT_COLS; i++ ) line[ i ] = ' ';
-                    ( void ) __builtin_memcpy( line, "up", 2 );
-                    prvU32Field( &line[ 3 ], ( uint32_t ) ( xNow / configTICK_RATE_HZ ), 7 );
-                    line[ 10 ] = 's';
-                    if( rcWr == I2C_OK ) rcWr = ssd1306_text( 0, 6, line );
-
-                    if( rcWr != I2C_OK )
-                    {
-                        if( ++ucOledFails >= 3u ) rcOled = rcWr;    /* wire lost */
-                    }
-                    else
-                    {
-                        ucOledFails = 0;
-                    }
-                }
 
                 /* UART report every 10 s, gated with the heartbeat toggle
                  * ('t') - the console must never be spammed every second. */
@@ -469,6 +502,93 @@ static void prvToyTask( void * pvParameters )
             }
         }
 
+        /* ---- OLED live block: runs with or WITHOUT the sensor ----------
+         * (it used to live inside the sensor branch, so a missing BME280
+         * left the panel frozen on its title - found on the bench when the
+         * sensor turned out dead, 2026-08-20). Rows 3..7 only; the header
+         * and rule are static furniture from prvOledStatic().            */
+        if( rcOled == I2C_OK )
+        {
+            int rcWr;
+
+            for( int i = 0; i < ST7735_TEXT_COLS; i++ ) line[ i ] = ' ';
+            ( void ) __builtin_memcpy( line, "up", 2 );
+            prvU32Field( &line[ 3 ], ( uint32_t ) ( xNow / configTICK_RATE_HZ ), 7 );
+            line[ 10 ] = 's';
+            line[ 20 ] = "|/-\\"[ ucSpin & 3u ];       /* same spinner as the LCD */
+            rcWr = ssd1306_text( 0, 3, line );
+
+            for( int i = 0; i < ST7735_TEXT_COLS; i++ ) line[ i ] = ' ';
+            ( void ) __builtin_memcpy( line, "pat:  spd:  key:", 16 );
+            line[ 4 ]  = ( char ) ( '0' + g_mode );
+            line[ 10 ] = ( g_step == STEP_FAST ) ? 'f'
+                       : ( g_step == STEP_SLOW ) ? 's' : 'm';
+            line[ 16 ] = g_key;
+            if( rcWr == I2C_OK ) rcWr = ssd1306_text( 0, 4, line );
+
+            for( int i = 0; i < ST7735_TEXT_COLS; i++ ) line[ i ] = ' ';
+            ( void ) __builtin_memcpy( line, "rgb:      beat:", 15 );
+            {
+                const char * mode = ( g_rgb == 0 ) ? "red " : ( g_rgb == 1 ) ? "grn "
+                                  : ( g_rgb == 2 ) ? "blu " : ( g_rgb == 3 ) ? "wht "
+                                  : "auto";
+                ( void ) __builtin_memcpy( &line[ 4 ], mode, 4 );
+                ( void ) __builtin_memcpy( &line[ 15 ], g_beat ? "on " : "off", 3 );
+            }
+            if( rcWr == I2C_OK ) rcWr = ssd1306_text( 0, 5, line );
+
+            /* sensor row: live values, or why they are missing */
+            if( ucHaveReading )
+            {
+                prvSensorLine( line, &xReading );
+            }
+            else
+            {
+                for( int i = 0; i < ST7735_TEXT_COLS; i++ ) line[ i ] = ' ';
+                ( void ) __builtin_memcpy( line, "bme280: not fitted", 18 );
+            }
+            if( rcWr == I2C_OK ) rcWr = ssd1306_text( 0, 6, line );
+
+            /* pressure shares row 7 with the bar when a sensor is present */
+            if( ucHaveReading )
+            {
+                for( int i = 0; i < ST7735_TEXT_COLS; i++ ) line[ i ] = ' ';
+                line[ 0 ] = 'P'; line[ 1 ] = '=';
+                prvU32Field( &line[ 2 ], xReading.press_pa, 6 );
+                ( void ) __builtin_memcpy( &line[ 8 ], "Pa", 2 );
+                if( rcWr == I2C_OK ) rcWr = ssd1306_text( 0, 7, line );
+            }
+            else
+            {
+                /* Sweeping activity bar - the cheapest possible animation
+                 * on a framebuffer-less panel: erase one 5 px cell, draw
+                 * the next. 12 bytes a second, versus 1024 for a repaint. */
+                uint8_t ucPrev = ucBar;
+
+                ucBar = ( uint8_t ) ( ( ucBar + 1u ) % 21u );
+
+                if( rcWr == I2C_OK )
+                {
+                    rcWr = ssd1306_fill( ( uint8_t ) ( ucPrev * 6u ),
+                                         ( uint8_t ) ( ucPrev * 6u + 4u ), 7, 7, 0x00 );
+                }
+                if( rcWr == I2C_OK )
+                {
+                    rcWr = ssd1306_fill( ( uint8_t ) ( ucBar * 6u ),
+                                         ( uint8_t ) ( ucBar * 6u + 4u ), 7, 7, 0x7E );
+                }
+            }
+
+            if( rcWr != I2C_OK )
+            {
+                if( ++ucOledFails >= 3u ) rcOled = rcWr;      /* wire lost */
+            }
+            else
+            {
+                ucOledFails = 0;
+            }
+        }
+
         /* ---- hot-attach: re-probe absent parts every 5 s ---------------- */
         if( ( ucSecs % 5u ) == 4u )
         {
@@ -479,7 +599,7 @@ static void prvToyTask( void * pvParameters )
                 if( rcOled == I2C_OK )
                 {
                     ucOledFails = 0;
-                    ( void ) ssd1306_text( 0, 0, "IBEX SOC + FreeRTOS" );
+                    rcOled = prvOledStatic();      /* redraw the furniture */
                     uart_puts( "toy: oled attached\r\n" );
                 }
             }

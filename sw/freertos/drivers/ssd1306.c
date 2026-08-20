@@ -3,8 +3,10 @@
  *
  * Zero-framebuffer design: a full framebuffer is 1 KiB, an eighth of the
  * entire SRAM, so text renders straight from the flash-resident 5x7 font
- * into the display's GDDRAM over I2C. Good for status lines; not for
- * animation (a full clear is ~1024 bytes over 100 kHz I2C = ~100 ms).
+ * into the display's GDDRAM over I2C. A full clear is ~1024 bytes over
+ * 100 kHz I2C (~100 ms), so animation must be LOCAL: redraw only the
+ * cells that changed (the status screen's sweep bar rewrites 12 bytes a
+ * second, its spinner 6) and never repaint the whole panel in a loop.
  *
  * Protocol: control byte 0x00 = command stream, 0x40 = data stream
  * (the "register" byte of the underlying i2c_write_* helpers).
@@ -93,20 +95,34 @@ static int prv_set_region( uint8_t col0, uint8_t col1, uint8_t page0, uint8_t pa
     return prv_cmds( cmds, 6 );
 }
 
-int ssd1306_clear( void )
+int ssd1306_fill( uint8_t col0, uint8_t col1, uint8_t row0, uint8_t row1,
+                  uint8_t pattern )
 {
-    static const uint8_t zeros[ 16 ] = { 0 };
-    int rc = prv_set_region( 0, 127, 0, 7 );
+    uint8_t  chunk[ 16 ];
+    uint32_t left = ( uint32_t ) ( col1 - col0 + 1u ) *
+                    ( uint32_t ) ( row1 - row0 + 1u );
+    int rc = prv_set_region( col0, col1, row0, row1 );
 
     if( rc != I2C_OK ) return rc;
 
-    for( int i = 0; i < ( 128 * 8 ) / 16; i++ )
+    for( int i = 0; i < 16; i++ ) chunk[ i ] = pattern;
+
+    while( left > 0u )
     {
-        rc = i2c_write_regs( s_addr, CTRL_DATA, zeros, 16 );
+        uint32_t n = ( left > 16u ) ? 16u : left;
+
+        rc = i2c_write_regs( s_addr, CTRL_DATA, chunk, n );
         if( rc != I2C_OK ) return rc;
+
+        left -= n;
     }
 
     return I2C_OK;
+}
+
+int ssd1306_clear( void )
+{
+    return ssd1306_fill( 0, 127, 0, 7, 0x00 );
 }
 
 /* Print a string at character cell (col 0..20, row 0..7). 6 px per char. */
@@ -135,6 +151,59 @@ int ssd1306_text( uint8_t col, uint8_t row, const char * s )
         if( rc != I2C_OK ) return rc;
 
         x += 6u;
+    }
+
+    return I2C_OK;
+}
+
+/* Double-height text. Each font column is doubled horizontally and each of
+ * its 7 bits is doubled vertically, giving 10x14 px inside a 12x16 cell.
+ * The glyph spans two pages: in horizontal addressing mode the controller
+ * fills every column of the first page before moving to the second, so one
+ * 24-byte burst draws a whole character (bytes 0..11 = upper page,
+ * 12..23 = lower). */
+int ssd1306_text2x( uint8_t col, uint8_t row, const char * s )
+{
+    uint8_t buf[ 24 ];
+    uint8_t x = ( uint8_t ) ( col * 6u );
+    int rc;
+
+    while( *s != '\0' && x <= 116u )
+    {
+        uint8_t c = ( uint8_t ) *s++;
+
+        if( c < 32u || c > 127u ) c = '?';
+
+        for( int i = 0; i < 5; i++ )
+        {
+            uint8_t  bits = font5x7[ ( c - 32u ) * 5u + ( uint32_t ) i ];
+            uint16_t dbl  = 0u;
+
+            for( int b = 0; b < 7; b++ )
+            {
+                if( bits & ( uint8_t ) ( 1u << b ) )
+                {
+                    dbl |= ( uint16_t ) ( 3u << ( 2 * b ) );
+                }
+            }
+
+            buf[ i * 2 ]          = ( uint8_t ) ( dbl & 0xFFu );
+            buf[ i * 2 + 1 ]      = ( uint8_t ) ( dbl & 0xFFu );
+            buf[ 12 + i * 2 ]     = ( uint8_t ) ( dbl >> 8 );
+            buf[ 12 + i * 2 + 1 ] = ( uint8_t ) ( dbl >> 8 );
+        }
+
+        buf[ 10 ] = 0x00; buf[ 11 ] = 0x00;      /* inter-char gap, upper */
+        buf[ 22 ] = 0x00; buf[ 23 ] = 0x00;      /* inter-char gap, lower */
+
+        rc = prv_set_region( x, ( uint8_t ) ( x + 11u ),
+                             row, ( uint8_t ) ( row + 1u ) );
+        if( rc != I2C_OK ) return rc;
+
+        rc = i2c_write_regs( s_addr, CTRL_DATA, buf, 24 );
+        if( rc != I2C_OK ) return rc;
+
+        x += 12u;
     }
 
     return I2C_OK;

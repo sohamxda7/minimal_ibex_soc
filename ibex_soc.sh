@@ -19,7 +19,13 @@
 # Bitstream/flash flows need a Linux Vivado install
 # (located via $VIVADO, PATH, or /opt|/tools/Xilinx). Supported distros for
 # `deps`: Ubuntu/Debian (apt), RHEL/Fedora (dnf), MSYS2 (pacman).
-# Ubuntu 22.04's verilator 4.x is too old - deps warns; 24.04+ is fine.
+#
+# Verilator >= 5 is mandatory (--timing/--binary). Where the distro package
+# is older - Ubuntu 22.04 ships 4.210 and NO apt package fixes that - `deps`
+# BUILDS Verilator from source into ~/ibex-tools/verilator, the same way the
+# Windows GUI downloads its toolchain. Tools are found by VERSION, not PATH
+# order, so a stale 4.x first on PATH cannot mask a good build; every flow
+# also offers to take a path and remembers it in .toolpaths.sh.
 #
 # Tool paths persist in .toolpaths.sh (gitignored), the twin of .toolpaths.
 # Logs: build/verilator/<tb>/, build/fpga/.  Exit code 0 = green.
@@ -67,7 +73,6 @@ pass_of() {
     esac
 }
 
-VERILATOR="${VERILATOR:-verilator}"
 PYTHON="${PYTHON:-python3}"
 command -v "$PYTHON" >/dev/null 2>&1 || PYTHON=python
 JOBS="$(nproc 2>/dev/null || echo 4)"
@@ -92,12 +97,45 @@ esac
 
 have() { command -v "$1" >/dev/null 2>&1; }
 
-vlt_version_ok() {
-    have "$VERILATOR" || return 1
-    v=$("$VERILATOR" --version 2>/dev/null | awk '{print $2}')
+# Verilator >= 5 is mandatory: every testbench here relies on --timing /
+# --binary, which do not exist before 5.0. Distro packages are routinely
+# too old (Ubuntu 22.04 ships 4.210), and an old one sitting first on PATH
+# would otherwise mask a good build elsewhere - so resolve by VERSION, not
+# by PATH order, across the usual install roots.
+vlt_is5() {
+    v=$( "$1" --version 2>/dev/null | awk '{print $2}' )
     maj=${v%%.*}
     [ "${maj:-0}" -ge 5 ]
 }
+
+find_verilator() {
+    if [ -n "${VERILATOR:-}" ] && [ -x "$VERILATOR" ] && vlt_is5 "$VERILATOR"; then
+        echo "$VERILATOR"; return 0
+    fi
+
+    # EVERY PATH entry, not just the first hit: `export PATH=~/verilator/bin`
+    # in front of a distro 4.x (or the reverse) must not decide the outcome.
+    old_ifs=$IFS; IFS=:
+    for d in $PATH; do
+        [ -n "$d" ] || continue
+        if [ -x "$d/verilator" ] && vlt_is5 "$d/verilator"; then
+            IFS=$old_ifs; echo "$d/verilator"; return 0
+        fi
+    done
+    IFS=$old_ifs
+
+    for c in "${IBEX_TOOLS_DIR:-$HOME/ibex-tools}/verilator/bin/verilator" \
+             "$HOME/verilator/bin/verilator" \
+             /opt/verilator/bin/verilator \
+             /usr/local/bin/verilator /usr/bin/verilator; do
+        if [ -x "$c" ] && vlt_is5 "$c"; then echo "$c"; return 0; fi
+    done
+    return 1
+}
+
+VERILATOR="$( find_verilator || echo "${VERILATOR:-verilator}" )"
+
+vlt_version_ok() { have "$VERILATOR" && vlt_is5 "$VERILATOR"; }
 
 # Vivado (for bitstream/flash): $VIVADO > PATH > standard install roots.
 find_vivado() {
@@ -111,6 +149,121 @@ find_vivado() {
     return 1
 }
 
+# Remember a per-PC tool location, the POSIX twin of the Windows GUI's
+# .toolpaths: append + re-source so THIS process sees it immediately.
+save_toolpath() {
+    echo "export $1=\"$2\"" >> .toolpaths.sh
+    # shellcheck disable=SC1091
+    . ./.toolpaths.sh
+    echo "  saved: $1=$2 (.toolpaths.sh, per-PC, gitignored)"
+}
+
+interactive() { [ -t 0 ]; }        # never block a CI / piped run on a prompt
+
+# Accept a user-supplied Verilator location: the binary, its bin/, or the
+# install prefix. Verifies the version before remembering it.
+set_verilator() {
+    a="${1%/}"
+    [ -n "$a" ] || return 1
+    for cand in "$a" "$a/verilator" "$a/bin/verilator"; do
+        if [ -x "$cand" ] && vlt_is5 "$cand"; then
+            VERILATOR="$cand"; export VERILATOR
+            save_toolpath VERILATOR "$cand"
+            return 0
+        fi
+    done
+    echo "  not a Verilator >= 5: $a"
+    return 1
+}
+
+ask_verilator() {
+    interactive || return 1
+    printf "  Path to a Verilator >= 5 (binary, bin/ or prefix; blank to skip): "
+    read -r a || return 1
+    [ -n "$a" ] || return 1
+    set_verilator "$a"
+}
+
+# Ask for a bare-metal RISC-V GCC toolchain ROOT (the dir holding bin/*-gcc).
+ask_riscv_gcc() {
+    interactive || return 1
+    printf "  RISC-V GCC toolchain root (contains bin/riscv*-gcc; blank to skip): "
+    read -r a || return 1
+    [ -n "$a" ] || return 1
+    a="${a%/}"
+    for p in riscv32-unknown-elf- riscv64-zephyr-elf- riscv64-unknown-elf- riscv-none-elf-; do
+        if [ -x "$a/bin/${p}gcc" ]; then
+            RISCV_GCC_HOME="$a"; RISCV_PREFIX="$p"
+            export RISCV_GCC_HOME RISCV_PREFIX
+            save_toolpath RISCV_GCC_HOME "$a"
+            save_toolpath RISCV_PREFIX "$p"
+            return 0
+        fi
+    done
+    echo "  no bin/riscv*-gcc under: $a"
+    return 1
+}
+
+# Ask for Vivado (the binary or an install root).
+ask_vivado() {
+    interactive || return 1
+    printf "  Vivado path (bin/vivado or install root; blank to skip): "
+    read -r a || return 1
+    [ -n "$a" ] || return 1
+    a="${a%/}"
+    for cand in "$a" "$a/bin/vivado" "$a/Vivado/bin/vivado"; do
+        if [ -x "$cand" ]; then
+            VIVADO="$cand"; export VIVADO
+            save_toolpath VIVADO "$cand"
+            return 0
+        fi
+    done
+    echo "  no vivado executable under: $a"
+    return 1
+}
+
+# Build Verilator 5 from source into ~/ibex-tools/verilator. This is the
+# Linux equivalent of the Windows GUI's automatic toolchain download: on
+# Ubuntu 22.04 and friends the packaged Verilator is 4.x and NO package
+# manager can supply 5.x, so "install the dependency" means building it.
+# ~5-10 min on a modern box.
+install_verilator_src() {
+    dest="${IBEX_TOOLS_DIR:-$HOME/ibex-tools}/verilator"
+    src="${dest}-src"
+    SUDO=""; [ "$(id -u)" != 0 ] && have sudo && SUDO=sudo
+
+    echo "Installing Verilator build prerequisites..."
+    if have apt-get; then
+        $SUDO apt-get install -y git help2man perl python3 make autoconf g++ \
+            flex bison ccache libfl2 libfl-dev zlib1g-dev || true
+    elif have dnf; then
+        $SUDO dnf install -y git help2man perl python3 make autoconf gcc-c++ \
+            flex bison ccache zlib-devel || true
+    elif have pacman; then
+        pacman -S --noconfirm --needed git autoconf flex bison || true
+    fi
+
+    have git || { echo "ERROR: git is required to build Verilator"; return 1; }
+
+    tag=$( curl -sL https://api.github.com/repos/verilator/verilator/releases/latest \
+           | grep -m1 '"tag_name"' | sed 's/.*"\(v[^"]*\)".*/\1/' )
+    [ -n "$tag" ] || tag=v5.026      # offline fallback: a known-good release
+
+    echo "Building Verilator $tag from source (5-10 min, $JOBS jobs)..."
+    rm -rf "$src"
+    git clone --depth 1 --branch "$tag" \
+        https://github.com/verilator/verilator "$src" || return 1
+    ( cd "$src" && autoconf && ./configure --prefix="$dest" \
+      && make -j"$JOBS" && make install ) || return 1
+
+    [ -x "$dest/bin/verilator" ] || { echo "ERROR: Verilator build failed"; return 1; }
+
+    rm -rf "$src"
+    VERILATOR="$dest/bin/verilator"; export VERILATOR
+    save_toolpath VERILATOR "$VERILATOR"
+    echo "Verilator $tag installed -> $VERILATOR"
+}
+
 # ---- flows ------------------------------------------------------------------
 do_setup() {
     echo "=== Environment check (Linux flow) ==="
@@ -118,8 +271,20 @@ do_setup() {
     if vlt_version_ok; then
         echo "[ OK ] verilator: $("$VERILATOR" --version)"
     else
-        echo "[FAIL] verilator >= 5 not found (need --timing/--binary). Run: $0 deps"
-        ok=1
+        vfound=$( command -v verilator 2>/dev/null )
+        if [ -n "$vfound" ]; then
+            echo "[FAIL] verilator too old: $("$vfound" --version 2>&1) at $vfound"
+            echo "       need >= 5 for --timing/--binary (no distro ships it on"
+            echo "       Ubuntu 22.04 - it must be built, or point me at one)."
+        else
+            echo "[FAIL] verilator >= 5 not found (need --timing/--binary)."
+        fi
+        if ask_verilator; then
+            echo "[ OK ] verilator: $("$VERILATOR" --version)"
+        else
+            echo "       Fix it with: $0 deps   (builds Verilator 5 from source)"
+            ok=1
+        fi
     fi
     if have "$PYTHON"; then echo "[ OK ] python: $("$PYTHON" --version 2>&1)"
     else echo "[FAIL] python3 not found. Run: $0 deps"; ok=1; fi
@@ -129,16 +294,34 @@ do_setup() {
         echo "[ OK ] RISC-V GCC (firmware builds enabled)"
     else
         echo "[WARN] RISC-V GCC not found - firmware cannot be rebuilt (sims can"
-        echo "       reuse an existing sw/freertos/build image). Run: $0 deps"
+        echo "       reuse an existing sw/freertos/build image)."
+        if ask_riscv_gcc && sw/freertos/build.sh --check-toolchain 2>/dev/null; then
+            echo "[ OK ] RISC-V GCC (firmware builds enabled)"
+        else
+            echo "       Fix it with: $0 deps   (downloads the xPack toolchain)"
+        fi
     fi
     if v=$(find_vivado); then echo "[ OK ] vivado: $v (bitstream/flash flows enabled)"
-    else echo "[INFO] Vivado not found - sim flows unaffected; build/flashfw need it"; fi
+    else
+        echo "[INFO] Vivado not found - sim flows unaffected; build/flashfw need it"
+        if ask_vivado; then echo "[ OK ] vivado: $VIVADO"; fi
+    fi
     # pip install --user lands in ~/.local/bin, which login shells may not have
     # on PATH yet - look there too
-    if have fusesoc; then echo "[ OK ] fusesoc: $(fusesoc --version 2>&1)"
-    elif [ -x "$HOME/.local/bin/fusesoc" ]; then
-        echo "[ OK ] fusesoc: $HOME/.local/bin/fusesoc (add ~/.local/bin to PATH)"
-    else echo "[INFO] fusesoc not installed (optional): pip install fusesoc"; fi
+    fs=""
+    if have fusesoc; then fs=$(command -v fusesoc)
+    elif [ -x "$HOME/.local/bin/fusesoc" ]; then fs="$HOME/.local/bin/fusesoc"; fi
+    if [ -n "$fs" ]; then
+        fsv=$( "$fs" --version 2>&1 | tr -d '\r' )
+        case "${fsv%%.*}" in
+            0|1) echo "[WARN] fusesoc $fsv at $fs is ancient (need >= 2 for CAPI2)."
+                 echo "       pip install --user --upgrade fusesoc   (optional - the"
+                 echo "       native flows above do not use it)" ;;
+            *)   echo "[ OK ] fusesoc: $fsv ($fs)" ;;
+        esac
+    else
+        echo "[INFO] fusesoc not installed (optional): pip install fusesoc"
+    fi
     return $ok
 }
 
@@ -183,10 +366,24 @@ do_deps() {
     else
         echo "ERROR: no supported package manager (apt/dnf/pacman)."; return 1
     fi
+    # Re-resolve: the package manager may have just supplied a good one.
+    VERILATOR="$( find_verilator || echo "${VERILATOR:-verilator}" )"
+
     if ! vlt_version_ok; then
-        echo "[WARN] verilator >= 5 still missing (Ubuntu 22.04 ships 4.x)."
-        echo "       Use Ubuntu 24.04+, or build verilator from source:"
-        echo "       https://verilator.org/guide/latest/install.html"
+        echo
+        echo "The packaged Verilator is older than 5 (Ubuntu 22.04 ships 4.210)"
+        echo "and no package manager can supply 5.x - it has to be built."
+        if interactive; then
+            printf "Build Verilator from source now? [Y/n/path] "
+            read -r a
+            case "$a" in
+                [Nn]*)   echo "  skipped - sims will not run until this is fixed" ;;
+                /*|~*|.*) set_verilator "$a" || install_verilator_src ;;
+                *)       install_verilator_src ;;
+            esac
+        else
+            install_verilator_src           # unattended (CI): just do it
+        fi
     fi
     if ! sw/freertos/build.sh --check-toolchain >/dev/null 2>&1; then
         case "$(uname -o 2>/dev/null)" in
@@ -198,6 +395,18 @@ do_deps() {
                  || pip3 install --user fusesoc 2>/dev/null \
                  || echo "[INFO] fusesoc not installed (optional)"
     echo; do_setup
+}
+
+# Every sim flow needs Verilator 5 - say so once, clearly, instead of
+# letting the user decode "Unsupported: --timing" from a build log.
+require_verilator() {
+    vlt_version_ok && return 0
+    echo "ERROR: Verilator >= 5 is required (--timing/--binary)."
+    if v=$( command -v verilator 2>/dev/null ); then
+        echo "       found: $("$v" --version 2>&1) at $v"
+    fi
+    echo "       Run '$0 deps' to build it, or '$0 setup' to point at one."
+    return 1
 }
 
 do_images() {
@@ -215,6 +424,7 @@ do_firmware() {
 }
 
 do_lint() {
+    require_verilator || return 1
     echo "=== verilator --lint-only (ibex_demo_system) ==="
     # shellcheck disable=SC2086
     "$VERILATOR" --lint-only --timing -Wno-fatal --top-module ibex_demo_system \
@@ -224,6 +434,7 @@ do_lint() {
 do_sim() {
     tb="$1"
     [ "$(pass_of "$tb")" = "__NO_SUCH_TB__" ] && { echo "unknown tb '$tb' (one of: $TBS)"; return 2; }
+    require_verilator || return 1
     # tb_soc_dffram = tb_soc with the DFFRAM storage array (parameter, -G)
     src="dv/xsim/$tb.sv"; top="$tb"; gparam=""
     if [ "$tb" = "tb_soc_dffram" ]; then
@@ -246,6 +457,7 @@ do_sim() {
 }
 
 do_regression() {
+    require_verilator || return 1
     declare -A results
     do_images; results[images]=$?
     if sw/freertos/build.sh --check-toolchain >/dev/null 2>&1; then

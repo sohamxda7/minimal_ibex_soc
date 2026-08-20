@@ -36,6 +36,14 @@ void uart_putu32( uint32_t v )
     uart_puts( &buf[ i ] );
 }
 
+void uart_puthex8( uint8_t v )
+{
+    static const char hex[] = "0123456789ABCDEF";
+
+    uart_putc( hex[ ( v >> 4 ) & 0xFu ] );
+    uart_putc( hex[ v & 0xFu ] );
+}
+
 int uart_getc_nonblock( void )
 {
     if( soc_read32( UART_STATUS_REG ) & UART_STATUS_RX_EMPTY )

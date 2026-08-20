@@ -463,6 +463,20 @@ one-hot rotating walk — the exact bench symptom, now regression-locked.
 (`general.maxThreads`) — every repo `.tcl` entry point now sets 8
 (Vivado's cap). Gotcha 32.
 
+**Verdict on the BME280 (bus scan): the part is dead.** A boot-time
+scan of the whole 0x08..0x77 range, run on a virgin bus *before* either
+driver transmits, prints `toy: i2c scan: 3C` — the OLED and nothing
+else. The sensor acknowledges at no address, while sharing the two
+wires that carry a working display. Everything upstream of the chip was
+verified at the module pins: 3.3 V present, CSB high (I2C mode), SDO
+low (0x76), continuity on all four signal joints, connector orientation
+confirmed electrically. That leaves the module itself — LGA reflow
+damage during hand-soldering or an open pad-to-die connection, both
+invisible to pin-level continuity. **Phase 2b sensor half is parked as
+WIP pending a replacement part**; the display half is done. The scan
+stays in the firmware permanently as the first-read bring-up
+diagnostic (PRODUCTION_PERIPHERALS §8).
+
 **Rewiring result (same day, later): OLED UP.** After moving the
 junctions off the breadboard's edge-rail columns into four 5-hole
 field rows (wiring diagram now in PRODUCTION_PERIPHERALS §8), the boot
