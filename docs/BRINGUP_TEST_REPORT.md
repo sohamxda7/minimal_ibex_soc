@@ -459,6 +459,24 @@ pressed twice. New tb_freertos checks (both engines): every key must
 echo; `3` must alternate A/5; a **double `1`** must produce a true
 one-hot rotating walk — the exact bench symptom, now regression-locked.
 
+**New-teammate check: a pristine clone of the pushed branch, walked as a
+new user would.** This exposed a real blocker that no amount of local
+testing could: `ibex_soc.sh` and `sw/freertos/build.sh` were committed
+**`100644`** — created on Windows, where git does not track the
+executable bit, while every *vendored* script is 755. On any Linux clone
+`./ibex_soc.sh` therefore failed with *Permission denied* — the command
+every doc gives, and the reason a teammate's log shows `bash
+ibex_soc.sh` as a workaround. The quieter half was worse: `ibex_soc.sh`
+invokes `build.sh` **directly**, so the toolchain probe failed on
+permissions and `setup` reported "RISC-V GCC not found" with a perfectly
+good toolchain installed. Fixed with `git update-index --chmod=+x`;
+`ibex_soc.sh` additionally auto-discovers an xPack toolchain already in
+`~/ibex-tools`, so a fresh clone with no `.toolpaths.sh` does not
+re-download 400+ MB. **Re-verified on a pristine clone: `./ibex_soc.sh
+setup` resolves every tool with zero configuration and the full
+regression is 13/13 ALL GREEN.** Gotcha 34c — any new `.sh` added from
+Windows needs the same treatment (`git ls-files -s` to check).
+
 **Build speed: Vivado on Windows defaults to 2 threads**
 (`general.maxThreads`) — every repo `.tcl` entry point now sets 8
 (Vivado's cap). Gotcha 32.

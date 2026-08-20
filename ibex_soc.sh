@@ -55,6 +55,20 @@ if [ -z "${RISCV_GCC_HOME:-}" ] && [ -f .toolpaths ]; then
     esac
 fi
 
+# A previously-installed xPack toolchain lives in ~/ibex-tools even when a
+# FRESH CLONE has no .toolpaths.sh yet. Find it rather than telling the user
+# to re-download 400+ MB (same principle as find_verilator: resolve what is
+# already on the machine). Last glob match wins = newest version.
+if [ -z "${RISCV_GCC_HOME:-}" ]; then
+    for _g in "${IBEX_TOOLS_DIR:-$HOME/ibex-tools}"/xpack-riscv-none-elf-gcc-*/bin/riscv-none-elf-gcc; do
+        if [ -x "$_g" ]; then
+            RISCV_GCC_HOME="${_g%/bin/*}"
+            RISCV_PREFIX="riscv-none-elf-"
+            export RISCV_GCC_HOME RISCV_PREFIX
+        fi
+    done
+fi
+
 # ---- the 10 testbenches and their PASS lines (same table as the Windows
 #      regression, scripts/run_regression.ps1 - keep in sync) ----------------
 TBS="tb_soc tb_soc_dffram tb_lcd tb_i2c tb_xip tb_freertos tb_psram tb_wifi tb_uart2_irq tb_audio tb_cam"

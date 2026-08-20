@@ -64,10 +64,13 @@ sim <tb> | regression | build | flashfw | flashonly [bin]`.
   is a real compile probe for this); and where the packaged **Verilator is
   older than 5** (Ubuntu 22.04 ships 4.210 and no apt package fixes it) it
   **builds Verilator from source** into `~/ibex-tools/verilator`, ~5-10 min.
-  Anything it cannot resolve it *asks* for and remembers in `.toolpaths.sh`,
+  A toolchain already sitting in `~/ibex-tools` is picked up automatically
+  even by a brand-new clone that has no `.toolpaths.sh` yet, so nothing is
+  re-downloaded. Anything it cannot resolve it *asks* for and remembers in `.toolpaths.sh`,
   exactly like the Windows GUI. Tools are found by **version across every
   PATH entry**, so a stale 4.x first on PATH cannot mask a good build.
-  Proven end-to-end on a fresh Ubuntu 24.04: `deps` → regression 13/13.
+  Proven end-to-end on a fresh Ubuntu 24.04, and again **from a pristine
+  clone of the pushed branch** with no saved tool paths: regression 13/13.
 - **Simulation is fully open-source**: all 11 simulations (10 testbenches
   + the DFFRAM/ASIC-SRAM config) run unmodified under **Verilator 5**
   (`--timing`), same PASS criteria as the xsim suite.
@@ -110,6 +113,7 @@ echoed back as its ack):
 | `f` `m` `s` | Pattern speed: 50 / 150 / 400 ms per step |
 | `r` `g` `b` `w` / `a` | Force RGB colour (all 4 LEDs) / automatic colour cycling |
 | `t` | Heartbeat report on/off |
+| `i` | Re-scan the I2C bus — prints every address that ACKs, no reboot |
 
 Holding any board button makes the LEDs mirror the switches. Scripted
 check: `python util/uart_command_test.py`.
@@ -120,7 +124,9 @@ ST7735 (pre-soldered — jumper wires only, no soldering, see
 ARF logo + the same system info render on it, updating live as you type.
 The same image also drives the batch-1 I2C parts: wire the SSD1306 OLED
 and/or BME280 sensor (Pmod JA, §8 wiring) and they are auto-detected —
-temperature + humidity join the LCD, the OLED shows T/P/H + uptime, and a
+temperature + humidity join the LCD, the OLED runs its own status screen
+(double-height ARF logo, uptime, pattern/speed/key, rgb/heartbeat, sensor
+row and a sweeping activity bar) with or without a sensor fitted, and a
 `T=... P=... H=...` line joins the console every 10 s (off with `t`).
 Parts are re-probed every 5 s, so late wiring or a re-seated jumper
 self-heals. Nothing wired? Every task idles harmlessly.
@@ -153,7 +159,10 @@ contact found and fixed two silicon-relevant RTL/firmware bugs (SPI
 mode-0 hold time; warm-reset trampoline clobber). **2026-08-19:
 direct-XIP boot landed** (lead-directed — the ROM never reads SRAM;
 tb_xip/tb_freertos regress the exact silicon power-up condition) and
-**Phase 2b (OLED + BME280) is ready for the bench** — plan in
+**2026-08-20: Phase 2b half done** — the SSD1306 OLED passed on the bench
+with its own live status screen, while the BME280 module proved **dead**
+(a boot-time I2C bus scan, new, reports the OLED and nothing else on a bus
+the OLED itself proves healthy) and waits on a replacement. Plan in
 [docs/HW_VALIDATION_PLAN.md](docs/HW_VALIDATION_PLAN.md), current state
 in [docs/STATUS_BRIEF.md](docs/STATUS_BRIEF.md).
 

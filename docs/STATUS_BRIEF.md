@@ -1,4 +1,4 @@
-# Status Brief — Lead Review (updated 2026-08-19)
+# Status Brief — Lead Review (updated 2026-08-20)
 
 One-page state of the Ibex SoC programme: what is done, what was chosen and
 why, what needs your sign-off today, and what happens next.
@@ -17,7 +17,7 @@ all timing constraints met.
 
 | Area | State |
 |---|---|
-| Full regression (11 simulations + bitstream) | **15/15 PASS** in xsim, timing met; **cross-checked ALL GREEN under Verilator 5** — incl. `tb_soc-dffram`, the ASIC-SRAM (DFFRAM) configuration — on **two hosts**: MSYS2/Windows (Verilator 5.050) and a fresh Ubuntu 24.04 (5.020, full `deps`→`regression` 13/13) |
+| Full regression (11 simulations + bitstream) | **15/15 PASS** in xsim, timing met; **cross-checked ALL GREEN under Verilator 5** — incl. `tb_soc-dffram`, the ASIC-SRAM (DFFRAM) configuration — on **two hosts**: MSYS2/Windows (5.050) and Ubuntu 24.04 (5.020). All three re-run on the current tree 2026-08-20, the Ubuntu one **from a pristine clone of the pushed branch** (no saved tool paths) as a new-teammate check |
 | Firmware | **One** FreeRTOS image: console + LED/RGB/switch control + all drivers |
 | **UART2 RX interrupt** (Ravi's items 3+4, 2026-08-17) | **Done & sim-proven**: fast IRQ 1 wired; IRQ-driven ESP-AT client with high-priority RX task + unsolicited-event parser; polled mode kept for bring-up |
 | Lead's regression ask (item 5, sim part) | **Done**: `tb_uart2_irq` covers simultaneous UART1+UART2 traffic, 128-byte FIFO burst/overflow (exactly 128 kept of 160), IRQ vectoring, unsolicited events, post-overflow recovery |

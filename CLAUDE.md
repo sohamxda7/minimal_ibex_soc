@@ -815,6 +815,18 @@ this run, all fixed:
   RE-CONFIRMED after Soham re-soldered it (2026-08-20): boot scan AND
   an on-demand scan both still `3C` only. Two independent attempts,
   bus proven healthy by the OLED each time - the part is dead.
+- **Our own .sh files were committed 100644** (created on Windows, where
+  git does not track the exec bit; every VENDORED script is 755, which is
+  what made it easy to miss). On a fresh Linux clone `./ibex_soc.sh` was
+  Permission denied - the documented command - and, quietly worse,
+  ibex_soc.sh calls sw/freertos/build.sh DIRECTLY, so the toolchain probe
+  failed on permissions and setup reported "RISC-V GCC not found" with a
+  good toolchain installed. Fixed with `git update-index --chmod=+x`.
+  ANY new .sh added from Windows needs the same; verify `git ls-files -s`.
+  Found only by cloning the PUSHED branch fresh and walking the new-user
+  path - worth doing whenever the entry scripts change.
+- ibex_soc.sh also auto-discovers an xPack GCC already in ~/ibex-tools, so
+  a fresh clone with no .toolpaths.sh does not re-download 400+ MB.
 - Console key **'i' = re-scan the I2C bus** (g_scan flag -> the toy task
   runs prvI2cScan; I2C stays owned by that one task, no locking needed).
   Bench workflow: rewire a part, press 'i', no reboot/reflash. That is
@@ -880,11 +892,14 @@ docs/ASIC_SPEC.md section 3.
 
 - **Configuration is now ASIC-representative**: 8 KiB SRAM, XIP wired to
   the onboard QSPI flash, FreeRTOS as the RTOS. Full regression green
-  **2026-08-19: 15/15 in xsim** (images, FreeRTOS build, compile, 11
-  sims incl. tb_soc-dffram, bitstream BUILD OK with all timing met) on
-  the direct-XIP boot ROM with silicon-power-up XIP benches, strict
-  mode-0 SPI models, and the parameter-selected DFFRAM config; **all 11
-  sims cross-checked ALL GREEN under Verilator 5** (ibex_soc.sh).
+  **2026-08-20 (re-run on the current tree): 15/15 in xsim** (images,
+  FreeRTOS build, compile, 11 sims incl. tb_soc-dffram, bitstream BUILD
+  OK with all timing met, 8-thread) on the direct-XIP boot ROM with
+  silicon-power-up XIP benches, strict mode-0 SPI models, and the
+  parameter-selected DFFRAM config; **all 11 sims cross-checked ALL
+  GREEN under Verilator 5 on THREE fronts** - MSYS2/Windows 5.050,
+  Ubuntu 24.04 5.020, and a **pristine clone of the pushed branch**
+  (no .toolpaths.sh, the new-teammate path) 13/13.
 - **ONE FLOW decision (Soham, 2026-08-10)**: user-facing delivery is
   ONLY the non-volatile QSPI path (flow `flashfw`); the unified
   FreeRTOS firmware absorbed the asm-demo console (patterns/speed/RGB/
@@ -903,7 +918,11 @@ docs/ASIC_SPEC.md section 3.
   confirmed by Soham; only the no-instruments Pmod touch-test remains,
   needs hands). **Phase 2b READY 2026-08-19** (parts in hand, firmware
   auto-detects + self-heals, guide in PRODUCTION_PERIPHERALS sec. 8;
-  needs one board session - board was not connected on 08-19),
+  needs one board session - board was not connected on 08-19).
+  **Phase 2b PART-DONE 2026-08-20**: SSD1306 OLED PASSED (own live
+  status screen, visually confirmed); BME280 module is DEAD (bus scan
+  says `3C` only, twice, across a re-solder) -> sensor half WIP pending
+  a replacement part. Tests 15/17 in HW_VALIDATION_PLAN reflect this.
   Phase 3 = batch-2 parts (ESP32 incl.
   IRQ-mode check 20b / PSRAM / camera / mic / speaker). Results get
   dated tables in BRINGUP_TEST_REPORT.md; a phase is not done until the
