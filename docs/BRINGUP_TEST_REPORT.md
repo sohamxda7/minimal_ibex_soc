@@ -485,7 +485,9 @@ the code change 2→1 confirms the stuck-bus diagnosis (bus healthy,
 one device answering). The BME280 now NACKs both 0x76/0x77 on that
 healthy bus — signature of CSB not strapped high (SPI mode) or a dry
 joint on the sensor's own pins; §8 covers both. Test 15 half-passed,
-17 title-render passed.
+17 title-render passed. The full OLED status screen (double-height ARF
+logo, identity, rule, live rows, sweep bar) was **visually confirmed on
+the bench** the same day - test 17 PASS.
 
 **The "Illegal instruction" lines in sim logs — root-caused and fixed
 (testbench bug, silicon unaffected).** Two sims printed Ibex's

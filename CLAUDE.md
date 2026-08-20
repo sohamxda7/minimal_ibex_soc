@@ -843,7 +843,13 @@ this run, all fixed:
   `require_verilator` makes lint/sim/regression refuse up front with the
   version they found. Also warn on fusesoc < 2 (hers reported "0.1").
   All four cases regression-tested in WSL with a fake 4.210 shim and
-  `unshare -m` bind-mounts so the host stayed untouched.
+  `unshare -m` bind-mounts so the host stayed untouched. The from-source
+  build itself was then run end to end: Verilator 5.026 installed to
+  ~/ibex-tools/verilator and ran tb_i2c green - deps genuinely unblocks a
+  22.04 box. Two traps hit while testing it: WSL idle-shutdown wipes /tmp
+  (logs AND any detached job), and SOURCING ibex_soc.sh used to cd into
+  the caller's dir because $0 is the caller when sourced - now
+  ${BASH_SOURCE[0]}.
 - Teammate "can't run Verilator" (ARF-BBSR-84 transcript, docx): they
   are on a PRE-08-18 checkout (setup_check.bat/build_fpga.bat era - no
   ibex_soc.sh at all) and/or launching from cmd. Answer: git pull +

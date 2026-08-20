@@ -31,7 +31,9 @@
 # Logs: build/verilator/<tb>/, build/fpga/.  Exit code 0 = green.
 # =============================================================================
 set -u
-cd "$(dirname "$0")"
+# BASH_SOURCE, not $0: if this file is ever *sourced*, $0 is the caller and
+# we would cd into the caller's directory instead of the repo.
+cd "$(dirname "${BASH_SOURCE[0]:-$0}")"
 
 # Per-PC tool locations written by `deps` (RISCV_GCC_HOME, VIVADO, ...)
 [ -f .toolpaths.sh ] && . ./.toolpaths.sh
