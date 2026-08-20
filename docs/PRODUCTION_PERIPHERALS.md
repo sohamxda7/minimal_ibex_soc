@@ -95,7 +95,11 @@ display, CS lines and camera strobes all share one register.
 
 Results live in [BRINGUP_TEST_REPORT.md](BRINGUP_TEST_REPORT.md). The SPI
 models follow the sampled-edge discipline that caught real bugs in tb_lcd and
-tb_i2c (never sample and change on the same edge).
+tb_i2c (never sample and change on the same edge), and every model is checked
+by `ibex_soc.sh lint` as its own top under `-Wall`: the PSRAM model's
+`mem[addr_q % MEM_BYTES]` mixed a 24-bit address with an `int` byte count
+(WIDTHEXPAND), harmless here but fatal under the upstream FuseSoC sim target,
+which does not pass `-Wno-fatal` (gotcha 36).
 
 ## 6. Bill of materials (documentation only — nothing ordered yet)
 

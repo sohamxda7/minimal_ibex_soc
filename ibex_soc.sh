@@ -10,7 +10,8 @@
 #   ./ibex_soc.sh deps             # INSTALL missing tools (apt/dnf/pacman + xPack GCC)
 #   ./ibex_soc.sh images           # regenerate all program .vmem images
 #   ./ibex_soc.sh firmware [sim]   # FreeRTOS build (default: hw image)
-#   ./ibex_soc.sh lint             # verilator --lint-only of the SoC RTL
+#   ./ibex_soc.sh lint             # verilator --lint-only: SoC RTL, then each
+#                                  # sim model as its own top under -Wall
 #   ./ibex_soc.sh sim <tb>         # build + run ONE testbench (e.g. tb_soc)
 #   ./ibex_soc.sh regression       # images + sim firmware + all 11 sims (Verilator)
 #   ./ibex_soc.sh build            # bitstream via Vivado-on-Linux (build_fpga.tcl)

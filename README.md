@@ -85,6 +85,12 @@ sim <tb> | regression | build | flashfw | flashonly [bin]`.
   (`--timing`), same PASS criteria as the xsim suite.
 - **`build` / `flashfw`** drive the same Vivado `.tcl` scripts through a
   Linux Vivado install (found via `$VIVADO`, PATH, or `/opt|/tools/Xilinx`).
+- **`lint`** covers the SoC *and* each simulation model as its own top
+  under `-Wall`: Verilator lints only what `--top-module` reaches, so the
+  models — which hang off testbenches, not off the SoC — would otherwise
+  never be checked. A width mismatch this repo's `-Wno-fatal` flows
+  tolerate is a build stopper under the upstream FuseSoC sim target,
+  which runs `-Wall` fatal.
 - A FuseSoC wrapper (`minimal_ibex_soc.core`, targets `lint | sim | synth`)
   exists for FuseSoC-based team flows — the native scripts remain the
   supported path.

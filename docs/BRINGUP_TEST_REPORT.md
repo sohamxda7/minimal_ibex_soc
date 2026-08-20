@@ -573,11 +573,13 @@ address compared against an `int` and used as a 16-bit index — and
 `periph_models.sv` had the identical one at `mem[addr_q % MEM_BYTES]`, so
 both were fixed at the source rather than waived; `BLKSEQ` is waived inline,
 because a bus-functional model must see its own updates within an edge.
-`ibex_soc.sh lint` now lints each simulation model as its own top —
+`ibex_soc.sh lint` now lints all 7 model files as their own tops —
 `--top-module` reaches only what the SoC instantiates, which is why nothing
 here had ever linted them. Verified: **20 and 32 warnings before, 0 after**,
 under Verilator 5.020 (Ubuntu) and 5.050 (MSYS2); `xvlog` clean on both
-files; **regression 13/13 ALL GREEN** with the models changed.
+files; **regression 13/13 ALL GREEN**; and an xsim re-run of every bench
+that instantiates a changed model (tb_xip, tb_freertos, tb_psram, tb_wifi,
+tb_audio, tb_cam) **PASS**.
 
 ## 13. Not covered (future work)
 

@@ -111,8 +111,12 @@ FPGA validation must run the silicon configuration or it isn't validation.
    find_tools.cmd (its locator), the *.tcl implementation scripts, and
    the keeper scripts/*.ps1. `minimal_ibex_soc.core` (FuseSoC wrapper)
    mirrors dv/xsim/filelist.f - keep them in sync, as with the
-   run_regression.ps1 / ibex_soc.sh PASS tables. The README stays SHORT -
-   a front page, not a manual (detail lives in docs/); keep it that way.
+   run_regression.ps1 / ibex_soc.sh PASS tables. A NEW simulation model or
+   BFM also joins `do_lint`'s file list - Verilator lints only what
+   `--top-module` reaches, so anything hanging off a testbench is
+   unchecked until it is linted as its own top (gotcha 36). The README
+   stays SHORT - a front page, not a manual (detail lives in docs/); keep
+   it that way.
 
 ## 3. Key technical facts (verified)
 
@@ -959,13 +963,15 @@ this run, all fixed:
   bus-functional model must see its own updates within an edge, so
   blocking is required; waived inline with the reason. Two Verilator
   lessons: `--top-module X` lints ONLY what X reaches, so `lint` had
-  never examined the BFMs (they hang off testbenches, not the SoC) -
-  `do_lint` now lints each of the 5 model files as its own top (~1 s,
+  never examined the models at all (BFMs hang off testbenches, the SRAM
+  and DFFRAM models off wrapper_top - none off ibex_demo_system) -
+  `do_lint` now lints each of the 7 model files as its own top (~1 s,
   upstream's waiver set, fails naming the file); and 5.050 adds
   `PROCASSINIT` (declaration initialiser + procedural assignment; fixed
   by moving the init into `initial`) which 5.020 does not emit.
   Verified: 20 and 32 warnings before, 0 after, on BOTH 5.020 and
-  5.050; `xvlog` clean on both files; regression 13/13 ALL GREEN.
+  5.050; `xvlog` clean on both files; regression 13/13 ALL GREEN; xsim
+  re-run of all six benches instantiating a changed model, all PASS.
   Rule of thumb: a warning your own flow silences is still a build
   stopper in someone else's - lint the way the strictest consumer does.
 
