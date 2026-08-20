@@ -6,6 +6,9 @@
 # Flows can also be run from a terminal directly with the same command.
 #
 #   setup                 environment doctor + locate/save tool paths
+#   profile <p>           sim | fpga | full | auto - which half of the flow
+#                         this box is for, so the tool you do NOT use is
+#                         never reported as missing (mirrors ibex_soc.sh)
 #   deps [force]          INSTALL missing tools: Python (winget) + a native
 #                         Windows RISC-V GCC (xPack riscv-none-elf-gcc,
 #                         auto-download to C:\FPGA, no WSL, no admin).
@@ -21,6 +24,7 @@
 #                         only on explicit choice) -> XIP bitstream -> QSPI
 #                         flash. Survives power-cycle.
 #   flashonly [file.bin]  reflash firmware+bitstream only (default FreeRTOS bin)
+#   simregression         Verilator regression via MSYS2 (no Vivado needed)
 #   regression            full suite: images + firmware + compile + 11 sims +
 #                         bitstream + scoreboard (~45-60 min)
 #
@@ -255,6 +259,50 @@ function Install-XpackGcc {
 # Both helpers stream tool stdout to the console via Write-Host (NOT the
 # pipeline) so callers can consume the integer return value without
 # swallowing the output the user is watching.
+# ---- tool profile: which HALF of the flow this machine is for ---------------
+#   sim  - Verilator only  (simulation + lint; Vivado never needed)
+#   fpga - Vivado only     (bitstream + flash; Verilator never needed)
+#   full - both
+#   auto - infer from what is installed (the default)
+# The tool a profile does not want is reported [SKIP], never [FAIL], and is
+# never prompted for. Mirrors ibex_soc.sh's `profile` flow; stored in the
+# same per-PC .toolpaths file.
+function Get-Profile {
+    $saved = Get-SavedPaths
+    $p = $saved["IBEX_PROFILE"]
+    if ($p) { return $p.Trim().ToLower() }
+    return "auto"
+}
+
+# Verilator on Windows lives in MSYS2 (UCRT64). Report it so a
+# simulation-only Windows box can be all-green without Vivado.
+function Find-VerilatorWin {
+    $c = Get-Command verilator -ErrorAction SilentlyContinue
+    if ($c) { return $c.Source }
+    # MSYS2 ships `verilator` as a SHELL SCRIPT (no .exe) next to the real
+    # verilator_bin.exe - looking only for verilator.exe misses it entirely.
+    foreach ($root in @($env:MSYS2_ROOT, "C:\FPGA\msys64", "C:\msys64")) {
+        if ($root) {
+            foreach ($leaf in @("ucrt64\bin\verilator", "ucrt64\bin\verilator_bin.exe",
+                                "mingw64\bin\verilator", "mingw64\bin\verilator_bin.exe")) {
+                $cand = Join-Path $root $leaf
+                if (Test-Path $cand) { return $cand }
+            }
+        }
+    }
+    return $null
+}
+
+function Get-EffectiveProfile {
+    $p = Get-Profile
+    if ($p -in @("sim", "fpga", "full")) { return $p }
+    $hasV = [bool](Find-Vivado $false)
+    $hasS = [bool](Find-VerilatorWin)
+    if ($hasS -and -not $hasV) { return "sim" }
+    if ($hasV -and -not $hasS) { return "fpga" }
+    return "full"
+}
+
 function Invoke-Vivado([string]$tcl, [string]$log, [string[]]$tclArgs) {
     $v = Find-Vivado $true
     if (-not $v) { Write-Host "ERROR: Vivado not found - run the setup flow."; exit 1 }
@@ -279,18 +327,84 @@ function Build-Firmware([string]$variant) {
 # =============================================================================
 switch ($Flow.ToLower()) {
 
+    "simregression" {
+        # Verilator regression on Windows WITHOUT Vivado: MSYS2 owns the
+        # open-source toolchain, so shell into its UCRT64 environment and
+        # run the same ibex_soc.sh every Linux box uses. One flow, one
+        # PASS table, whichever OS you are on.
+        $msys = $null
+        foreach ($root in @($env:MSYS2_ROOT, "C:\FPGA\msys64", "C:\msys64")) {
+            if ($root -and (Test-Path (Join-Path $root "usr\bin\bash.exe"))) { $msys = $root; break }
+        }
+        if (-not $msys) {
+            Write-Host "MSYS2 not found - it provides Verilator on Windows."
+            Write-Host "  1. install from https://www.msys2.org/"
+            Write-Host "  2. open the MSYS2 UCRT64 shell"
+            Write-Host "  3. cd to this repo, then:  ./ibex_soc.sh deps"
+            Write-Host "Then this button runs the full Verilator regression."
+            Write-Host "(Not doing simulation on this PC?  flows.ps1 profile fpga)"
+            exit 1
+        }
+        $unix = "/" + ($repo -replace "\\", "/" -replace "^([A-Za-z]):", '$1')
+        Write-Host "MSYS2: $msys"
+        Write-Host "Running the Verilator regression in UCRT64 ($unix)..."
+        $env:MSYSTEM = "UCRT64"
+        & (Join-Path $msys "usr\bin\bash.exe") -lc "cd '$unix' && ./ibex_soc.sh regression"
+        exit $LASTEXITCODE
+    }
+
+    "profile" {
+        $want = $Arg.Trim().ToLower()
+        if ($want -in @("sim", "fpga", "full", "auto")) {
+            $saved = Get-SavedPaths
+            $saved["IBEX_PROFILE"] = $want
+            Save-Paths $saved
+            Write-Host "profile: $want (effective: $(Get-EffectiveProfile))"
+        }
+        elseif ($want -eq "") {
+            Write-Host "profile: $(Get-Profile) (effective: $(Get-EffectiveProfile))"
+            Write-Host "  sim  - Verilator only; Vivado never reported as missing"
+            Write-Host "  fpga - Vivado only; Verilator never reported as missing"
+            Write-Host "  full - both"
+            Write-Host "  auto - infer from what is installed (default)"
+            Write-Host "set with: flows.ps1 profile <sim|fpga|full|auto>"
+        }
+        else { Write-Host "usage: flows.ps1 profile <sim|fpga|full|auto>"; exit 2 }
+    }
+
     "setup" {
         Write-Host "============================================================"
         Write-Host " minimal-ibex-soc environment check"
         Write-Host "============================================================"
         $fail = $false
 
-        $v = Find-Vivado $true
+        $prof = Get-EffectiveProfile
+        Write-Host "[INFO] Tool profile: $prof  (change: flows.ps1 profile <sim|fpga|full|auto>)"
+
+        $v = Find-Vivado ($prof -ne "sim")
         if ($v) { Write-Host "[OK]   Vivado:      $v" }
+        elseif ($prof -eq "sim") {
+            Write-Host "[SKIP] Vivado - not needed for profile 'sim' (simulation/lint only)."
+        }
         else {
             Write-Host "[FAIL] Vivado not found. Install Vivado ML Standard (free) with"
             Write-Host "       Artix-7 support + cable drivers (docs/WALKTHROUGH.md sec. 2)."
+            Write-Host "       Only doing simulation? Run:  flows.ps1 profile sim"
             $fail = $true
+        }
+
+        $vlt = Find-VerilatorWin
+        if ($vlt) {
+            Write-Host "[OK]   Verilator:   $vlt"
+            Write-Host "       Run sims from an MSYS2 UCRT64 shell:  ./ibex_soc.sh regression"
+        }
+        elseif ($prof -eq "fpga") {
+            Write-Host "[SKIP] Verilator - not needed for profile 'fpga' (bitstream/flash only)."
+        }
+        else {
+            Write-Host "[INFO] Verilator not found (optional on Windows - xsim covers"
+            Write-Host "       simulation). For the open-source sim flow install MSYS2,"
+            Write-Host "       then in its UCRT64 shell: ./ibex_soc.sh deps"
         }
 
         $py = Get-Command python -ErrorAction SilentlyContinue

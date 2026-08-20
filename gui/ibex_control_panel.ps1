@@ -88,6 +88,10 @@ Add-Button "Build Firmware" 12 132 160 { Launch-Flow "firmware" "" } `
   "Compile the firmware with the RISC-V GCC (console + LEDs/RGB + LCD status screen - one image)." | Out-Null
 Add-Button "Flash to Board (QSPI)" 182 132 160 { Launch-Flow "flashfw" "" } `
   "THE flow: BUILDS the firmware (offers the automatic GCC install if missing; prebuilt only on your explicit choice) + XIP bitstream + QSPI flash. Survives power-cycle. Includes the LCD status screen - wired or not." | Out-Null
+Add-Button "Verilator Regression" 352 132 160 { Launch-Flow "simregression" "" } `
+  "Open-source simulation, NO Vivado needed: runs all 11 sims through MSYS2's Verilator (the same ibex_soc.sh Linux uses). Tells you how to install MSYS2 if it is missing." | Out-Null
+Add-Button "Tool Profile" 522 132 120 { Launch-Flow "profile" "" } `
+  "Which half of the flow this PC is for: sim (Verilator only - Vivado never reported missing), fpga (Vivado only), full, or auto. Set with: flows.ps1 profile <sim|fpga|full|auto>." | Out-Null
 
 # ---- row 3: docs + logs ---------------------------------------------------------
 Add-Label "Docs and logs" 12 178 $true | Out-Null

@@ -4,6 +4,9 @@
 # Run with no arguments for an interactive menu, or name a flow directly:
 #
 #   ./ibex_soc.sh setup            # tool doctor (verilator/python/gcc/vivado)
+#   ./ibex_soc.sh profile <p>      # sim | fpga | full | auto - which half of
+#                                  # the flow this box is for, so the tool you
+#                                  # do NOT use is never reported as missing
 #   ./ibex_soc.sh deps             # INSTALL missing tools (apt/dnf/pacman + xPack GCC)
 #   ./ibex_soc.sh images           # regenerate all program .vmem images
 #   ./ibex_soc.sh firmware [sim]   # FreeRTOS build (default: hw image)
@@ -176,6 +179,32 @@ find_vivado() {
     return 1
 }
 
+# ---- tool profile: which HALF of the flow this machine is for ---------------
+#   sim  - Verilator only  (simulation + lint; Vivado never needed)
+#   fpga - Vivado only     (bitstream + flash; Verilator never needed)
+#   full - both
+#   auto - infer from what is installed (the default)
+# A missing tool that the profile does not want is reported [SKIP], never
+# [FAIL], and is never prompted for - so a Verilator-only box is "all green"
+# without Vivado, and an FPGA-only box is all green without Verilator.
+# Pin it with `./ibex_soc.sh profile sim` (remembered in .toolpaths.sh).
+IBEX_PROFILE="${IBEX_PROFILE:-auto}"
+
+effective_profile() {
+    case "$IBEX_PROFILE" in
+        sim|fpga|full) echo "$IBEX_PROFILE"; return ;;
+    esac
+    _v=0; _x=0
+    vlt_version_ok && _v=1
+    find_vivado >/dev/null 2>&1 && _x=1
+    if   [ "$_v" = 1 ] && [ "$_x" = 0 ]; then echo sim
+    elif [ "$_v" = 0 ] && [ "$_x" = 1 ]; then echo fpga
+    else echo full; fi
+}
+
+wants_sim()  { [ "$( effective_profile )" != "fpga" ]; }
+wants_fpga() { [ "$( effective_profile )" != "sim" ]; }
+
 # Remember a per-PC tool location, the POSIX twin of the Windows GUI's
 # .toolpaths: append + re-source so THIS process sees it immediately.
 save_toolpath() {
@@ -304,6 +333,8 @@ do_setup() {
     ok=0
     if vlt_version_ok; then
         echo "[ OK ] verilator: $("$VERILATOR" --version)"
+    elif ! wants_sim; then
+        echo "[SKIP] verilator - not needed for profile 'fpga' (bitstream/flash only)"
     else
         vfound=$( command -v verilator 2>/dev/null )
         if [ -n "$vfound" ]; then
@@ -336,6 +367,8 @@ do_setup() {
         fi
     fi
     if v=$(find_vivado); then echo "[ OK ] vivado: $v (bitstream/flash flows enabled)"
+    elif ! wants_fpga; then
+        echo "[SKIP] vivado - not needed for profile 'sim' (simulation/lint only)"
     else
         echo "[INFO] Vivado not found - sim flows unaffected; build/flashfw need it"
         if ask_vivado; then echo "[ OK ] vivado: $VIVADO"; fi
@@ -429,6 +462,26 @@ do_deps() {
                  || pip3 install --user fusesoc 2>/dev/null \
                  || echo "[INFO] fusesoc not installed (optional)"
     echo; do_setup
+}
+
+do_profile() {
+    case "${1:-}" in
+        sim|fpga|full|auto)
+            [ -f .toolpaths.sh ] && sed -i '/^export IBEX_PROFILE=/d' .toolpaths.sh
+            save_toolpath IBEX_PROFILE "$1"
+            IBEX_PROFILE="$1"
+            echo "profile: $IBEX_PROFILE (effective: $( effective_profile ))"
+            ;;
+        ""|show)
+            echo "profile: $IBEX_PROFILE (effective: $( effective_profile ))"
+            echo "  sim  - Verilator only; Vivado never reported as missing"
+            echo "  fpga - Vivado only; Verilator never reported as missing"
+            echo "  full - both"
+            echo "  auto - infer from what is installed (default)"
+            echo "set with: $0 profile <sim|fpga|full|auto>"
+            ;;
+        *) echo "usage: $0 profile <sim|fpga|full|auto>"; return 2 ;;
+    esac
 }
 
 # Every sim flow needs Verilator 5 - say so once, clearly, instead of
@@ -576,19 +629,23 @@ do_menu() {
     echo "  5) Lint RTL                   (lint)"
     echo "  6) Build bitstream, Vivado    (build)"
     echo "  7) Flash to board (QSPI)      (flashfw)"
+    echo "  8) Tool profile (sim/fpga/full)  (profile)"
     echo "  q) Quit"
     printf "Choice: "
     read -r c
     case "$c" in
         1) do_setup ;;  2) do_deps ;;      3) do_firmware hw ;;
         4) do_regression ;; 5) do_lint ;;  6) do_build ;;
-        7) do_flashfw ;; *) exit 0 ;;
+        7) do_flashfw ;;
+        8) printf "  profile [sim|fpga|full|auto]: "; read -r pf; do_profile "$pf" ;;
+        *) exit 0 ;;
     esac
 }
 
 # ---- dispatch ---------------------------------------------------------------
 case "${1:-__menu__}" in
     setup)      do_setup ;;
+    profile)    do_profile "${2:-}" ;;
     deps)       do_deps ;;
     images)     do_images ;;
     firmware)   do_firmware "${2:-hw}" ;;

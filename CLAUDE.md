@@ -847,6 +847,26 @@ this run, all fixed:
   Gotcha 34e. Any all-FFFFFFFF/all-zero fetch loop in a NEW bench =
   look at its image first, not at the RTL.
   Also hardened: do_images refuses early if python3 is absent.
+- **Tool PROFILE (2026-08-20, Soham's ask: "skip vivado or verilator,
+  vice versa, both OSes")**: nobody must install both halves.
+  `sim` = Verilator only, `fpga` = Vivado only, `full`, `auto` (default,
+  inferred from what is present). The unwanted tool is [SKIP], never
+  [FAIL], and is never PROMPTED for - the prompt was the real irritant.
+  Symmetric in ibex_soc.sh (`profile` flow, menu item 8) and flows.ps1
+  (`profile` flow, GUI "Tool Profile"); stored in .toolpaths.sh /
+  .toolpaths. Windows `setup` also REPORTS Verilator now (it never did),
+  and `flows.ps1 simregression` / GUI "Verilator Regression" shells into
+  MSYS2 UCRT64 to run the same ibex_soc.sh regression - so a Windows box
+  can do the open-source sim flow with no Vivado at all.
+  Detection trap: MSYS2 ships `verilator` as a SHELL SCRIPT (plus
+  verilator_bin.exe) - there is NO verilator.exe, so looking for that
+  alone finds nothing.
+- **Python-generating-PowerShell trap (hit twice this session)**: writing
+  PS code from a non-raw Python string eats `` and `` -
+  "usrinash.exe" silently became "usrinash.exe" and
+  "ucrt64inerilator.exe" became "ucrt64inerilator.exe". Both parse
+  fine as PowerShell, so only runtime catches it. Use raw strings for any
+  generated Windows path, and grep the result for control characters.
 - Console key **'i' = re-scan the I2C bus** (g_scan flag -> the toy task
   runs prvI2cScan; I2C stays owned by that one task, no locking needed).
   Bench workflow: rewire a part, press 'i', no reboot/reflash. That is

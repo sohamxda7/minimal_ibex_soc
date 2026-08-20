@@ -102,6 +102,34 @@ automatically. Verified: Verilator 5.050 under MSYS2, 13/13 green.
 > does not exist there. `git pull` first; the only entry points are
 > `ibex_soc.bat` (Windows GUI) and `ibex_soc.sh` (Linux/MSYS2).
 
+### Vivado-only or Verilator-only? Pick a profile
+
+Nobody has to install both. Each entry script carries a **tool profile**,
+so the half you do not use is reported `[SKIP]` — never `[FAIL]` — and is
+never prompted for:
+
+| Profile | Means | Needs |
+|---|---|---|
+| `sim` | simulation + lint only | Verilator (no Vivado) |
+| `fpga` | bitstream + flash only | Vivado (no Verilator) |
+| `full` | both | both |
+| `auto` | inferred from what is installed — the default | — |
+
+```
+./ibex_soc.sh profile sim                      # Linux / MSYS2
+powershell -File scriptslows.ps1 profile fpga  # Windows (GUI: Tool Profile)
+```
+
+The choice is remembered per-PC (`.toolpaths.sh` / `.toolpaths`). `auto`
+already does the right thing on a one-tool machine, so a Verilator-only
+box is all-green without Vivado and vice versa; pin a profile when you
+want the answer fixed regardless of what else gets installed later.
+
+**Verilator on Windows without Vivado:** the GUI's **Verilator
+Regression** button (or `flows.ps1 simregression`) runs all 11 sims
+through MSYS2's Verilator — the same `ibex_soc.sh` Linux uses, one PASS
+table on either OS. If MSYS2 is absent it tells you how to install it.
+
 ### The serial console
 
 Boot prints a full system-info banner (core, kernel, memory map,
