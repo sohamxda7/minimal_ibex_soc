@@ -63,6 +63,7 @@ static volatile uint8_t    g_reseed = 0;            /* 1-4 pressed: restart   */
 static volatile TickType_t g_step = 0;              /* set in main            */
 static volatile int8_t     g_rgb  = -1;             /* -1 auto; 0 R,1 G,2 B,3 W */
 static volatile uint8_t    g_beat = 1;              /* 't' toggles heartbeat  */
+static volatile uint8_t    g_scan = 0;              /* 'i' requests an I2C scan */
 static volatile char       g_key  = '-';            /* last key (LCD status)  */
 
 /* LED patterns on gp_o[7:4]; while any button is held, mirror the switches
@@ -186,6 +187,7 @@ static void prvConsoleTask( void * pvParameters )
             case 'w': g_rgb = 3;  break;
             case 'a': g_rgb = -1; break;
             case 't': g_beat ^= 1u; break;       /* heartbeat on/off        */
+            case 'i': g_scan = 1u; break;        /* re-scan the I2C bus     */
             default: break;
         }
 
@@ -309,6 +311,36 @@ static int prvBmeProbe( bme280_t * dev )
     return rc;
 }
 
+/* Bus scan: print every address that ACKs. At boot it runs BEFORE any
+ * device traffic, on a virgin bus, so no device's driver can be blamed
+ * for another's silence; the 'i' console key re-runs it on demand - the
+ * bench workflow is "rewire a part, press i", with no reboot. Aborts on
+ * the first TIMEOUT: a held-low bus times out per address, and over XIP
+ * that would stall for minutes.  */
+static void prvI2cScan( void )
+{
+    uart_puts( "toy: i2c scan:" );
+
+    for( uint8_t a = 0x08u; a <= 0x77u; a++ )
+    {
+        int rcScan = i2c_probe( a );
+
+        if( rcScan == I2C_ERR_TIMEOUT )
+        {
+            uart_puts( " BUS STUCK (held low)" );
+            break;
+        }
+
+        if( rcScan == I2C_OK )
+        {
+            uart_puts( " " );
+            uart_puthex8( a );
+        }
+    }
+
+    uart_puts( "\r\n" );
+}
+
 /* "T= 25.34C H= 45.6%" into a 21-char field - both displays render it. */
 static void prvSensorLine( char * dst, const bme280_reading_t * r )
 {
@@ -385,30 +417,7 @@ static void prvToyTask( void * pvParameters )
 
     i2c_init();
 
-    /* One-shot bus scan at boot, BEFORE any device traffic: prints every
-     * address that ACKs. The cheapest bring-up diagnostic there is - it
-     * answers "which chips are actually alive" in one line, on a virgin
-     * bus, so no device's driver can be blamed for another's silence.
-     * Aborts on the first TIMEOUT: a stuck bus times out per address and
-     * over XIP that would stall boot for minutes. */
-    uart_puts( "toy: i2c scan:" );
-    for( uint8_t a = 0x08u; a <= 0x77u; a++ )
-    {
-        int rcScan = i2c_probe( a );
-
-        if( rcScan == I2C_ERR_TIMEOUT )
-        {
-            uart_puts( " BUS STUCK (held low)" );
-            break;
-        }
-
-        if( rcScan == I2C_OK )
-        {
-            uart_puts( " " );
-            uart_puthex8( a );
-        }
-    }
-    uart_puts( "\r\n" );
+    prvI2cScan();
 
     rcOled   = ssd1306_init( SSD1306_ADDR );
     rcSensor = prvBmeProbe( &xSensor );
@@ -589,6 +598,13 @@ static void prvToyTask( void * pvParameters )
             }
         }
 
+        /* ---- 'i': operator asked for a bus scan (bench workflow) -------- */
+        if( g_scan )
+        {
+            g_scan = 0;
+            prvI2cScan();
+        }
+
         /* ---- hot-attach: re-probe absent parts every 5 s ---------------- */
         if( ( ucSecs % 5u ) == 4u )
         {
@@ -671,7 +687,8 @@ static void prvPrintBanner( void )
     uart_puts( "          GPIO 16/16 | timer | PWM x12 | I2C | SPI\r\n" );
     uart_puts( " Keys   : 1-4 LED pattern   f/m/s speed\r\n" );
     uart_puts( "          r/g/b/w force RGB colour, a = auto cycle\r\n" );
-    uart_puts( "          t heartbeat on/off  (keys echo back as ack)\r\n" );
+    uart_puts( "          t heartbeat on/off   i I2C bus scan\r\n" );
+    uart_puts( "          (keys echo back as ack)\r\n" );
     uart_puts( " Hold any button: LEDs mirror the switches.\r\n" );
     uart_puts( " Hello, world - starting the scheduler; first\r\n" );
     uart_puts( " heartbeat in 30 s, then every 10 s ('t' toggles).\r\n" );

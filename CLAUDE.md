@@ -812,6 +812,13 @@ this run, all fixed:
   AT THE MODULE PINS. -> LGA reflow damage or an open pad-to-die link,
   neither visible to pin-level continuity. Phase 2b sensor half = WIP
   pending a replacement; do NOT spend more time debugging it.
+  RE-CONFIRMED after Soham re-soldered it (2026-08-20): boot scan AND
+  an on-demand scan both still `3C` only. Two independent attempts,
+  bus proven healthy by the OLED each time - the part is dead.
+- Console key **'i' = re-scan the I2C bus** (g_scan flag -> the toy task
+  runs prvI2cScan; I2C stays owned by that one task, no locking needed).
+  Bench workflow: rewire a part, press 'i', no reboot/reflash. That is
+  how the replacement BME280 should be tested when it arrives.
 - **OLED now has its own live screen** (it used to update only INSIDE
   the sensor-present branch, so a missing BME left the panel frozen on
   its title - exactly the wrong failure mode). New ssd1306 primitives:

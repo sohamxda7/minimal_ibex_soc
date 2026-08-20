@@ -475,7 +475,11 @@ damage during hand-soldering or an open pad-to-die connection, both
 invisible to pin-level continuity. **Phase 2b sensor half is parked as
 WIP pending a replacement part**; the display half is done. The scan
 stays in the firmware permanently as the first-read bring-up
-diagnostic (PRODUCTION_PERIPHERALS §8).
+diagnostic (PRODUCTION_PERIPHERALS §8), and the **`i` console key
+re-runs it on demand** so a replacement part can be tested without a
+reboot. The module was re-soldered and retested the same day — boot scan
+and on-demand scan both still report `3C` only, confirming the verdict on
+a second, independent attempt.
 
 **Rewiring result (same day, later): OLED UP.** After moving the
 junctions off the breadboard's edge-rail columns into four 5-hole

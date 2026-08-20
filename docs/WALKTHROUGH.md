@@ -81,7 +81,7 @@ Flash to Board flow or PuTTY stays silent.
    type single characters (no Enter):
 
    `1`-`4` LED pattern · `f/m/s` speed · `r/g/b/w` force RGB colour ·
-   `a` RGB auto · `t` heartbeat on/off · anything else echoes.
+   `a` RGB auto · `t` heartbeat on/off · **`i` re-scan the I2C bus** (prints every address that ACKs, no reboot) · anything else echoes.
 
 > **Reading the terminal:** your typed keys are echoed back by the FPGA as
 > the acknowledgement, so they appear interleaved with any heartbeat line

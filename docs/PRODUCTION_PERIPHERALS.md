@@ -152,7 +152,7 @@ failed cycles (`toy: bme lost`) and picked up again on re-seat.
 2. Find the COM port (Device Manager → Ports → "USB Serial Port") and
    open PuTTY: Serial, that port, **115200**, 8N1.
 3. Expect the boot banner, then drive it: `1-4` LED patterns, `f/m/s`
-   speed, `r/g/b/w/a` RGB, `t` toggles the periodic reports (heartbeat +
+   speed, `r/g/b/w/a` RGB, `i` re-scans the I2C bus, `t` toggles the periodic reports (heartbeat +
    sensor line). Scripted check: `python util/uart_command_test.py`.
 4. Closing the serial port **resets the board** (DTR wired to ck_rst,
    WALKTHROUGH gotcha 27) — it reboots cleanly on reopen; that is not a
@@ -290,9 +290,10 @@ toy: i2c scan: 3C           <- only the OLED answers
 toy: i2c scan: BUS STUCK (held low)
 ```
 
-This settles wiring-vs-part arguments in one line, and it cannot be
-confounded by either driver: it runs on the bare bus right after
-`i2c_init()`. An address that does not appear here is **not on the
+The **`i` console key re-runs it on demand** — the bench workflow is
+"rewire a part, press `i`", with no reboot and no reflash. This settles
+wiring-vs-part arguments in one line, and it cannot be confounded by
+either driver: at boot it runs on the bare bus right after `i2c_init()`. An address that does not appear here is **not on the
 bus** — no amount of driver work will find it. The scan aborts at the
 first timeout because a held-low bus times out per address, which over
 XIP would stall boot for minutes.
