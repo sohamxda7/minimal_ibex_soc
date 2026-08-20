@@ -66,9 +66,9 @@ nothing else wired. Tests 15-17 wait for the ~10 OLED/BME280 header joints.
 | # | Test | Pass criterion | Result |
 |---|---|---|---|
 | 14 | ST7735 LCD | system-status screen: ARF logo (deep blue) + banner render, uptime/tick advance and the alive-spinner rotates every second, PuTTY keys (`1-4`, `r/g/b/w/a`, `t`) change the pat/rgb/key fields within 1 s | **PASS 2026-08-18** — firmware path proven over serial (`toy: lcd up`), panel visually confirmed by Soham after the SPI mode-0 + warm-reset fixes ("tft is also coming fine") |
-| 15 | I2C bus scan | boot line `toy: lcd up, oled=0 bme=0 (0=ok)` — both parts ACK (or `toy: oled attached` / `toy: bme attached` if wired after boot: parts are re-probed every 5 s) | ✗ **first attempt 2026-08-20: `oled=2 bme=2` = bus held low** (decode + isolation: PRODUCTION_PERIPHERALS §8, report §12b); wiring fix pending, then re-run |
+| 15 | I2C bus scan | boot line `toy: lcd up, oled=0 bme=0 (0=ok)` — both parts ACK (or `toy: oled attached` / `toy: bme attached` if wired after boot: parts are re-probed every 5 s) | **OLED half PASSED 2026-08-20** (after rewiring off the breadboard edge rails): `oled=0 bme=1` — bus healthy, sensor NACKs both addresses → CSB strap / BME joints (§8); BME half pending |
 | 16 | BME280 | plausible signed T + P + H: `T=...cC P=...Pa H=...m%` on UART every 10 s (with `t` reports on) and `T= 25.34C H= 45.6%` on the LCD live block | ☐ |
-| 17 | SSD1306 | title + live T/H line + pressure + uptime rendered | ☐ |
+| 17 | SSD1306 | title + live T/H line + pressure + uptime rendered | **Title renders 2026-08-20** (panel lit, working display); T/H + pressure lines need the BME280 (test 16) |
 | 17b | Self-heal | pull the BME280 SDA jumper mid-run → `toy: bme lost` + LCD `bme:--` within ~3 s; re-seat → `toy: bme attached` within 5 s | ☐ |
 | 18 | Logic-analyzer capture | SPI + I2C traces archived for the report | ☐ |
 

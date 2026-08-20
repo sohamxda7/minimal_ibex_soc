@@ -803,6 +803,13 @@ this run, all fixed:
   scratchpad boot_from_flash.tcl) - no hands needed. Hardware re-test:
   all key echoes green; oled=2 bme=2 persists (wiring-side, awaiting
   bench fix).
+- Rewiring result (same day, later): OLED UP (`oled=0 bme=1`) after
+  moving junctions off the edge rails - the 2->1 code change proves
+  the stuck-bus diagnosis. BME280 NACKs both addresses on the healthy
+  bus -> CSB-not-strapped (SPI mode) or a dry sensor joint; straps
+  promoted to REQUIRED in the docs. Wiring diagram committed as
+  docs/img/phase2b_wiring.svg (embedded in PRODUCTION_PERIPHERALS
+  sec. 8).
 - Teammate "can't run Verilator" (ARF-BBSR-84 transcript, docx): they
   are on a PRE-08-18 checkout (setup_check.bat/build_fpga.bat era - no
   ibex_soc.sh at all) and/or launching from cmd. Answer: git pull +

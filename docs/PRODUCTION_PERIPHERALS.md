@@ -240,14 +240,24 @@ modules ship with a loose 4-pin header strip. For each module:
 4. Sanity check before power: multimeter continuity pin↔pad, and **no**
    continuity VCC↔GND on the module.
 
-**Wiring (power off).** Both modules share the one I2C bus — parallel on
-the same two signal wires via breadboard rails:
+**Wiring (power off).** Both modules share the one I2C bus. Use **four
+separate 5-hole junction rows in the breadboard's main field** (one row
+per net — NOT the edge rails, see the geometry warning below):
 
-| Module pin (both modules) | Connect to |
-|---|---|
-| VCC / GND | Pmod JA pin 6 (3.3 V) / pin 5 (GND) via breadboard rails |
-| SCL | Pmod JA pin 1 (G13) |
-| SDA | Pmod JA pin 2 (B11) |
+![Phase 2b wiring: Pmod JA -> four breadboard junction rows -> OLED + BME280](img/phase2b_wiring.svg)
+
+| Net (one breadboard row each) | From Pmod JA | To OLED | To BME280 |
+|---|---|---|---|
+| 3V3 | pin 6 (VCC) | VCC | VIN/VCC **and CSB** |
+| GND | pin 5 (GND) | GND | GND **and SDO** |
+| SCL | pin 1 (G13) | SCL | SCL |
+| SDA | pin 2 (B11) | SDA | SDA |
+
+The CSB/SDO straps are **required** unless your module demonstrably
+straps them on-board: CSB low or floating puts the BME280 in **SPI
+mode and it NACKs every I2C address** — exactly the `bme=1`-on-a-
+healthy-bus signature (OLED ok, sensor silent at 0x76 AND 0x77). SDO
+low = 0x76, high = 0x77 — the firmware probes both.
 
 Pmod JA is the 12-pin socket nearest the ethernet jack; pin 1 is marked on
 the silkscreen (square/`JA1`), top row: 1-2-3-4-GND-VCC. Addresses are
@@ -262,11 +272,13 @@ may label power `VIN`. Wire by the printed name, never by position.
 
 **6-pin BME280 modules (extra CSB + SDO pins).** CSB selects the
 interface (high = I2C, low = SPI) and SDO sets the I2C address LSB.
-Most breakouts strap both on-board (CSB→VDD, SDO→GND) so leaving them
-unconnected works — but if the sensor won't probe, tie **CSB → 3.3 V**
-and **SDO → GND** explicitly (a floating CSB can drop the chip into SPI
-mode; a floating SDO makes the address flicker 0x76/0x77). The firmware
-probes **both 0x76 and 0x77** (since 2026-08-20), so SDO high is also fine.
+**Treat both straps as required wiring** (CSB → 3.3 V row, SDO → GND
+row): "the breakout straps them on-board" is not reliable. An
+unstrapped CSB leaves the chip in SPI mode, NACKing every I2C address
+(`bme=1`) on a proven-healthy bus — the first thing to check when the
+OLED answers and the sensor doesn't (then: the BME's own SCL/SDA
+joints, beep-tested module-pin to module-pin through the row). The
+firmware probes **both 0x76 and 0x77**, so either SDO level works.
 
 **Decoding `oled=X bme=X` (the number is `-rc`):**
 

@@ -463,6 +463,16 @@ one-hot rotating walk — the exact bench symptom, now regression-locked.
 (`general.maxThreads`) — every repo `.tcl` entry point now sets 8
 (Vivado's cap). Gotcha 32.
 
+**Rewiring result (same day, later): OLED UP.** After moving the
+junctions off the breadboard's edge-rail columns into four 5-hole
+field rows (wiring diagram now in PRODUCTION_PERIPHERALS §8), the boot
+line reads `oled=0 bme=1`: the SSD1306 initialises and renders — and
+the code change 2→1 confirms the stuck-bus diagnosis (bus healthy,
+one device answering). The BME280 now NACKs both 0x76/0x77 on that
+healthy bus — signature of CSB not strapped high (SPI mode) or a dry
+joint on the sensor's own pins; §8 covers both. Test 15 half-passed,
+17 title-render passed.
+
 **The "Illegal instruction" lines in sim logs — root-caused and fixed
 (testbench bug, silicon unaffected).** Two sims printed Ibex's
 `Illegal instruction ... 0x30529073` at boot — always the **first

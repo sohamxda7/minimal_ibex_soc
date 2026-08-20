@@ -1,0 +1,75 @@
+<svg width="680" height="515" viewBox="0 0 680 515" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>OLED and BME280 breadboard wiring</title>
+<desc>Wiring from Arty Pmod JA through four breadboard junction rows (3V3, GND, SCL, SDA) to the SSD1306 OLED and BME280 sensor. BME280 CSB straps to the 3V3 row and SDO to the GND row. The breadboard edge-rail columns are marked do-not-use.</desc>
+<rect x="0" y="0" width="680" height="515" fill="#ffffff"/>
+
+<line x1="46" y1="58" x2="76" y2="58" stroke="#d0342c" stroke-width="2"/><text x="82" y="62" font-family="sans-serif" font-size="12" fill="#444444">3V3</text>
+<line x1="126" y1="58" x2="156" y2="58" stroke="#6b6b6b" stroke-width="2"/><text x="162" y="62" font-family="sans-serif" font-size="12" fill="#444444">GND</text>
+<line x1="210" y1="58" x2="240" y2="58" stroke="#b07219" stroke-width="2"/><text x="246" y="62" font-family="sans-serif" font-size="12" fill="#444444">SCL</text>
+<line x1="290" y1="58" x2="320" y2="58" stroke="#2f6fdd" stroke-width="2"/><text x="326" y="62" font-family="sans-serif" font-size="12" fill="#444444">SDA</text>
+<line x1="370" y1="58" x2="400" y2="58" stroke="#6b6b6b" stroke-width="2" stroke-dasharray="5 4"/><text x="406" y="62" font-family="sans-serif" font-size="12" fill="#444444">dashed = BME280 straps (CSB to 3V3, SDO to GND) - REQUIRED</text>
+
+<rect x="40" y="100" width="120" height="185" rx="4" fill="#eeedfe" stroke="#534ab7" stroke-width="1"/>
+<text x="100" y="122" font-family="sans-serif" font-size="14" font-weight="bold" fill="#26215c" text-anchor="middle">Pmod JA</text>
+<text x="52" y="146" font-family="sans-serif" font-size="12" fill="#3c3489">1  SCL (G13)</text>
+<text x="52" y="171" font-family="sans-serif" font-size="12" fill="#3c3489">2  SDA (B11)</text>
+<text x="52" y="196" font-family="sans-serif" font-size="12" fill="#3c3489">3  -</text>
+<text x="52" y="221" font-family="sans-serif" font-size="12" fill="#3c3489">4  -</text>
+<text x="52" y="246" font-family="sans-serif" font-size="12" fill="#3c3489">5  GND</text>
+<text x="52" y="271" font-family="sans-serif" font-size="12" fill="#3c3489">6  VCC 3.3V</text>
+
+<rect x="230" y="100" width="210" height="330" rx="4" fill="#fafafa" stroke="#bbbbbb" stroke-width="1"/>
+<text x="335" y="90" font-family="sans-serif" font-size="14" font-weight="bold" fill="#333333" text-anchor="middle">Breadboard (main field)</text>
+<rect x="238" y="112" width="14" height="306" rx="2" fill="none" stroke="#d0342c" stroke-width="1" stroke-dasharray="4 3"/>
+
+<rect x="262" y="136" width="166" height="28" rx="4" fill="#ffffff" stroke="#999999" stroke-width="1"/>
+<text x="270" y="155" font-family="sans-serif" font-size="14" fill="#333333">3V3</text>
+<rect x="320" y="146" width="8" height="8" fill="none" stroke="#999999"/><rect x="341" y="146" width="8" height="8" fill="none" stroke="#999999"/><rect x="362" y="146" width="8" height="8" fill="none" stroke="#999999"/><rect x="383" y="146" width="8" height="8" fill="none" stroke="#999999"/><rect x="404" y="146" width="8" height="8" fill="none" stroke="#999999"/>
+
+<rect x="262" y="201" width="166" height="28" rx="4" fill="#ffffff" stroke="#999999" stroke-width="1"/>
+<text x="270" y="220" font-family="sans-serif" font-size="14" fill="#333333">GND</text>
+<rect x="320" y="211" width="8" height="8" fill="none" stroke="#999999"/><rect x="341" y="211" width="8" height="8" fill="none" stroke="#999999"/><rect x="362" y="211" width="8" height="8" fill="none" stroke="#999999"/><rect x="383" y="211" width="8" height="8" fill="none" stroke="#999999"/><rect x="404" y="211" width="8" height="8" fill="none" stroke="#999999"/>
+
+<rect x="262" y="266" width="166" height="28" rx="4" fill="#ffffff" stroke="#999999" stroke-width="1"/>
+<text x="270" y="285" font-family="sans-serif" font-size="14" fill="#333333">SCL</text>
+<rect x="320" y="276" width="8" height="8" fill="none" stroke="#999999"/><rect x="341" y="276" width="8" height="8" fill="none" stroke="#999999"/><rect x="362" y="276" width="8" height="8" fill="none" stroke="#999999"/><rect x="383" y="276" width="8" height="8" fill="none" stroke="#999999"/><rect x="404" y="276" width="8" height="8" fill="none" stroke="#999999"/>
+
+<rect x="262" y="331" width="166" height="28" rx="4" fill="#ffffff" stroke="#999999" stroke-width="1"/>
+<text x="270" y="350" font-family="sans-serif" font-size="14" fill="#333333">SDA</text>
+<rect x="320" y="341" width="8" height="8" fill="none" stroke="#999999"/><rect x="341" y="341" width="8" height="8" fill="none" stroke="#999999"/><rect x="362" y="341" width="8" height="8" fill="none" stroke="#999999"/><rect x="383" y="341" width="8" height="8" fill="none" stroke="#999999"/><rect x="404" y="341" width="8" height="8" fill="none" stroke="#999999"/>
+
+<polyline points="160,265 180,265 180,150 262,150" fill="none" stroke="#d0342c" stroke-width="2"/>
+<polyline points="160,240 195,240 195,215 262,215" fill="none" stroke="#6b6b6b" stroke-width="2"/>
+<polyline points="160,140 210,140 210,280 262,280" fill="none" stroke="#b07219" stroke-width="2"/>
+<polyline points="160,165 225,165 225,345 262,345" fill="none" stroke="#2f6fdd" stroke-width="2"/>
+
+<rect x="490" y="98" width="150" height="135" rx="4" fill="#e1f5ee" stroke="#0f6e56" stroke-width="1"/>
+<text x="565" y="118" font-family="sans-serif" font-size="14" font-weight="bold" fill="#04342c" text-anchor="middle">OLED SSD1306</text>
+<text x="502" y="144" font-family="sans-serif" font-size="12" fill="#085041">VCC</text>
+<text x="502" y="169" font-family="sans-serif" font-size="12" fill="#085041">GND</text>
+<text x="502" y="194" font-family="sans-serif" font-size="12" fill="#085041">SCL</text>
+<text x="502" y="219" font-family="sans-serif" font-size="12" fill="#085041">SDA</text>
+
+<rect x="490" y="278" width="150" height="182" rx="4" fill="#e1f5ee" stroke="#0f6e56" stroke-width="1"/>
+<text x="565" y="298" font-family="sans-serif" font-size="14" font-weight="bold" fill="#04342c" text-anchor="middle">BME280 (6-pin)</text>
+<text x="502" y="321" font-family="sans-serif" font-size="12" fill="#085041">VIN / VCC</text>
+<text x="502" y="346" font-family="sans-serif" font-size="12" fill="#085041">GND</text>
+<text x="502" y="371" font-family="sans-serif" font-size="12" fill="#085041">SCL</text>
+<text x="502" y="396" font-family="sans-serif" font-size="12" fill="#085041">SDA</text>
+<text x="502" y="421" font-family="sans-serif" font-size="12" fill="#085041">CSB</text>
+<text x="502" y="446" font-family="sans-serif" font-size="12" fill="#085041">SDO</text>
+
+<polyline points="428,150 446,150 446,140 490,140" fill="none" stroke="#d0342c" stroke-width="2"/>
+<polyline points="446,150 446,317 490,317" fill="none" stroke="#d0342c" stroke-width="2"/>
+<polyline points="446,317 446,417 490,417" fill="none" stroke="#d0342c" stroke-width="2" stroke-dasharray="5 4"/>
+<polyline points="428,215 456,215 456,165 490,165" fill="none" stroke="#6b6b6b" stroke-width="2"/>
+<polyline points="456,215 456,342 490,342" fill="none" stroke="#6b6b6b" stroke-width="2"/>
+<polyline points="456,342 456,442 490,442" fill="none" stroke="#6b6b6b" stroke-width="2" stroke-dasharray="5 4"/>
+<polyline points="428,280 466,280 466,190 490,190" fill="none" stroke="#b07219" stroke-width="2"/>
+<polyline points="466,280 466,367 490,367" fill="none" stroke="#b07219" stroke-width="2"/>
+<polyline points="428,345 476,345 476,215 490,215" fill="none" stroke="#2f6fdd" stroke-width="2"/>
+<polyline points="476,345 476,392 490,392" fill="none" stroke="#2f6fdd" stroke-width="2"/>
+
+<text x="230" y="452" font-family="sans-serif" font-size="12" fill="#444444">one 5-hole row = one net: all wires of a signal share its row</text>
+<text x="230" y="470" font-family="sans-serif" font-size="12" fill="#444444">dashed strip = edge rail columns (vertical nets, often split mid-board) - leave empty</text>
+</svg>
