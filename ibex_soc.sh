@@ -557,7 +557,37 @@ do_lint() {
     echo "=== verilator --lint-only (ibex_demo_system) ==="
     # shellcheck disable=SC2086
     "$VERILATOR" --lint-only --timing -Wno-fatal --top-module ibex_demo_system \
-        -f dv/xsim/filelist.f $VLT_EXTRA $INCDIRS
+        -f dv/xsim/filelist.f $VLT_EXTRA $INCDIRS || return 1
+
+    # The BFMs and the SRAM/DFFRAM models are not reached from that top (they
+    # hang off the testbenches and wrapper_top), and Verilator elaborates only
+    # what --top-module reaches - so nothing above ever looked at them. They
+    # still have to be clean: the upstream fusesoc sim target compiles the same
+    # files with -Wall and WITHOUT -Wno-fatal, which is how a 24-bit-vs-int
+    # width mismatch in spi_nor_flash_model stopped a teammate's build (2026-08-20)
+    # while every flow here stayed green. So lint each one as its own top. The
+    # waived classes are the ones the upstream .vlt waives too: a stub's ports are
+    # meant to be unused, and a file holding four models has neither a single top
+    # nor a matching filename.
+    echo "=== verilator --lint-only -Wall (models not under the SoC top) ==="
+    lint_rc=0
+    for f in dv/xsim/spi_nor_flash_model.sv dv/xsim/periph_models.sv \
+             dv/xsim/sim_stubs.sv dv/xsim/prim_shims.sv \
+             rtl/system/i2c_slave_bfm.sv rtl/system/sram_model.sv \
+             rtl/system/dffram.sv; do
+        # shellcheck disable=SC2086
+        out=$( "$VERILATOR" --lint-only -Wall --timing -Wno-fatal -Wno-MULTITOP \
+                 -Wno-TIMESCALEMOD -Wno-UNUSED -Wno-DECLFILENAME \
+                 $INCDIRS "$f" 2>&1 ) || lint_rc=1
+        if printf '%s\n' "$out" | grep -q '^%Warning'; then
+            echo "[FAIL] $f"
+            printf '%s\n' "$out" | grep '^%Warning' | sed 's/^/         /'
+            lint_rc=1
+        else
+            echo "[ OK ] $f"
+        fi
+    done
+    return $lint_rc
 }
 
 do_sim() {

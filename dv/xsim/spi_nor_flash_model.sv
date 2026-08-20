@@ -59,13 +59,36 @@ module spi_nor_flash_model #(
   typedef enum int { F_CMD, F_ADDR, F_DATA, F_DEAD } fstate_e;
   fstate_e fstate;
 
+  // Window arithmetic in one 32-bit unsigned domain. The three operands have
+  // three different widths - `a` and BASE_OFFSET are 24-bit, WINDOW_BYTES is an
+  // int, mem's index is IDX_W - and comparing them directly is what produced
+  // WIDTHEXPAND/WIDTHTRUNC. Those are in Verilator's default warning set, and
+  // the upstream fusesoc sim target runs -Wall *without* -Wno-fatal, where they
+  // stop the build. The widening below is the one the elaborator applied
+  // implicitly before, so behaviour is unchanged.
+  localparam int unsigned IDX_W  = (WINDOW_BYTES < 2) ? 1 : $clog2(WINDOW_BYTES);
+  localparam logic [31:0] WIN_LO = {8'h00, BASE_OFFSET};
+  localparam logic [31:0] WIN_HI = WIN_LO + WINDOW_BYTES;  // exclusive
+
   function automatic logic [7:0] flash_byte(logic [23:0] a);
-    if (a >= BASE_OFFSET && a < BASE_OFFSET + WINDOW_BYTES)
-      return mem[a - BASE_OFFSET];
+    logic [31:0]      a32;
+    logic [IDX_W-1:0] off;
+    a32 = {8'h00, a};
+    off = IDX_W'(a32 - WIN_LO);  // only read once the window test below passes
+    if (a32 >= WIN_LO && a32 < WIN_HI)
+      return mem[off];
     $display("[%0t] spi_nor_flash_model: WARNING read outside window (0x%06h)",
              $time, a);
     return 8'hFF;
   endfunction
+
+  // The protocol engine is a behavioural bus-functional model, not synthesised
+  // logic: every edge must see its own updates immediately - bit_cnt++ then the
+  // ==8 test, dout_q loaded and its MSB driven out on the same falling edge -
+  // so the assignments below are blocking by design and BLKSEQ (-Wall) does not
+  // apply. CS and SCK edges are never coincident here, so there is no
+  // NBA-ordering race to lose either.
+  /* verilator lint_off BLKSEQ */
 
   always @(negedge csn) begin
     fstate  = F_CMD;
@@ -120,6 +143,8 @@ module spi_nor_flash_model #(
       bit_cnt++;
     end
   end
+
+  /* verilator lint_on BLKSEQ */
 
   assign miso = (!csn && fstate == F_DATA) ? dout_q[7] :
                 (!csn && fstate == F_DEAD) ? 1'bx     : 1'bz;

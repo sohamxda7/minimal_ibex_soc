@@ -943,6 +943,31 @@ this run, all fixed:
   coherent; same guards proven on Windows (flows.ps1 setup, build.bat).
   Rule of thumb: when a build reports many missing files at once, ask
   which directory they are relative to before touching the toolchain.
+- **`WIDTHTRUNC`/`WIDTHEXPAND` in `spi_nor_flash_model.sv` stopping a
+  teammate's build** (2026-08-20): the window test mixed three widths in
+  one expression - `a`/`BASE_OFFSET` are 24-bit, `WINDOW_BYTES` is an
+  `int`, mem's index is 16 bits - so the elaborator widened everything
+  to 32 and warned at each step. Functionally harmless (that widening
+  is what the code wanted), which is exactly why it survived: every
+  flow here passes `-Wno-fatal`, so it sat unread in a build log, while
+  the upstream `lowrisc:ibex:demo_system` sim target passes `-Wall`
+  WITHOUT `-Wno-fatal` and stops. `periph_models.sv` had the identical
+  defect at `mem[addr_q % MEM_BYTES]` and would have been the next
+  report. Fixed at the source - one 32-bit unsigned domain
+  (`WIN_LO`/`WIN_HI`, `PIDX_W`) plus an explicitly sized index - not
+  waived. The 47 `BLKSEQ` warnings in those two files are NOT bugs: a
+  bus-functional model must see its own updates within an edge, so
+  blocking is required; waived inline with the reason. Two Verilator
+  lessons: `--top-module X` lints ONLY what X reaches, so `lint` had
+  never examined the BFMs (they hang off testbenches, not the SoC) -
+  `do_lint` now lints each of the 5 model files as its own top (~1 s,
+  upstream's waiver set, fails naming the file); and 5.050 adds
+  `PROCASSINIT` (declaration initialiser + procedural assignment; fixed
+  by moving the init into `initial`) which 5.020 does not emit.
+  Verified: 20 and 32 warnings before, 0 after, on BOTH 5.020 and
+  5.050; `xvlog` clean on both files; regression 13/13 ALL GREEN.
+  Rule of thumb: a warning your own flow silences is still a build
+  stopper in someone else's - lint the way the strictest consumer does.
 
 1. ~~SRAM base address~~ **RESOLVED 2026-08-10: team confirmed
    `0x0010_2000` (the repo's value) is correct**; the spec sheet's printed

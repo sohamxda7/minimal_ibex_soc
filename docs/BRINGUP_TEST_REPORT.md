@@ -560,6 +560,25 @@ wall, scoreboard coherent, rc=1. Same guards proven on Windows
 the field: no Vivado on that box, `[SKIP] vivado - not needed for profile
 'sim'`, exit 0, no prompt.
 
+**Field report — width warnings fatal under `-Wall` (2026-08-20).** A
+FuseSoC/Verilator run on a teammate's box stopped with `ERROR:` on
+`dv/xsim/spi_nor_flash_model.sv`: `WIDTHTRUNC` at the `mem[a - BASE_OFFSET]`
+index, two `WIDTHEXPAND` on the window test, then 17 `BLKSEQ`. Reproduced
+here in one command (`verilator --lint-only -Wall --timing --top-module
+spi_nor_flash_model dv/xsim/spi_nor_flash_model.sv` → 20 warnings, same
+lines). It is fatal there and invisible here because every flow in this repo
+passes `-Wno-fatal` while the upstream `lowrisc:ibex:demo_system` sim target
+passes `-Wall` and does not. The widths were a genuine defect — a 24-bit
+address compared against an `int` and used as a 16-bit index — and
+`periph_models.sv` had the identical one at `mem[addr_q % MEM_BYTES]`, so
+both were fixed at the source rather than waived; `BLKSEQ` is waived inline,
+because a bus-functional model must see its own updates within an edge.
+`ibex_soc.sh lint` now lints each simulation model as its own top —
+`--top-module` reaches only what the SoC instantiates, which is why nothing
+here had ever linted them. Verified: **20 and 32 warnings before, 0 after**,
+under Verilator 5.020 (Ubuntu) and 5.050 (MSYS2); `xvlog` clean on both
+files; **regression 13/13 ALL GREEN** with the models changed.
+
 ## 13. Not covered (future work)
 
 - **Phase 2b on hardware** — parts + soldering kit in hand; needs the

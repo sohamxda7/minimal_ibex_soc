@@ -25,6 +25,12 @@
 
 `timescale 1ns / 1ps
 
+// Every model below is a behavioural bus-functional model, not synthesised
+// logic: each edge must see its own updates immediately (bit_cnt++ then the
+// ==8 test, a byte loaded and its MSB driven out on the same falling edge), so
+// the assignments are blocking by design and BLKSEQ (-Wall) does not apply.
+/* verilator lint_off BLKSEQ */
+
 // ---------------------------------------------------------------------------
 module spi_psram_model #(
   parameter int MEM_BYTES = 65536
@@ -40,6 +46,14 @@ module spi_psram_model #(
   int          bit_cnt;
   typedef enum int { P_CMD, P_ADDR, P_WR, P_RD, P_DEAD } pstate_e;
   pstate_e st;
+
+  // One width domain for the address wrap: addr_q is 24-bit, MEM_BYTES an int,
+  // and mem's index PIDX_W bits, so `mem[addr_q % MEM_BYTES]` mixed three
+  // widths in one expression - that is the WIDTHEXPAND. Same value, one width.
+  localparam int unsigned PIDX_W = (MEM_BYTES < 2) ? 1 : $clog2(MEM_BYTES);
+  function automatic logic [PIDX_W-1:0] mem_idx(logic [23:0] a);
+    return PIDX_W'({8'h00, a} % MEM_BYTES);
+  endfunction
 
   initial for (int i = 0; i < MEM_BYTES; i++) mem[i] = 8'h00;
 
@@ -73,7 +87,7 @@ module spi_psram_model #(
         P_WR: begin
           shin_q = {shin_q[6:0], mosi}; bit_cnt++;
           if (bit_cnt == 8) begin
-            mem[addr_q % MEM_BYTES] = shin_q;
+            mem[mem_idx(addr_q)] = shin_q;
             $display("[%0t] psram WR [%06h] = %02h", $time, addr_q, shin_q);
             addr_q++; bit_cnt = 0;
           end
@@ -87,7 +101,7 @@ module spi_psram_model #(
   always @(negedge sck) begin
     if (!csn && st == P_RD) begin
       if (bit_cnt % 8 == 0) begin
-        dout_q = mem[addr_q % MEM_BYTES];
+        dout_q = mem[mem_idx(addr_q)];
         addr_q++;
       end else begin
         dout_q = {dout_q[6:0], 1'b0};
@@ -106,9 +120,10 @@ module mcp3202_model (
   input  logic mosi,
   output logic dout
 );
-  logic [11:0] sample_q = 12'h800;
+  logic [11:0] sample_q;
   logic [23:0] stream_q;
   int          idx;
+  initial sample_q = 12'h800;  // first session streams 0x801 (incremented below)
 
   always @(negedge csn) begin
     sample_q = sample_q + 12'd1;                // new conversion per session
@@ -180,7 +195,8 @@ module ov7670_fifo_model (
 );
   localparam int FRAME_BYTES = 4096;
   logic [7:0] frame [0:FRAME_BYTES-1];
-  int rptr = 0;
+  int rptr;
+  initial rptr = 0;
 
   initial for (int i = 0; i < FRAME_BYTES; i++) frame[i] = 8'((i * 7 + 3) & 255);
 
@@ -200,3 +216,5 @@ module ov7670_fifo_model (
   logic unused_wen;
   assign unused_wen = wen;
 endmodule
+
+/* verilator lint_on BLKSEQ */
