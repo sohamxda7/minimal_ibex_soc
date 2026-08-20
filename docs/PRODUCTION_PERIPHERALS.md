@@ -260,6 +260,62 @@ XDC pull-ups + module pull-ups; OpenCores master at 100 kHz.
 `GND-VCC-SCL-SDA`) and reversed power kills the module; BME280 breakouts
 may label power `VIN`. Wire by the printed name, never by position.
 
+**6-pin BME280 modules (extra CSB + SDO pins).** CSB selects the
+interface (high = I2C, low = SPI) and SDO sets the I2C address LSB.
+Most breakouts strap both on-board (CSB→VDD, SDO→GND) so leaving them
+unconnected works — but if the sensor won't probe, tie **CSB → 3.3 V**
+and **SDO → GND** explicitly (a floating CSB can drop the chip into SPI
+mode; a floating SDO makes the address flicker 0x76/0x77). The firmware
+probes **both 0x76 and 0x77** (since 2026-08-20), so SDO high is also fine.
+
+**Decoding `oled=X bme=X` (the number is `-rc`):**
+
+| Code | Meaning | Look at |
+|---|---|---|
+| 0 | ok | — |
+| 1 | NACK — bus is healthy, device didn't answer | that module: power orientation, SCL/SDA swap, solder joints, (BME) CSB/SDO straps |
+| 2 | TIMEOUT — SCL never completed a clock; the **bus is held low** | shared wiring, both modules: an **unpowered module clamps SCL/SDA low through its ESD diodes** (check VCC/GND rails actually reach the modules), a wire in the wrong Pmod hole (JA pin 5 is GND — SCL there = held low), a solder bridge to GND |
+| 3 | (bme only) answered but wrong chip ID — not a BME280 (BMP280 prints this) | the module model |
+
+Both parts failing with the *same* code points at the shared bus, not
+the chips: `oled=2 bme=2` = stuck bus (seen on the bench 2026-08-20 —
+unplugging SCL/SDA from the Pmod should turn boot codes into `1`s; if
+they stay `2`, the fault is board-side).
+
+**Breadboard geometry — the trap that caused the first stuck bus
+(2026-08-20, photo-diagnosed):** the long columns along the board's
+edges are POWER RAILS — every hole in one column is a single vertical
+net (and on modular boards the rail is often **split at the halfway
+seam**). Junctions belong in the **main field's horizontal 5-hole
+rows** (one row = one net). Bundling several signal wires into the
+edge columns shorts them all together — SCL tied to GND/SDA = the
+timeout signature above. Correct layout: four separate field rows
+(3V3 / GND / SCL / SDA), all wires of a net in its one row, edge rails
+unused or power-only.
+
+**Multimeter debug procedure (DT830), for a stuck bus.** Continuity
+first, **board unplugged**, meter on the beep/diode range:
+
+1. Each module pin ↔ its breadboard row: beep = solder joint good.
+2. Module VCC ↔ GND: must **NOT** beep (beep = solder bridge — reheat).
+3. End-to-end: JA pin 1 ↔ module SCL, JA pin 2 ↔ module SDA,
+   JA pin 6 ↔ module VCC, JA pin 5 ↔ module GND — all must beep.
+4. SCL ↔ GND, SDA ↔ GND, SCL ↔ SDA: must **NOT** beep.
+
+Then voltages, **board powered**, meter on DC 20 V, black probe on JA
+pin 5 (GND), red probe **at the module pins** (not the rail):
+
+5. Module VCC: expect ~3.3 V. 0 V = the power never arrives —
+   breadboard rails are often **split at the half-way mark**; jumper
+   across the gap or move the modules to the powered half.
+6. SCL, then SDA: idle bus reads ~3.3 V (pull-ups). **~0 V = the held
+   line** — follow that wire to the fault.
+7. 6-pin BME280: CSB ~3.3 V (I2C mode) and SDO ~0 V (0x76); an
+   unstable/floating reading = strap it (CSB → 3.3 V, SDO → GND).
+
+No reflash needed after fixing: parts hot-attach within 5 s
+(`toy: oled attached` / `toy: bme attached` on the console).
+
 **Test.** No reflash needed if the board already runs the 2026-08-19
 image — the parts are auto-detected within 5 s of power-up (or even wired
 live). Expect on the console at boot:

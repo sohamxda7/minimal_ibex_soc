@@ -23,7 +23,11 @@
 #define configUSE_PREEMPTION            1
 #define configUSE_TIME_SLICING          1
 #ifdef SIM_BUILD
-#define configTICK_RATE_HZ              ( 200 )
+/* 100, not 200: at ~6.4 us/XIP-fetch a 5 ms tick held only ~1k instructions
+ * and tick ISR + the two prio-2 tasks ran the CPU at >100% - the prio-1
+ * blinky task NEVER ran (tb_freertos LED checks proved it, 2026-08-20).
+ * 10 ms ticks leave real headroom while tick lines still appear fast. */
+#define configTICK_RATE_HZ              ( 100 )
 #else
 #define configTICK_RATE_HZ              ( 20 )   /* XIP ISR path is slow; keep tick coarse */
 #endif

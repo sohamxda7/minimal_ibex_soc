@@ -761,6 +761,55 @@ this run, all fixed:
   long wsl.exe output through PowerShell can silently drop it - run via
   Git-Bash `wsl ... bash -c '... > log'` then read the log.
 
+**2026-08-20 — Phase 2b bench debug (live board on COM4) + fixes**:
+- I2C parts dead: `oled=2 bme=2` = TIMEOUT = **bus held low** (master's
+  clock-stretch wait never sees SCL rise). NACK=1 means healthy bus, no
+  answer. Both parts same code = shared-bus fault (unpowered modules
+  clamp via ESD diodes / wire in a GND Pmod hole / solder bridge).
+  Firmware can't unstick it - wiring fix, isolation steps in
+  PRODUCTION_PERIPHERALS sec. 8 (gotcha 31). User's BME280 is 6-pin
+  (CSB+SDO): docs now cover the straps; main.c probes 0x76 AND 0x77.
+- "Repeat-key glitch" root-caused ON HARDWARE with a scripted per-key
+  echo test: every key echoes (doubles at 1s/150ms, 2-byte burst) -
+  NOT UART loss, NOTHING to debounce (UART keys are bytes; the RTL
+  debouncer is buttons/switches only). Real bug: patterns 1-3 shared
+  ulPat, never reseeded - rotate(0xA)=~0xA=0x5, so after pattern 3 the
+  keys 1/2/3 all DISPLAY the same A/5 alternation and look dead. Fix:
+  every 1-4 keypress sets g_reseed; blinky reseeds (walk:1, flip:0xC,
+  cnt:0) - repeated key = visible restart. tb_freertos extended (echo
+  checks + pattern-3 A/5 + double-'1' one-hot rotating walk). Sim
+  gotcha found doing it: the sim report task prints EVERY tick and
+  starves blinky over XIP - the tb sends 't' first to silence it, and
+  sample collection is adaptive (wait for N transitions, capped).
+- Vivado on Windows defaults to general.maxThreads=2 (the "only two
+  threads" observation) - build_fpga.tcl / gen_project.tcl /
+  program_flash.tcl now set 8 (Vivado's cap). Gotcha 32.
+- **"Illegal instruction" in sim logs root-caused (tb bug, NOT
+  silicon)**: tbs initialised rst_n=0 at t0 -> NO falling edge; Ibex
+  cs_registers sits behind the core clock gate -> async-reset branch
+  never fired in event sim -> priv_lvl_q kept init value = U-mode ->
+  first `csrw mtvec` (the only two programs that write it: FreeRTOS
+  startup.S + uart2_irq_test) trapped, then trap-entry promoted to M
+  and reset-mtvec re-entered boot = accidental recovery. Real async
+  reset cells are LEVEL-sensitive - silicon/FPGA unaffected. All 10
+  tbs now drive 1->0->1 (gotcha 33). Proven by PC/priv probes.
+- **Sim CPU budget**: 200 Hz sim tick = ~1k XIP instructions/tick; tick
+  ISR + 2 prio-2 tasks ran >100% and blinky NEVER ran (GPIO-write probe
+  = 0 events in 264 ms). Sim tick now 100 Hz + sim RGB pace 8 ticks;
+  tb_freertos key checks pass 7/7 with real LED transitions (gotcha
+  34). Hardware (20 Hz tick) has 50x budget - unaffected.
+- Board flashed with the fixed firmware over JTAG remotely:
+  program_flash.tcl then `boot_hw_device` (the PROG-button equivalent,
+  scratchpad boot_from_flash.tcl) - no hands needed. Hardware re-test:
+  all key echoes green; oled=2 bme=2 persists (wiring-side, awaiting
+  bench fix).
+- Teammate "can't run Verilator" (ARF-BBSR-84 transcript, docx): they
+  are on a PRE-08-18 checkout (setup_check.bat/build_fpga.bat era - no
+  ibex_soc.sh at all) and/or launching from cmd. Answer: git pull +
+  MSYS2 UCRT64 shell -> deps -> regression. README "Verilator on a
+  Windows PC" + gotcha 34a now cover it. Multimeter debug procedure
+  for a stuck I2C bus: PRODUCTION_PERIPHERALS sec. 8.
+
 1. ~~SRAM base address~~ **RESOLVED 2026-08-10: team confirmed
    `0x0010_2000` (the repo's value) is correct**; the spec sheet's printed
    `0x0010_1000` is stale. (Boot entry moved off SRAM entirely on

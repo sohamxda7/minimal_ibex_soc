@@ -29,7 +29,11 @@ uint8_t ucHeap[ configTOTAL_HEAP_SIZE ]
 #ifdef SIM_BUILD
 #define REPORT_START_TICKS    0                      /* sim: tick lines ASAP */
 #define REPORT_PERIOD_TICKS   1
-#define RGB_PERIOD_TICKS      1
+/* 8, not 1: at XIP fetch speed a 5 ms sim tick holds only ~1k instructions;
+ * an every-tick RGB wake starves the equal-priority blinky task and the
+ * tb_freertos LED-pattern checks see a frozen nibble. Hardware (20 Hz tick)
+ * has 50x the budget - this constant is sim pacing only. */
+#define RGB_PERIOD_TICKS      8
 #define STEP_FAST             1
 #define STEP_MED              2
 #define STEP_SLOW             4
@@ -55,6 +59,7 @@ uint8_t ucHeap[ configTOTAL_HEAP_SIZE ]
 /* ---- unified console state (the old asm-demo command set, now in the
  * one-and-only FreeRTOS firmware) ------------------------------------------ */
 static volatile uint8_t    g_mode = 1;              /* patterns 1..4          */
+static volatile uint8_t    g_reseed = 0;            /* 1-4 pressed: restart   */
 static volatile TickType_t g_step = 0;              /* set in main            */
 static volatile int8_t     g_rgb  = -1;             /* -1 auto; 0 R,1 G,2 B,3 W */
 static volatile uint8_t    g_beat = 1;              /* 't' toggles heartbeat  */
@@ -71,6 +76,19 @@ static void prvBlinkyTask( void * pvParameters )
     for( ; ; )
     {
         uint32_t ulIn = soc_read32( GPIO_IN_DBNC_REG );
+
+        /* Patterns 1-3 share ulPat; without a reseed, coming back from
+         * pattern 3 (A/5) makes 1 "walk" and 2 "flip" that SAME A/5 pair -
+         * rotate(0xA)=0x5 and ~0xA=0x5 - so keys 1/2/3 all LOOK identical
+         * and appear dead (found on the bench 2026-08-20). Every 1-4
+         * keypress now restarts its pattern from a canonical seed, which
+         * also gives a visible ack when the same key is pressed again. */
+        if( g_reseed )
+        {
+            g_reseed = 0;
+            ulPat = ( g_mode == 2u ) ? 0xCu : 1u;   /* flip: C/3; walk: bit0 */
+            ulCnt = 0;
+        }
 
         if( ulIn & 0x0Fu )                       /* button held: mirror SW  */
         {
@@ -157,7 +175,8 @@ static void prvConsoleTask( void * pvParameters )
         switch( c )
         {
             case '1': case '2': case '3': case '4':
-                g_mode = ( uint8_t ) ( c - '0' ); break;
+                g_mode = ( uint8_t ) ( c - '0' );
+                g_reseed = 1; break;             /* restart pattern cleanly */
             case 'f': g_step = STEP_FAST;   break;
             case 'm': g_step = STEP_MED;    break;
             case 's': g_step = STEP_SLOW;   break;
@@ -275,6 +294,21 @@ static void prvLcdLiveLine( uint8_t row, const char * line )
  * shows, refreshed every second. Phase 2a needs ONLY the pre-soldered LCD
  * (no soldering); the I2C parts (OLED/BME280) are probed with bounded
  * timeouts and simply reported "--" until they are wired. */
+/* Probe 0x76 first (SDO low), then 0x77: 6-pin breakouts route SDO out and
+ * a user (or the module's own strap) may tie it high. Bounded either way. */
+static int prvBmeProbe( bme280_t * dev )
+{
+    int rc = bme280_init( dev, BME280_ADDR_PRIMARY );
+
+    if( rc != I2C_OK )
+    {
+        int rc2 = bme280_init( dev, BME280_ADDR_SECONDARY );
+        if( rc2 == I2C_OK ) rc = rc2;
+    }
+
+    return rc;
+}
+
 static void prvToyTask( void * pvParameters )
 {
     static bme280_t xSensor;          /* static: keep task stack small */
@@ -308,7 +342,7 @@ static void prvToyTask( void * pvParameters )
 
     i2c_init();
     rcOled   = ssd1306_init( SSD1306_ADDR );
-    rcSensor = bme280_init( &xSensor, BME280_ADDR_PRIMARY );
+    rcSensor = prvBmeProbe( &xSensor );
 
     uart_puts( "toy: lcd up, oled=" );
     uart_putu32( ( uint32_t ) -rcOled );
@@ -452,7 +486,7 @@ static void prvToyTask( void * pvParameters )
 
             if( rcSensor != I2C_OK )
             {
-                rcSensor = bme280_init( &xSensor, BME280_ADDR_PRIMARY );
+                rcSensor = prvBmeProbe( &xSensor );
 
                 if( rcSensor == I2C_OK )
                 {

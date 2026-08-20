@@ -425,6 +425,71 @@ portability bugs found and fixed by this run:
    `.toolpaths` for the RISC-V GCC (`cygpath`-translated; `wsl:`-hosted
    toolchains skipped) — one saved config serves both entry scripts.
 
+## 12b. Phase 2b first attempt + live-board debug (2026-08-20)
+
+OLED + BME280 soldered and wired via breadboard; first power-up showed
+neither part. Debugged live over COM4 (scripted serial captures):
+
+**I2C: `toy: lcd up, oled=2 bme=2` — code 2 = TIMEOUT, i.e. the bus is
+held low** (the master's clock-stretch wait never sees SCL rise; a NACK
+would print 1). Both parts failing identically = shared-bus fault, not
+the chips; prime suspects are module power not actually arriving
+(unpowered I2C devices clamp SCL/SDA through their ESD diodes), a wire
+in the wrong Pmod hole (JA pin 5 is GND), or a solder bridge. Decode
+table + isolation steps now in PRODUCTION_PERIPHERALS §8; gotcha 31.
+The user's BME280 is a 6-pin module (CSB + SDO brought out, left
+unconnected) — usually fine (on-board straps), documented in §8, and
+the firmware now probes **0x76 and 0x77** so any SDO strap works.
+Board-side fix pending a bench check (unplug test isolates board vs
+wiring). The LCD on the same firmware works — SPI side healthy.
+
+**"Repeat-key glitch" — root-caused, and it is NOT the UART or
+debouncing.** Scripted test on the live board: every key echoed
+correctly — singles, same-key doubles at 1 s / 150 ms gaps, and a
+back-to-back 2-byte burst (`44` in one write). Zero losses; RX path and
+console task are healthy (UART keys are bytes — there is nothing to
+debounce; the GPIO debouncer is for the physical buttons/switches only).
+The real bug: patterns 1–3 shared one state nibble that was never
+reseeded. After pattern 3 (state `0xA`/`0x5`): `rotate(0xA)=0x5` and
+`~0xA=0x5` — so patterns 1, 2 and 3 all *display* the same A/5
+alternation and keys look dead. **Fix (main.c): every `1`-`4` keypress
+reseeds its pattern** (walk from one-hot bit0, flip from `0xC`, counter
+from 0) — which also gives a visible restart-ack when the same key is
+pressed twice. New tb_freertos checks (both engines): every key must
+echo; `3` must alternate A/5; a **double `1`** must produce a true
+one-hot rotating walk — the exact bench symptom, now regression-locked.
+
+**Build speed: Vivado on Windows defaults to 2 threads**
+(`general.maxThreads`) — every repo `.tcl` entry point now sets 8
+(Vivado's cap). Gotcha 32.
+
+**The "Illegal instruction" lines in sim logs — root-caused and fixed
+(testbench bug, silicon unaffected).** Two sims printed Ibex's
+`Illegal instruction ... 0x30529073` at boot — always the **first
+`csrw mtvec`** (the only two programs that write mtvec). A PC/priv probe
+showed the cause chain: every testbench initialised `rst_n = 0` at time
+zero, so reset **never made a falling edge**; Ibex's `cs_registers`
+sits behind the core clock gate and gets no clock during reset, so in
+event-driven simulation its async-reset branch never fired and
+`priv_lvl_q` kept the simulator's init value — **U-mode**. The first
+M-mode CSR write then legitimately trapped; the trap vector (reset
+mtvec = ROM base) slid back into the entry and trap-entry promoted the
+core to M, so boot "recovered" by accident and every check still
+passed. Real async-reset cells are **level-sensitive** — silicon and
+FPGA (INIT attrs + real reset edges) are unaffected; this was the
+testbench failing to model the reset waveform. Fix: all 10 testbenches
+now drive a true falling edge (`1 → 0 → hold 20 clks → 1`). Verified:
+zero illegal-instruction events in any sim, all PASS.
+
+**Found while validating the key test: the 200 Hz sim tick ran the CPU
+at >100%.** At ~6.4 µs per XIP fetch, a 5 ms tick holds ~1k
+instructions; tick ISR + the two priority-2 tasks consumed it all and
+the priority-1 blinky task **never ran** in tb_freertos (a GPIO-write
+probe showed zero LED writes in 264 ms). Sim tick is now 100 Hz and
+the sim RGB pace 8 ticks — with headroom restored, the key test passes
+7/7 with real LED transitions. Hardware is unaffected (20 Hz tick =
+50× the budget; LEDs proven on the board in Phase 1).
+
 ## 13. Not covered (future work)
 
 - **Phase 2b on hardware** — parts + soldering kit in hand; needs the

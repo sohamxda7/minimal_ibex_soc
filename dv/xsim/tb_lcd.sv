@@ -24,8 +24,16 @@ module tb_lcd;
   logic clk = 1'b0;
   always #25 clk = ~clk;                 // 20 MHz
 
-  logic rst_n = 1'b0;
+  // rst_n must make a real FALLING edge: async-reset flops behind Ibex's
+  // internal clock gate get no clock during reset, so in event-driven sim
+  // only the negedge fires their reset branch. Starting at 0 from time zero
+  // left priv_lvl_q at the simulator's init value (U-mode!) and the first
+  // M-mode CSR write trapped (see BRINGUP_TEST_REPORT sec. 12b). Real
+  // async-reset cells are LEVEL-sensitive, so silicon/FPGA are unaffected.
+  logic rst_n = 1'b1;
   initial begin
+    @(negedge clk);
+    rst_n = 1'b0;
     repeat (20) @(posedge clk);
     rst_n = 1'b1;
   end

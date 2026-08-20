@@ -13,6 +13,11 @@
 //   1. "FreeRTOS on Ibex"  banner  -> C runtime + XIP fetch + data copy OK
 //   2. two "tick=" lines           -> timer interrupt, vectored trap entry,
 //                                     context switch, vTaskDelay all OK
+//   3. console key test (added 2026-08-20, after a bench find): every key
+//      echoes; after '3' the LEDs alternate A/5; after a DOUBLE '1' the
+//      walking pattern restarts as a true one-hot walk. Without the
+//      per-keypress reseed in main.c, patterns 1-3 share stale state and
+//      rotate(0xA)=~0xA=0x5 makes keys 1/2/3 visually identical.
 //
 // Build the firmware first:  sw\freertos\build.bat sim
 // (SIM_BUILD: 200 Hz tick, 1-tick delays, heap in .noinit)
@@ -30,8 +35,16 @@ module tb_freertos;
   logic clk = 1'b0;
   always #25 clk = ~clk;                 // 20 MHz
 
-  logic rst_n = 1'b0;
+  // rst_n must make a real FALLING edge: async-reset flops behind Ibex's
+  // internal clock gate get no clock during reset, so in event-driven sim
+  // only the negedge fires their reset branch. Starting at 0 from time zero
+  // left priv_lvl_q at the simulator's init value (U-mode!) and the first
+  // M-mode CSR write trapped (see BRINGUP_TEST_REPORT sec. 12b). Real
+  // async-reset cells are LEVEL-sensitive, so silicon/FPGA are unaffected.
+  logic rst_n = 1'b1;
   initial begin
+    @(negedge clk);
+    rst_n = 1'b0;
     repeat (20) @(posedge clk);
     rst_n = 1'b1;
   end
@@ -40,6 +53,7 @@ module tb_freertos;
   wire  [15:0] gp_o;
   wire [11:0] pwm;
   wire        uart_tx;
+  logic       uart_rx = 1'b1;
 
   wire flash_sck, flash_csn, flash_mosi, flash_miso;
 
@@ -57,7 +71,7 @@ module tb_freertos;
     .gp_i       (gp_i),
     .gp_o       (gp_o),
     .pwm_o      (pwm),
-    .uart_rx_i  (1'b1),
+    .uart_rx_i  (uart_rx),
     .uart_tx_o  (uart_tx),
     .uart2_rx_i (1'b1),
     .uart2_tx_o (),
@@ -127,7 +141,46 @@ module tb_freertos;
     return 0;
   endfunction
 
+  // ---- console key test infrastructure (2026-08-20) ------------------------
+  // 2 Mbaud key injection into the DUT's UART RX
+  task automatic send_key(input byte b);
+    uart_rx = 1'b0;  #(BitNs);                      // start
+    for (int i = 0; i < 8; i++) begin
+      uart_rx = b[i];  #(BitNs);
+    end
+    uart_rx = 1'b1;  #(2*BitNs);                    // stop + idle
+  endtask
+
+  // send a key and require its echo-ack on uart_tx within 20 ms
+  task automatic send_and_expect_echo(input byte b, output bit ok);
+    int un0 = un;
+    send_key(b);
+    ok = 0;
+    for (int w = 0; w < 200; w++) begin
+      #100_000;                                      // 0.1 ms
+      if (un > un0 && ubuf[un-1] == b) begin ok = 1; break; end
+    end
+  endtask
+
+  // record every distinct LED-nibble value (gp_o[7:4]) into a queue
+  logic [3:0] led_q [$];
+  logic [3:0] led_prev = 4'hx;
+  always @(gp_o) begin
+    if (gp_o[7:4] !== led_prev) begin
+      led_prev = gp_o[7:4];
+      led_q.push_back(gp_o[7:4]);
+    end
+  end
+
+  function automatic bit is_onehot(input logic [3:0] v);
+    return (v == 4'h1) || (v == 4'h2) || (v == 4'h4) || (v == 4'h8);
+  endfunction
+
   initial begin
+    int  n_pass = 0, n_fail = 0;
+    bit  ok;
+    logic [3:0] a, b2;
+
     $display("=== FreeRTOS XIP boot simulation ===");
     for (int ms = 0; ms < 150; ms++) begin
       #1_000_000;
@@ -136,13 +189,57 @@ module tb_freertos;
       if (count_str("tick=") >= 2) break;
     end
 
-    if (count_str("tick=") >= 2)
-      $display("\nPASS: FreeRTOS scheduler running (banner=%0d ticks=%0d)",
-               saw_banner(), count_str("tick="));
-    else if (saw_banner())
-      $display("\nFAIL: banner only - scheduler/tick never ran (bytes=%0d)", un);
+    if (count_str("tick=") < 2) begin
+      if (saw_banner())
+        $display("\nFAIL: banner only - scheduler/tick never ran (bytes=%0d)", un);
+      else
+        $display("\nFAIL: no UART output at all (bytes=%0d)", un);
+      $finish;
+    end
+
+    // ---- console key test: echo + pattern reseed (the bench bug) ----------
+    // 't' first: silences the every-tick report prints - the prio-2 report
+    // task otherwise eats most of the (XIP-slow) CPU and starves blinky.
+    send_and_expect_echo("t", ok);
+    if (ok) n_pass++; else begin n_fail++; $display("FAIL: no echo for 't'"); end
+    send_and_expect_echo("f", ok);                  // fast steps (1 tick each)
+    if (ok) n_pass++; else begin n_fail++; $display("FAIL: no echo for 'f'"); end
+
+    send_and_expect_echo("3", ok);                  // pattern 3: A/5
+    if (ok) n_pass++; else begin n_fail++; $display("FAIL: no echo for '3'"); end
+    #30_000_000;                                    // let pattern 3 settle
+    led_q.delete();
+    for (int w = 0; w < 150 && led_q.size() < 4; w++) #1_000_000;  // adaptive, cap 150 ms
+    ok = (led_q.size() >= 3);
+    foreach (led_q[i])
+      if (led_q[i] != 4'hA && led_q[i] != 4'h5) ok = 0;
+    if (ok) begin n_pass++; $display("PASS: pattern 3 alternates A/5 (%0d samples)", led_q.size()); end
+    else    begin n_fail++; $display("FAIL: pattern 3 wrong (%0d samples)", led_q.size()); end
+
+    // DOUBLE-press '1': the second press must still act (visible restart),
+    // and the walk must be a true one-hot walk, not a recycled A/5 pair.
+    send_and_expect_echo("1", ok);
+    if (ok) n_pass++; else begin n_fail++; $display("FAIL: no echo for 1st '1'"); end
+    send_and_expect_echo("1", ok);
+    if (ok) n_pass++; else begin n_fail++; $display("FAIL: no echo for 2nd '1'"); end
+    #30_000_000;
+    led_q.delete();
+    for (int w = 0; w < 150 && led_q.size() < 4; w++) #1_000_000;  // adaptive, cap 150 ms
+    ok = (led_q.size() >= 3);
+    foreach (led_q[i]) if (!is_onehot(led_q[i])) ok = 0;
+    for (int i = 1; i < led_q.size(); i++) begin
+      a  = led_q[i-1];
+      b2 = led_q[i];
+      if (b2 != {a[2:0], a[3]}) ok = 0;             // must rotate left by 1
+    end
+    if (ok) begin n_pass++; $display("PASS: double '1' -> clean one-hot walk (%0d samples)", led_q.size()); end
+    else    begin n_fail++; $display("FAIL: walk after double '1' not one-hot/rotating (%0d samples)", led_q.size()); end
+
+    if (n_fail == 0)
+      $display("\nPASS: FreeRTOS scheduler running (banner=%0d ticks=%0d, key checks %0d/%0d)",
+               saw_banner(), count_str("tick="), n_pass, n_pass);
     else
-      $display("\nFAIL: no UART output at all (bytes=%0d)", un);
+      $display("\nFAIL: %0d key/pattern checks failed (%0d passed)", n_fail, n_pass);
     $finish;
   end
 

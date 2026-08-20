@@ -8,6 +8,7 @@
 # Output: build/vivado_project/minimal_ibex_soc.xpr
 # =============================================================================
 cd [file dirname [file normalize [info script]]]
+set_param general.maxThreads 8    ;# Windows default is 2 - use the machine
 set part xc7a100tcsg324-1
 create_project -force minimal_ibex_soc build/vivado_project -part $part
 

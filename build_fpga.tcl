@@ -11,6 +11,10 @@
 # QSPI flash with no SRAM trampoline bake.
 # ============================================================================
 
+# Vivado defaults to only 2 threads on Windows - use the machine (8 is
+# Vivado's hard cap; harmless if the PC has fewer cores).
+set_param general.maxThreads 8
+
 # Arty A7-100T. For the A7-35T use: xc7a35ticsg324-1L
 set part xc7a100tcsg324-1
 

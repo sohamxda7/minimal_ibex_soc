@@ -2,7 +2,7 @@
 
 `freertos_demo.bin` is a **committed, ready-to-flash** build of THE unified
 firmware (console + LED/RGB/switch control + tick reports + the LCD
-status screen and sensor support â€” one image since 2026-08-18), so that
+status screen and sensor support - one image since 2026-08-18), so that
 lab machines **without the RISC-V GCC toolchain** can still run the full
 Phase-1, Phase-2a and Phase-2b hardware validation:
 

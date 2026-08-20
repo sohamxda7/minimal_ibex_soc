@@ -73,6 +73,25 @@ sim <tb> | regression | build | flashfw | flashonly [bin]`.
   exists for FuseSoC-based team flows — the native scripts remain the
   supported path.
 
+**Verilator on a Windows PC** (no WSL needed): install
+[MSYS2](https://www.msys2.org/), open the **MSYS2 UCRT64** shell (not
+cmd/PowerShell — Verilator needs make/g++), then:
+
+```
+cd /c/<path-to-repo>
+./ibex_soc.sh deps          # pacman installs verilator/gcc/make/python
+./ibex_soc.sh regression    # all 11 sims, same PASS criteria as xsim
+```
+
+The script reads the RISC-V GCC from the Windows GUI's `.toolpaths`
+automatically. Verified: Verilator 5.050 under MSYS2, 13/13 green.
+
+> **On an old checkout?** If your tree has `setup_check.bat`,
+> `build_fpga.bat` or `flash_freertos.bat`, it predates 2026-08-18 —
+> those entry points are retired and `ibex_soc.sh`/Verilator support
+> does not exist there. `git pull` first; the only entry points are
+> `ibex_soc.bat` (Windows GUI) and `ibex_soc.sh` (Linux/MSYS2).
+
 ### The serial console
 
 Boot prints a full system-info banner (core, kernel, memory map,

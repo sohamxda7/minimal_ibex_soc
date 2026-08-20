@@ -15,6 +15,8 @@
 # in flash must change.
 # =============================================================================
 
+set_param general.maxThreads 8    ;# Windows default is 2 - use the machine
+
 set fw_bin "sw/freertos/build/freertos_demo.bin"
 if {$argc >= 1} { set fw_bin [lindex $argv 0] }
 
