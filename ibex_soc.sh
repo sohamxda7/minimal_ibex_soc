@@ -89,6 +89,17 @@ pass_of() {
     esac
 }
 
+# The program image each bench loads. A MISSING one is not a clean error:
+# the flash/SRAM model returns all-ones, the CPU fetches 0xFFFFFFFF and the
+# run turns into an "Illegal instruction at PC 0x20400000" spew minutes
+# later (reported from the field 2026-08-20). Check before verilating.
+image_of() {
+    case "$1" in
+        tb_freertos) echo "sw/freertos/build/freertos_demo_sim_flash.vmem" ;;
+        *)           echo "" ;;
+    esac
+}
+
 PYTHON="${PYTHON:-python3}"
 command -v "$PYTHON" >/dev/null 2>&1 || PYTHON=python
 JOBS="$(nproc 2>/dev/null || echo 4)"
@@ -281,6 +292,13 @@ install_verilator_src() {
 }
 
 # ---- flows ------------------------------------------------------------------
+# NOTE: build.sh is invoked as `bash build.sh`, never `./build.sh`. A clone
+# whose executable bits were lost (scripts authored on Windows, a zip
+# export, a copy across a filesystem without permissions) would otherwise
+# fail the toolchain probe with "Permission denied" - which 2>/dev/null
+# hides - and the flow would report "RISC-V GCC not found" immediately
+# after successfully saving a perfectly good path, then ask again on every
+# run. Reported from the field 2026-08-20; gotcha 34c.
 do_setup() {
     echo "=== Environment check (Linux flow) ==="
     ok=0
@@ -306,12 +324,12 @@ do_setup() {
     else echo "[FAIL] python3 not found. Run: $0 deps"; ok=1; fi
     if have make && have g++; then echo "[ OK ] make + g++"
     else echo "[FAIL] make/g++ missing. Run: $0 deps"; ok=1; fi
-    if sw/freertos/build.sh --check-toolchain 2>/dev/null; then
+    if bash sw/freertos/build.sh --check-toolchain 2>/dev/null; then
         echo "[ OK ] RISC-V GCC (firmware builds enabled)"
     else
         echo "[WARN] RISC-V GCC not found - firmware cannot be rebuilt (sims can"
         echo "       reuse an existing sw/freertos/build image)."
-        if ask_riscv_gcc && sw/freertos/build.sh --check-toolchain 2>/dev/null; then
+        if ask_riscv_gcc && bash sw/freertos/build.sh --check-toolchain 2>/dev/null; then
             echo "[ OK ] RISC-V GCC (firmware builds enabled)"
         else
             echo "       Fix it with: $0 deps   (downloads the xPack toolchain)"
@@ -401,7 +419,7 @@ do_deps() {
             install_verilator_src           # unattended (CI): just do it
         fi
     fi
-    if ! sw/freertos/build.sh --check-toolchain >/dev/null 2>&1; then
+    if ! bash sw/freertos/build.sh --check-toolchain >/dev/null 2>&1; then
         case "$(uname -o 2>/dev/null)" in
             Msys|Cygwin) echo "[INFO] on Windows, install RISC-V GCC via ibex_soc.bat -> Install Missing Tools" ;;
             *) install_xpack_gcc || echo "[WARN] RISC-V GCC not installed - firmware rebuilds disabled" ;;
@@ -426,6 +444,11 @@ require_verilator() {
 }
 
 do_images() {
+    if ! have "$PYTHON"; then
+        echo "ERROR: python3 not found - it generates every program image."
+        echo "       Run '$0 deps'."
+        return 1
+    fi
     echo "=== Program images ==="
     for g in assemble.py "assemble.py --sim" "lcd_spi_test.py --sim" i2c_test.py \
              xip_test.py periph_tests.py uart2_irq_test.py; do
@@ -436,7 +459,7 @@ do_images() {
 
 do_firmware() {
     echo "=== FreeRTOS firmware (${1:-hw}) ==="
-    (cd sw/freertos && ./build.sh "${1:-hw}")
+    (cd sw/freertos && bash ./build.sh "${1:-hw}")
 }
 
 do_lint() {
@@ -451,6 +474,21 @@ do_sim() {
     tb="$1"
     [ "$(pass_of "$tb")" = "__NO_SUCH_TB__" ] && { echo "unknown tb '$tb' (one of: $TBS)"; return 2; }
     require_verilator || return 1
+
+    img=$( image_of "$tb" )
+    if [ -n "$img" ] && [ ! -f "$img" ]; then
+        echo "$tb needs $img (not present)."
+        if bash sw/freertos/build.sh --check-toolchain >/dev/null 2>&1; then
+            echo "  building it: $0 firmware sim"
+            do_firmware sim || return 1
+        else
+            echo "ERROR: no RISC-V GCC, so the image cannot be built."
+            echo "       Run '$0 deps' (installs the xPack toolchain), or"
+            echo "       '$0 setup' to point at an existing one."
+            return 1
+        fi
+    fi
+
     # tb_soc_dffram = tb_soc with the DFFRAM storage array (parameter, -G)
     src="dv/xsim/$tb.sv"; top="$tb"; gparam=""
     if [ "$tb" = "tb_soc_dffram" ]; then
@@ -476,7 +514,7 @@ do_regression() {
     require_verilator || return 1
     declare -A results
     do_images; results[images]=$?
-    if sw/freertos/build.sh --check-toolchain >/dev/null 2>&1; then
+    if bash sw/freertos/build.sh --check-toolchain >/dev/null 2>&1; then
         do_firmware sim; results[freertos-build]=$?
     elif [ -f sw/freertos/build/freertos_demo_sim_flash.vmem ]; then
         echo "[WARN] no RISC-V GCC - reusing existing sim firmware image"

@@ -70,7 +70,10 @@ sim <tb> | regression | build | flashfw | flashonly [bin]`.
   exactly like the Windows GUI. Tools are found by **version across every
   PATH entry**, so a stale 4.x first on PATH cannot mask a good build.
   Proven end-to-end on a fresh Ubuntu 24.04, and again **from a pristine
-  clone of the pushed branch** with no saved tool paths: regression 13/13.
+  clone of the pushed branch** with no saved tool paths — and with the
+  scripts' executable bits deliberately stripped, since a tree can arrive
+  by zip or by copy: regression 13/13 either way. Missing program images
+  are built or reported by name, never left to fail as a fetch loop.
 - **Simulation is fully open-source**: all 11 simulations (10 testbenches
   + the DFFRAM/ASIC-SRAM config) run unmodified under **Verilator 5**
   (`--timing`), same PASS criteria as the xsim suite.

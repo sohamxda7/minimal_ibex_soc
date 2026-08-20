@@ -827,6 +827,26 @@ this run, all fixed:
   path - worth doing whenever the entry scripts change.
 - ibex_soc.sh also auto-discovers an xPack GCC already in ~/ibex-tools, so
   a fresh clone with no .toolpaths.sh does not re-download 400+ MB.
+- **Two field reports, same day, both fixed (Anurag's log 2026-08-20):**
+  (a) "it asks for my RISC-V GCC path every run" - the exec-bit bug
+  wearing a mask: setup SAVED the path, then probed it by running
+  `sw/freertos/build.sh` DIRECTLY, which on his tree failed Permission
+  denied; `2>/dev/null` HID that, so it printed "not found" one line
+  after saving, and re-asked forever. Every build.sh call now goes
+  through `bash build.sh` - the flow is immune to the exec bit however
+  the tree was obtained (git/zip/copy). Lesson: a script that runs
+  another script must name the interpreter, and never hide the probe's
+  stderr without a fallback explanation. Gotcha 34d.
+  (b) tb_freertos spewing `Illegal instruction at PC 0x20400000:
+  0xffffffff` for minutes = the PROGRAM IMAGE WAS MISSING
+  (freertos_demo_sim_flash.vmem needs the RISC-V toolchain; without it
+  the flash model returns all-ones and the CPU fetches 0xFFFFFFFF).
+  Verilator only whispers `%Warning: $readmem file not found`. do_sim
+  now checks each bench's required image UP FRONT via image_of() and
+  either builds it (toolchain present) or stops naming what is missing.
+  Gotcha 34e. Any all-FFFFFFFF/all-zero fetch loop in a NEW bench =
+  look at its image first, not at the RTL.
+  Also hardened: do_images refuses early if python3 is absent.
 - Console key **'i' = re-scan the I2C bus** (g_scan flag -> the toy task
   runs prvI2cScan; I2C stays owned by that one task, no locking needed).
   Bench workflow: rewire a part, press 'i', no reboot/reflash. That is
