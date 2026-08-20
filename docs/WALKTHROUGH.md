@@ -204,5 +204,7 @@ minutes of wall clock (~6 ms of simulated time).
 
 34. **In a sim profile, check the CPU budget before trusting task behavior**: at XIP speed (~6.4 µs/fetch) a 5 ms tick = ~1k instructions — tick ISR + two every-tick tasks exceed that, and lower-priority tasks silently never run (tb_freertos's LED checks caught it). Sim tick is 100 Hz for this reason; if a sim-build task "does nothing", audit the per-tick instruction budget first.
 
+35. **`gcc: error: startup.S: No such file or directory` (twelve times) when building firmware** (field report, 2026-08-20) — the toolchain is fine. Those twelve paths are relative to `sw/freertos`, so the message can only mean the build ran from the wrong directory, or those files are not in your tree. Both are now caught before gcc is called: `build.sh` unsets `CDPATH` and `cd`s to its own directory (so `bash sw/freertos/build.sh sim` works from anywhere, and a `CDPATH` exported in your shell can no longer redirect a bare `cd`), and `build.sh`/`build.bat` verify every source first — printing the missing files, the directory searched, and the fix (`git checkout -- .`). `setup` on both OSes now leads with a `git ls-files --deleted` line, so an incomplete checkout is the FIRST thing reported rather than the last thing guessed. A regression whose firmware build failed no longer repeats the same wall of errors for tb_freertos.
+
 - [BRINGUP_TEST_REPORT.md](BRINGUP_TEST_REPORT.md) — all recorded evidence
 - [BRINGUP_HISTORY.md](BRINGUP_HISTORY.md) — bring-up history: bugs, decisions, UART command design

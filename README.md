@@ -74,6 +74,12 @@ sim <tb> | regression | build | flashfw | flashonly [bin]`.
   scripts' executable bits deliberately stripped, since a tree can arrive
   by zip or by copy: regression 13/13 either way. Missing program images
   are built or reported by name, never left to fail as a fetch loop.
+- **`setup` checks the checkout before the tools** (both OSes): one
+  `git ls-files --deleted` line, because a half-copied or partly-deleted
+  tree otherwise surfaces much later as a wall of twelve `No such file or
+  directory` errors from gcc that look like a toolchain fault. The
+  firmware build repeats that check before calling the compiler, and runs
+  from any working directory.
 - **Simulation is fully open-source**: all 11 simulations (10 testbenches
   + the DFFRAM/ASIC-SRAM config) run unmodified under **Verilator 5**
   (`--timing`), same PASS criteria as the xsim suite.
@@ -117,7 +123,7 @@ never prompted for:
 
 ```
 ./ibex_soc.sh profile sim                      # Linux / MSYS2
-powershell -File scriptslows.ps1 profile fpga  # Windows (GUI: Tool Profile)
+powershell -File scripts\flows.ps1 profile fpga  # Windows (GUI: Tool Profile)
 ```
 
 The choice is remembered per-PC (`.toolpaths.sh` / `.toolpaths`). `auto`

@@ -34,6 +34,9 @@
 # Logs: build/verilator/<tb>/, build/fpga/.  Exit code 0 = green.
 # =============================================================================
 set -u
+# A CDPATH in the user shell silently redirects every bare `cd` below
+# (including `cd sw/freertos`), so kill it before anything else.
+unset CDPATH
 # BASH_SOURCE, not $0: if this file is ever *sourced*, $0 is the caller and
 # we would cd into the caller's directory instead of the repo.
 cd "$(dirname "${BASH_SOURCE[0]:-$0}")"
@@ -106,6 +109,9 @@ image_of() {
 PYTHON="${PYTHON:-python3}"
 command -v "$PYTHON" >/dev/null 2>&1 || PYTHON=python
 JOBS="$(nproc 2>/dev/null || echo 4)"
+# set to 1 by regression once a firmware build has failed, so the per-TB
+# auto-build does not repeat the same wall of errors for every testbench.
+NO_AUTOBUILD=0
 
 INCDIRS="+incdir+vendor/lowrisc_ip/ip/prim/rtl +incdir+rtl/system \
          +incdir+vendor/lowrisc_ibex/vendor/lowrisc_ip/dv/sv/dv_utils"
@@ -331,6 +337,29 @@ install_verilator_src() {
 do_setup() {
     echo "=== Environment check (Linux flow) ==="
     ok=0
+    # Checkout integrity FIRST: a half-copied tree fails later in ways that
+    # read as tool problems (gcc "No such file or directory", missing TBs).
+    # MSYS2 often has no git of its own even when Windows does - look there
+    # too, so the Windows/Verilator host is covered as well.
+    GIT="$( command -v git 2>/dev/null )"
+    if [ -z "$GIT" ]; then
+        for g in "/c/Program Files/Git/cmd/git.exe" "/c/Program Files/Git/bin/git.exe"; do
+            [ -x "$g" ] && { GIT="$g"; break; }
+        done
+    fi
+    if [ -n "$GIT" ] && "$GIT" rev-parse --git-dir >/dev/null 2>&1; then
+        gone=$( "$GIT" ls-files --deleted 2>/dev/null )
+        n=$( printf '%s' "$gone" | grep -c . || true )
+        if [ "${n:-0}" -gt 0 ]; then
+            echo "[FAIL] checkout incomplete: $n tracked file(s) missing from the tree"
+            printf '%s\n' "$gone" | head -6 | sed 's/^/         /'
+            [ "$n" -gt 6 ] && echo "         ... and $((n - 6)) more"
+            echo "       restore with:  git checkout -- .   (discards local deletions)"
+            ok=1
+        else
+            echo "[ OK ] checkout complete ($("$GIT" ls-files | wc -l) tracked files)"
+        fi
+    fi
     if vlt_version_ok; then
         echo "[ OK ] verilator: $("$VERILATOR" --version)"
     elif ! wants_sim; then
@@ -418,17 +447,25 @@ install_xpack_gcc() {
 do_deps() {
     echo "=== Installing dependencies ==="
     SUDO=""; [ "$(id -u)" != 0 ] && have sudo && SUDO=sudo
+    # Do not (re)install the distro Verilator when a good 5.x is already
+    # here: on Ubuntu 22.04 that prints "verilator is already the newest
+    # version (4.038)" right above a working 5.x and reads as a downgrade.
+    # Empty = the package is simply omitted from the install list.
+    VLTPKG=verilator
+    vlt_version_ok && VLTPKG=""
+    have pacman && [ -n "$VLTPKG" ] && VLTPKG=mingw-w64-ucrt-x86_64-verilator
+    # shellcheck disable=SC2086  ($VLTPKG is deliberately unquoted: it may be empty)
     if have apt-get; then                       # Ubuntu / Debian
         # NOT gcc-riscv64-unknown-elf: that package ships without any libc
         # (no stdlib.h) and cannot build the firmware - xPack fallback below.
         $SUDO apt-get update
-        $SUDO apt-get install -y verilator make g++ python3 python3-pip curl || true
+        $SUDO apt-get install -y $VLTPKG make g++ python3 python3-pip curl || true
     elif have dnf; then                         # RHEL / Fedora / Rocky
-        $SUDO dnf install -y verilator make gcc-c++ python3 python3-pip curl || true
+        $SUDO dnf install -y $VLTPKG make gcc-c++ python3 python3-pip curl || true
         echo "(RHEL has no packaged bare-metal RISC-V GCC - xPack fallback below)"
     elif have pacman; then                      # MSYS2 (dev convenience)
         pacman -S --noconfirm --needed make mingw-w64-ucrt-x86_64-gcc \
-            mingw-w64-ucrt-x86_64-verilator mingw-w64-ucrt-x86_64-python \
+            $VLTPKG mingw-w64-ucrt-x86_64-python \
             mingw-w64-ucrt-x86_64-python-pip || true
     else
         echo "ERROR: no supported package manager (apt/dnf/pacman)."; return 1
@@ -531,7 +568,10 @@ do_sim() {
     img=$( image_of "$tb" )
     if [ -n "$img" ] && [ ! -f "$img" ]; then
         echo "$tb needs $img (not present)."
-        if bash sw/freertos/build.sh --check-toolchain >/dev/null 2>&1; then
+        if [ "${NO_AUTOBUILD:-0}" = 1 ]; then
+            echo "  skipped: the firmware build above already failed - fix that first"
+            return 1
+        elif bash sw/freertos/build.sh --check-toolchain >/dev/null 2>&1; then
             echo "  building it: $0 firmware sim"
             do_firmware sim || return 1
         else
@@ -569,6 +609,7 @@ do_regression() {
     do_images; results[images]=$?
     if bash sw/freertos/build.sh --check-toolchain >/dev/null 2>&1; then
         do_firmware sim; results[freertos-build]=$?
+        [ "${results[freertos-build]}" -eq 0 ] || NO_AUTOBUILD=1
     elif [ -f sw/freertos/build/freertos_demo_sim_flash.vmem ]; then
         echo "[WARN] no RISC-V GCC - reusing existing sim firmware image"
         results[freertos-build]=0

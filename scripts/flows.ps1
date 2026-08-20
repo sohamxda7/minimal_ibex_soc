@@ -378,6 +378,23 @@ switch ($Flow.ToLower()) {
         Write-Host "============================================================"
         $fail = $false
 
+        # Checkout integrity FIRST: a half-copied tree fails later in ways that
+        # read as tool problems (gcc "No such file or directory", missing TBs).
+        if ((Get-Command git -ErrorAction SilentlyContinue) -and
+            (Test-Path (Join-Path $repo ".git"))) {
+            $gone = @(& git -C $repo ls-files --deleted)
+            if ($gone.Count -gt 0) {
+                Write-Host "[FAIL] checkout incomplete: $($gone.Count) tracked file(s) missing"
+                $gone | Select-Object -First 6 | ForEach-Object { Write-Host "         $_" }
+                if ($gone.Count -gt 6) { Write-Host "         ... and $($gone.Count - 6) more" }
+                Write-Host "       restore with:  git checkout -- .   (discards local deletions)"
+                $fail = $true
+            }
+            else {
+                Write-Host "[OK]   Checkout:    complete ($(@(& git -C $repo ls-files).Count) tracked files)"
+            }
+        }
+
         $prof = Get-EffectiveProfile
         Write-Host "[INFO] Tool profile: $prof  (change: flows.ps1 profile <sim|fpga|full|auto>)"
 

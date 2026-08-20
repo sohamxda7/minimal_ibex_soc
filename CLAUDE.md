@@ -861,12 +861,15 @@ this run, all fixed:
   Detection trap: MSYS2 ships `verilator` as a SHELL SCRIPT (plus
   verilator_bin.exe) - there is NO verilator.exe, so looking for that
   alone finds nothing.
-- **Python-generating-PowerShell trap (hit twice this session)**: writing
-  PS code from a non-raw Python string eats `` and `` -
-  "usrinash.exe" silently became "usrinash.exe" and
-  "ucrt64inerilator.exe" became "ucrt64inerilator.exe". Both parse
-  fine as PowerShell, so only runtime catches it. Use raw strings for any
-  generated Windows path, and grep the result for control characters.
+- **Python-generating-PowerShell trap (hit twice; it had corrupted THIS
+  entry too until 2026-08-20)**: writing PS code - or prose - from a
+  non-raw Python string turns `\b` into a backspace byte and `\v` into
+  a vertical tab, so `usr\bin\bash.exe` silently became `usrinash.exe`
+  and `ucrt64\bin\verilator.exe` became `ucrt64inerilator.exe`. Both
+  parse fine as PowerShell, so only runtime catches it. Use raw strings
+  for anything containing a backslash, and scan the result:
+  `grep -nP '[\x00-\x08\x0B\x0C\x0E-\x1F]' <files>` (run over all four
+  scripts and CLAUDE.md after any generated edit).
 - Console key **'i' = re-scan the I2C bus** (g_scan flag -> the toy task
   runs prvI2cScan; I2C stays owned by that one task, no locking needed).
   Bench workflow: rewire a part, press 'i', no reboot/reflash. That is
@@ -915,6 +918,31 @@ this run, all fixed:
   MSYS2 UCRT64 shell -> deps -> regression. README "Verilator on a
   Windows PC" + gotcha 34a now cover it. Multimeter debug procedure
   for a stuck I2C bus: PRODUCTION_PERIPHERALS sec. 8.
+- **Twelve `gcc: error: <file>: No such file or directory` lines**
+  (Shivanee's log, 2026-08-20): NOT a toolchain fault. Every name in
+  that list (startup.S, main.c, uart.c, drivers/*.c) is relative to
+  sw/freertos while the `$KERNEL` paths are `../../vendor/...`, so the
+  vendored kernel resolving while the repo sources do not means one of
+  exactly two things: the build ran from another directory, or those
+  files are missing from the tree. Reproduced by running build.sh from
+  sw/asm-demo (identical twelve names). Both closed: build.sh now
+  `unset CDPATH` + `cd "$(dirname "$0")"` (correct from any cwd -
+  an exported CDPATH silently redirects a bare `cd`, which is why
+  `unset` comes first and is also done at the top of ibex_soc.sh);
+  build.sh/build.bat verify all 17 inputs before calling gcc and print
+  what is missing + where they looked + `git checkout -- .`; and
+  `setup` on BOTH OSes opens with a `git ls-files --deleted`
+  integrity line (0.3 s / 4032 files on NTFS, 7 ms on ext4 - cheap
+  enough to always run; only WSL-on-/mnt/c is slow, and nobody works
+  there). Regression no longer repeats a failed firmware build for
+  tb_freertos (NO_AUTOBUILD). `deps` also stops apt-installing
+  Verilator when a good 5.x is already resolved - printing "verilator
+  is already the newest version (4.038)" above a working 5.026 reads
+  as a downgrade. Verified in a native-ext4 clone: 13/13 ALL GREEN,
+  broken tree named by setup + by both build guards, scoreboard
+  coherent; same guards proven on Windows (flows.ps1 setup, build.bat).
+  Rule of thumb: when a build reports many missing files at once, ask
+  which directory they are relative to before touching the toolchain.
 
 1. ~~SRAM base address~~ **RESOLVED 2026-08-10: team confirmed
    `0x0010_2000` (the repo's value) is correct**; the spec sheet's printed

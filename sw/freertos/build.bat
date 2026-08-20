@@ -42,6 +42,28 @@ if "%VARIANT%"=="sim" (
 rem "toy" is an accepted alias of the default: the LCD/sensor task is part
 rem of every hardware image (it tolerates missing parts - bounded I2C waits).
 
+rem ---- checkout guard ---------------------------------------------------
+rem A half-copied tree otherwise fails as a wall of "No such file or
+rem directory" from gcc that names 12 files and explains nothing.
+set "MISSING="
+for %%f in ("startup.S" "main.c" "uart.c" "soc.h" "FreeRTOSConfig.h" "link_xip.ld" ^
+            "drivers\i2c.c" "drivers\st7735.c" "drivers\spi_bus.c" "drivers\psram.c" ^
+            "drivers\esp_at.c" "drivers\audio.c" "drivers\camera.c" ^
+            "drivers\bme280.c" "drivers\ssd1306.c") do (
+    if not exist "%HERE%%%~f" (
+        echo ERROR: missing source "%HERE%%%~f"
+        set "MISSING=1"
+    )
+)
+if not exist "%KERNEL%\tasks.c" (
+    echo ERROR: missing "%KERNEL%\tasks.c" ^(the vendored FreeRTOS kernel^)
+    set "MISSING=1"
+)
+if defined MISSING (
+    echo        Incomplete checkout. Restore with:  git checkout -- .
+    exit /b 1
+)
+
 if not exist "%HERE%build" mkdir "%HERE%build"
 
 rem ---- WSL toolchain: compile via build.sh inside WSL, finish on Windows --

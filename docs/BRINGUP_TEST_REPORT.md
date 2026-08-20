@@ -538,6 +538,28 @@ the sim RGB pace 8 ticks — with headroom restored, the key test passes
 7/7 with real LED transitions. Hardware is unaffected (20 Hz tick =
 50× the budget; LEDs proven on the board in Phase 1).
 
+**Field report — ARF-BBSR-084 (Shivanee), 2026-08-20.** After `git pull`,
+`firmware` and `regression` failed with twelve `gcc: error: <file>: No such
+file or directory` lines naming every repo-local source (startup.S, main.c,
+uart.c, drivers/*.c) while the vendored kernel paths resolved fine. Every one
+of those paths is relative to `sw/freertos`, so there are exactly two causes:
+the build ran from another directory, or the files are not in that tree.
+Reproduced exactly by running `build.sh` from `sw/asm-demo` — same twelve
+names, same order. Closed both instead of guessing which: `build.sh` now
+`unset CDPATH` and `cd`s to its own directory (correct from any cwd; an
+exported `CDPATH` can no longer redirect a bare `cd`); `build.sh` and
+`build.bat` verify all 17 inputs before invoking gcc and print what is
+missing, the directory searched, and `git checkout -- .`; `setup` on both
+OSes opens with a `git ls-files --deleted` integrity line (0.3 s over 4032
+files on NTFS, 7 ms on ext4); and a regression whose firmware build failed
+marks tb_freertos FAIL without repeating the build. Verified in a native-ext4
+clone: healthy tree → `[ OK ] checkout complete (4032 tracked files)`; three
+files removed → named by both setup and the build guard, one error not a
+wall, scoreboard coherent, rc=1. Same guards proven on Windows
+(`flows.ps1 setup`, `build.bat`). Her run also confirms the tool profiles in
+the field: no Vivado on that box, `[SKIP] vivado - not needed for profile
+'sim'`, exit 0, no prompt.
+
 ## 13. Not covered (future work)
 
 - **Phase 2b on hardware** — parts + soldering kit in hand; needs the

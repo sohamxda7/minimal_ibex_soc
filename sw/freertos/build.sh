@@ -13,6 +13,11 @@
 # Keep the compile line in sync with build.bat.
 # =========================================================================
 set -e
+# Always run from sw/freertos: every source path below is relative to it, so
+# `bash sw/freertos/build.sh` from the repo root must still compile. CDPATH is
+# unset first - a CDPATH in the user shell makes a bare `cd` land elsewhere.
+unset CDPATH
+cd "$(dirname "$0")" || exit 1
 
 VARIANT="${1:-hw}"
 # --check-toolchain: exit 0 iff a RISC-V GCC is discoverable, build nothing
@@ -73,6 +78,31 @@ DEFS=-DTOY_DEMO
 case "$VARIANT" in
     sim) NAME=freertos_demo_sim; DEFS=-DSIM_BUILD ;;
 esac
+
+# Guard: a half-copied or partially-restored checkout otherwise fails as a
+# wall of "No such file or directory" from gcc that names 12 files and
+# explains nothing. Name the real fault instead.
+SRCS="startup.S main.c uart.c soc.h FreeRTOSConfig.h link_xip.ld
+drivers/i2c.c drivers/st7735.c drivers/spi_bus.c drivers/psram.c
+drivers/esp_at.c drivers/audio.c drivers/camera.c
+drivers/bme280.c drivers/ssd1306.c
+$KERNEL/tasks.c $PORT/port.c"
+missing=""
+for f in $SRCS; do [ -f "$f" ] || missing="$missing $f"; done
+if [ -n "$missing" ]; then
+    echo "ERROR: incomplete checkout - these source files are missing:" >&2
+    for f in $missing; do echo "         $f" >&2; done
+    echo "       (looked in $(pwd))" >&2
+    if command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; then
+        n=$(git ls-files --deleted 2>/dev/null | grep -c . || true)
+        [ "${n:-0}" -gt 0 ] && \
+            echo "       git: $n tracked file(s) missing from this working tree." >&2
+        echo "       Restore them:  git checkout -- .   (then re-run)" >&2
+    else
+        echo "       This is not a git working tree - re-clone the repo." >&2
+    fi
+    exit 1
+fi
 
 mkdir -p build
 
